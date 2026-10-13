@@ -11,10 +11,11 @@
  */
 
 import { useEffect } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { Link, Outlet, useLocation } from "react-router-dom";
 
 import { MobileTabBar } from "./MobileTabBar";
 import { SiteHeader } from "./SiteHeader";
+import { SITE_FOOTER, SITE_FOOTER_LINK, SKIP_LINK } from "./pageStyles";
 
 export function PublicLayout() {
   const { pathname } = useLocation();
@@ -34,8 +35,29 @@ export function PublicLayout() {
 
   return (
     <>
+      {/* First focusable element on every public page: jumps past the site
+          bar (menu, search, nav, theme) to the page itself. WCAG 2.4.1, and
+          the first thing an IS 5568 audit tries with a keyboard. Hidden until
+          focused. */}
+      <a href="#content" className={SKIP_LINK}>
+        Skip to content
+      </a>
       <SiteHeader />
-      <Outlet />
+      {/* tabIndex -1 so the skip link moves keyboard focus here, not just the
+          scroll position; no outline, because nothing here is a control. */}
+      <div id="content" tabIndex={-1} className="outline-none">
+        <Outlet />
+      </div>
+      {/* Above the tab bar, which is sticky to the bottom on phones, so the
+          links stay reachable there too. The same links sit in the category
+          drawer for anyone who never scrolls to the end of the feed. */}
+      <footer className={SITE_FOOTER}>
+        <Link to="/about" className={SITE_FOOTER_LINK}>About</Link>
+        <Link to="/contact" className={SITE_FOOTER_LINK}>Contact</Link>
+        <Link to="/privacy" className={SITE_FOOTER_LINK}>Privacy</Link>
+        <Link to="/terms" className={SITE_FOOTER_LINK}>Terms</Link>
+        <Link to="/accessibility" className={SITE_FOOTER_LINK}>Accessibility</Link>
+      </footer>
       <MobileTabBar />
     </>
   );

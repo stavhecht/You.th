@@ -25,6 +25,7 @@ import {
   CHECKBOX_LABEL,
   CHECKBOX_ROW,
   CHIP_ROW,
+  COLLECTION_NOTICE,
   FIELD,
   FIELD_LABEL,
   FORM_ERROR,
@@ -88,7 +89,11 @@ export function JoinRoute() {
 
   const [mode, setMode] = useState<"signup" | "login">("signup");
   const [interests, setInterests] = useState<Subject[]>([]);
-  const [newsletter, setNewsletter] = useState(true);
+  // Unticked until the reader ticks it. A pre-ticked box is not consent —
+  // not under Israel's anti-spam law (s.30A requires explicit consent) and not
+  // under the GDPR (CJEU, Planet49) — so a newsletter sent on it would be sent
+  // to people who never asked. COMPLIANCE_AUDIT.md F5.
+  const [newsletter, setNewsletter] = useState(false);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -221,7 +226,7 @@ export function JoinRoute() {
                     name="displayName"
                     required
                     autoComplete="given-name"
-                    placeholder="Maya"
+                    placeholder="Your name"
                     className={FIELD}
                   />
                 </label>
@@ -234,7 +239,7 @@ export function JoinRoute() {
                   type="email"
                   required
                   autoComplete="email"
-                  placeholder="maya@email.com"
+                  placeholder="your@email.com"
                   className={FIELD}
                 />
               </label>
@@ -322,7 +327,30 @@ export function JoinRoute() {
                   : "Sign in →"}
             </button>
 
-            {error ? <p className={FORM_ERROR}>{error}</p> : null}
+            {error ? (
+              <p role="alert" className={FORM_ERROR}>
+                {error}
+              </p>
+            ) : null}
+
+            {signingUp ? (
+              // The notice at the point of collection (Israeli PPL s.11, GDPR
+              // Art 13): what is collected, what for, and where the rest is.
+              <p className={COLLECTION_NOTICE}>
+                We use your email, name and password to run your account, and your
+                subjects and saves to order your feed — nothing else, and we never
+                sell them. You can download or delete it all from your profile.
+                By creating an account you agree to the{" "}
+                <Link to="/terms" className="underline">
+                  terms
+                </Link>
+                ; see the{" "}
+                <Link to="/privacy" className="underline">
+                  privacy policy
+                </Link>{" "}
+                for the details.
+              </p>
+            ) : null}
 
             <p className={FORM_NOTE}>
               {signingUp ? "Free account. " : ""}

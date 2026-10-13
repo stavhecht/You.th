@@ -110,6 +110,11 @@ export function MasonryFeed({
         columnWidth={190}
         columnGutter={14}
         overscanBy={2}
+        // A list, not masonic's default "grid": a grid role promises rows,
+        // cells and arrow-key navigation, and masonic renders gridcells with
+        // no rows — invalid ARIA (axe: aria-required-children/-parent), read by
+        // screen readers as a broken table. A feed of tiles is a list.
+        role="list"
         // Keyed by slug so masonic reuses cells across page appends rather
         // than remounting the whole grid on every fetch.
         itemKey={(card: FeedCard) => card.slug}

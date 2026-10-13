@@ -17,7 +17,7 @@
  * to open to find that out.
  */
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 
@@ -58,16 +58,50 @@ export function CategoryDrawer({
     staleTime: 5 * 60_000,
   });
 
+  const panel = useRef<HTMLElement>(null);
+  const closeButton = useRef<HTMLButtonElement>(null);
+  // Read through a ref so the effect below runs once per opening. Both callers
+  // pass a fresh arrow every render; with it in the deps, any re-render while
+  // open would re-run the effect, record the close button as the "opener",
+  // and hand focus back to a button that no longer exists.
+  const close = useRef(onClose);
+  close.current = onClose;
+
   // Escape closes it. Pointer users have the scrim; without this, keyboard
   // users have nothing but the close button they may not have reached.
+  //
+  // And focus is managed like any modal (WCAG 2.4.3, 2.1.2): moved into the
+  // panel on open, kept there while Tab cycles, and handed back to whatever
+  // opened it on close. Before this, focus stayed on the page *behind* the
+  // scrim, so a keyboard user tabbed through links they could not see.
   useEffect(() => {
     if (!open) return;
+    const opener = document.activeElement as HTMLElement | null;
+    closeButton.current?.focus();
+
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") {
+        close.current();
+        return;
+      }
+      if (event.key !== "Tab" || !panel.current) return;
+      const focusable = panel.current.querySelectorAll<HTMLElement>("a[href], button");
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
     }
     document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [open, onClose]);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      opener?.focus();
+    };
+  }, [open]);
 
   if (!open) return null;
 
@@ -82,10 +116,23 @@ export function CategoryDrawer({
     <>
       <div onClick={onClose} aria-hidden className={DRAWER_SCRIM} />
 
-      <aside className={DRAWER} aria-label="Browse">
+      <aside
+        ref={panel}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="category-drawer-title"
+        className={DRAWER}
+      >
         <div className={DRAWER_HEAD}>
-          <span className={DRAWER_TITLE}>Categories</span>
-          <button onClick={onClose} aria-label="Close" className={DRAWER_CLOSE}>
+          <span id="category-drawer-title" className={DRAWER_TITLE}>
+            Categories
+          </span>
+          <button
+            ref={closeButton}
+            onClick={onClose}
+            aria-label="Close"
+            className={DRAWER_CLOSE}
+          >
             ×
           </button>
         </div>
@@ -120,6 +167,15 @@ export function CategoryDrawer({
           </Link>
           <Link to="/contact" onClick={onClose} className={DRAWER_LINK_ACCENT}>
             Let us know
+          </Link>
+          <Link to="/privacy" onClick={onClose} className={DRAWER_LINK}>
+            Privacy
+          </Link>
+          <Link to="/terms" onClick={onClose} className={DRAWER_LINK}>
+            Terms
+          </Link>
+          <Link to="/accessibility" onClick={onClose} className={DRAWER_LINK}>
+            Accessibility
           </Link>
         </div>
       </aside>

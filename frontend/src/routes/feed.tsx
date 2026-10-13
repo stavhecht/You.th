@@ -13,7 +13,7 @@
  * one piece of state rather than three copies of it.
  */
 
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { MasonryFeed } from "@/features/feed/MasonryFeed";
 import {
@@ -26,6 +26,7 @@ import {
   FEED_TITLE,
   HERO,
   HERO_STATEMENT,
+  HERO_TOGGLE,
   HERO_VIDEO,
   PILL_BUTTON,
   PILL_BUTTON_ON,
@@ -142,12 +143,39 @@ function heading({
  * later — Safari decides at parse time, so a `ref` that mutes after mount is
  * already too late and the video simply never plays.
  *
- * No controls and no audio track in use: this is wallpaper with a sentence over
- * it, not something to watch. `aria-hidden` keeps it out of the accessibility
- * tree entirely, and the statement over it is a real heading that is read.
+ * No audio track in use: this is wallpaper with a sentence over it, not
+ * something to watch. `aria-hidden` keeps the video itself out of the
+ * accessibility tree, and the statement over it is real text that is read.
+ *
+ * **But it has a pause button, and does not start for a reader who asked for
+ * less motion.** Footage that moves for more than five seconds alongside other
+ * content needs a way to stop it (WCAG 2.2.2, Level A — part of IS 5568): for
+ * someone with a vestibular or attention disorder, a looping beach is not
+ * wallpaper. `autoPlay` stays on the element for the Safari reason above; the
+ * effect pauses it at once under `prefers-reduced-motion`.
  */
 function Hero() {
   const video = useRef<HTMLVideoElement>(null);
+  const [playing, setPlaying] = useState(true);
+
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      video.current?.pause();
+      setPlaying(false);
+    }
+  }, []);
+
+  function toggle() {
+    const element = video.current;
+    if (!element) return;
+    if (element.paused) {
+      void element.play();
+      setPlaying(true);
+    } else {
+      element.pause();
+      setPlaying(false);
+    }
+  }
 
   return (
     <div className={HERO}>
@@ -165,6 +193,17 @@ function Hero() {
         className={HERO_VIDEO}
       />
       <p className={HERO_STATEMENT}>Simplifying your way to stay young</p>
+      <button
+        type="button"
+        onClick={toggle}
+        // The glyph is decoration; the name is what a screen reader says.
+        aria-label={playing ? "Pause video" : "Play video"}
+        className={HERO_TOGGLE}
+      >
+        {/* U+FE0E asks for the text glyph, not the colour emoji iOS and
+            Windows otherwise substitute for ⏸ and ▶. */}
+        <span aria-hidden>{playing ? "\u23F8\uFE0E" : "\u25B6\uFE0E"}</span>
+      </button>
     </div>
   );
 }

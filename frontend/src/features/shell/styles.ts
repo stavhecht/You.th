@@ -55,7 +55,7 @@ export const MENU_BAR = "h-[2px] bg-current";
 
 /** Search. A pill on the surface, so it reads as a field and not as a button. */
 export const SEARCH_FORM =
-  "flex min-w-0 max-w-[240px] flex-1 items-center gap-2 rounded-full border border-rule-soft bg-surface px-3.5 py-2 focus-within:border-ink-3";
+  "flex min-w-0 max-w-[240px] flex-1 items-center gap-2 rounded-full border border-rule-soft bg-surface px-3.5 py-2 focus-within:border-ink-3 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent-ink";
 export const SEARCH_RING =
   "h-[11px] w-[11px] flex-none rounded-full border-[1.5px] border-ink-3";
 /** A field, not a button — so it takes the interface serif like other prose. */

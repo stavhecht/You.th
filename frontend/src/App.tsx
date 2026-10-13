@@ -9,6 +9,7 @@
  *   /about         -> app/(public)/about/page.tsx
  *   /join, /you    -> app/(public)/...
  *   /contact       -> app/(public)/contact/page.tsx
+ *   /privacy, /terms, /accessibility -> app/(public)/...
  *   /review/*      -> app/(review)/...  (noindex, authenticated)
  *
  * **The review desk lives at `/review`, not `/console`, and renders none of the
@@ -35,10 +36,13 @@ import { PublicLayout } from "./features/shell/PublicLayout";
 import { ROUTE_MESSAGE } from "./features/shell/styles";
 import { ToastProvider } from "./features/shell/toast";
 import { AboutRoute } from "./routes/about";
+import { AccessibilityRoute } from "./routes/accessibility";
 import { ArticleRoute } from "./routes/article";
 import { ContactRoute } from "./routes/contact";
 import { FeedRoute } from "./routes/feed";
 import { JoinRoute } from "./routes/join";
+import { PrivacyRoute } from "./routes/privacy";
+import { TermsRoute } from "./routes/terms";
 import { YouRoute } from "./routes/you";
 
 /**
@@ -66,6 +70,9 @@ export function App() {
               <Route path="/join" element={<JoinRoute />} />
               <Route path="/you" element={<YouRoute />} />
               <Route path="/contact" element={<ContactRoute />} />
+              <Route path="/privacy" element={<PrivacyRoute />} />
+              <Route path="/terms" element={<TermsRoute />} />
+              <Route path="/accessibility" element={<AccessibilityRoute />} />
             </Route>
 
             <Route

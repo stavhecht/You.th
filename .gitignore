@@ -11,5 +11,4 @@ dist/
 
 /.claude/
 backend/tests/
-
-notesForME.txt
+developerPrivate

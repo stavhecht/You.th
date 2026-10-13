@@ -36,6 +36,10 @@ python -m scripts.reembed_sources             # after any EMBEDDING_PROVIDER / m
                                               # chunk-size change
 python -m scripts.prune_media                 # stored images no article references
                                               # (7-day grace); Regenerate orphans them
+python -m scripts.privacy_request --email a@b.c   # access/erasure request for someone
+                                              # without a usable account; counts only by
+                                              # default, --export f.json, --erase --apply.
+                                              # Verify they own the address first.
 python -m scripts.scan_trends                 # trend discovery; dry run makes the API calls
                                               # (same code as the console's Run scan button)
 python -m scripts.scan_trends --bootstrap --apply   # one-time, ~3 min: build the baseline
@@ -104,7 +108,7 @@ Two declared checks do not currently pass, so don't read a failure as something 
 
 ## Testing gotchas
 
-**Nine suites skip silently when no database is reachable**, and they are the ones covering
+**Ten suites skip silently when no database is reachable**, and they are the ones covering
 guarantees a fake session cannot express — SQL semantics, transaction boundaries, and the
 query planner. A green `pytest` with the DB down is a much weaker signal than it looks:
 
@@ -118,6 +122,7 @@ query planner. A green `pytest` with the DB down is a much weaker signal than it
 | `test_rerank_plan.py` | the `EXPLAIN` assertion that no approximate scan is chosen, and a paper scoring as its best chunk |
 | `test_reader_accounts.py` | the composite FK on `reader_saves`, the save-is-a-move primary key, folder-name uniqueness, and the contact `CHECK` |
 | `test_discovery_db.py` | the one-live-proposal-per-substance index, the observation ledger's idempotence, the three decision CHECKs, the descriptor FK that forces the scan's write order, and `pipeline_runs.origin` defaulting |
+| `test_reader_privacy.py` | account export and erasure reaching exactly the caller's rows (the folder/save cascade), the password re-check and its throttle on `DELETE /readers/me`, and `privacy_request` erasing by address |
 | `test_research_db.py` | the research candidates' three decision CHECKs, single-flight (the check *and* the `research_runs_one_active` index), the worker's claim, checkpoint upserts by primary key, topic resolution and observation upserts being idempotent, history pruning keeping referenced topics, and feed state storing SQL `NULL` (it deletes the rows it commits) |
 
 Point them elsewhere with `TEST_DATABASE_URL`; they otherwise use `database_url` from
@@ -731,7 +736,7 @@ mirroring a Next `app/` tree one-for-one, and keep `window` out of render paths 
 route level.
 
 **Two route groups that share only `App.tsx`.** The public site (`/`, `/a/:slug`, `/about`,
-`/join`, `/you`, `/contact`) renders under `PublicLayout` — site bar, category drawer, mobile
+`/join`, `/you`, `/contact`, `/privacy`, `/terms`) renders under `PublicLayout` — site bar, category drawer, mobile
 tab bar. The review desk is at **`/review`**, is lazy-loaded, and renders `ReviewHeader`
 instead. Nothing public links to it. That is chrome and discoverability, *not* access control:
 a URL is not a secret, and what actually keeps readers out is `RequireAuth` plus the

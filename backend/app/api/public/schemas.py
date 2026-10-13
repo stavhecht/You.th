@@ -191,6 +191,18 @@ class UpdateReaderRequest(CamelModel):
     newsletter: bool | None = None
 
 
+class DeleteAccountRequest(CamelModel):
+    """The reader's current password, re-entered to confirm an erasure.
+
+    A bearer token alone is not enough to destroy an account: it sits in
+    ``localStorage`` for thirty days, and anything that reads it — a shared
+    computer, a stolen laptop — should not be able to erase someone's data
+    with it.
+    """
+
+    password: str = Field(min_length=1, max_length=200)
+
+
 class FolderOut(CamelModel):
     id: str
     name: str

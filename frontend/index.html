@@ -10,25 +10,10 @@
     />
     <link rel="icon" href="/media/you.th-logo.png" />
 
-    <!-- Instrument Serif carries the interface: every heading, label, control
-         and paragraph is set in it. Archivo is kept for exactly two jobs the
-         serif must not do — article titles (the one place a headline has to
-         hold at 11px on a photograph) and the nav buttons in the site bar,
-         the drawer and the tab bar, which are 10px tracked-out caps.
-
-         Instrument Serif ships one weight, 400, plus its italic; Archivo is
-         requested at the weights those two exceptions actually use.
-
-         Preconnect because the fonts are on the critical path for first paint,
-         and `display=swap` so text is never invisible while they load. The
-         design system's own stylesheet carries an @import for Archivo; it is
-         stripped from our vendored copy so this link is the single fetch. -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap"
-      rel="stylesheet"
-    />
+    <!-- Fonts (Instrument Serif for the interface, Archivo for article
+         titles and the nav caps) are bundled from @fontsource in main.tsx
+         rather than linked from Google Fonts, so a page load sends no
+         visitor's IP address to a third party. -->
 
     <!--
       Theme applied before first paint.

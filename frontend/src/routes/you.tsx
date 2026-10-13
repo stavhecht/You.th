@@ -11,9 +11,9 @@
  * they change (see `ReaderAuthProvider.update`).
  */
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { ArticleCard } from "@/features/feed/ArticleCard";
 import { SKELETON_GRID, SKELETON_TILE } from "@/features/feed/styles";
@@ -21,8 +21,19 @@ import { SUBJECTS, SUBJECT_LABELS } from "@/features/evidence/subject";
 import { readerInitials, useReader } from "@/features/reader/auth";
 import { useToast } from "@/features/shell/toast";
 import {
+  CHECKBOX,
+  CHECKBOX_LABEL,
+  CHECKBOX_ROW,
   CHIP_COUNT,
   CHIP_ROW,
+  DANGER_BUTTON,
+  DATA_ACTIONS,
+  DATA_BODY,
+  DATA_SECTION,
+  DATA_TITLE,
+  DELETE_FORM,
+  FIELD,
+  FORM_ERROR,
   EMPTY_SHELF,
   EMPTY_SHELF_BODY,
   EMPTY_SHELF_TITLE,
@@ -43,7 +54,13 @@ import {
   chip,
 } from "@/features/shell/pageStyles";
 import { PILL_BUTTON } from "@/features/feed/styles";
-import { createFolder, fetchSaved, readerKeys } from "@/lib/api/reader";
+import {
+  createFolder,
+  deleteAccount,
+  exportMyData,
+  fetchSaved,
+  readerKeys,
+} from "@/lib/api/reader";
 import { ApiError } from "@/lib/api/client";
 import type { Subject } from "@/types/api";
 
@@ -215,7 +232,170 @@ export function YouRoute() {
           ))}
         </div>
       )}
+
+      <YourData />
     </main>
+  );
+}
+
+/**
+ * The newsletter choice, a copy of the account, and erasure — the controls the
+ * privacy policy promises are here.
+ *
+ * The newsletter box is the withdrawal half of the opt-in on `/join`: consent
+ * has to be as easy to take back as it was to give (GDPR Art 7(3)), and before
+ * this the profile only *displayed* "newsletter on".
+ *
+ * Deletion asks for the password, not a `window.confirm`: a bearer token sits in
+ * localStorage for thirty days, and anyone at an unlocked browser could
+ * otherwise erase the account with two clicks. The server checks it again and
+ * throttles wrong guesses like a login.
+ */
+function YourData() {
+  const { reader, update, logout } = useReader();
+  const flash = useToast();
+  const navigate = useNavigate();
+  const [confirming, setConfirming] = useState(false);
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<"export" | "delete" | null>(null);
+
+  async function onNewsletter(next: boolean) {
+    await update({ newsletter: next });
+    flash(next ? "Newsletter on" : "Newsletter off — we will not email you");
+  }
+
+  async function onExport() {
+    setBusy("export");
+    try {
+      const data = await exportMyData();
+      const url = URL.createObjectURL(
+        new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }),
+      );
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "youth-account-data.json";
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      flash("Could not prepare your data. Try again.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function onDelete(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setBusy("delete");
+    try {
+      await deleteAccount(password);
+      logout();
+      flash("Your account and everything in it have been deleted");
+      navigate("/");
+    } catch (caught) {
+      setError(
+        caught instanceof ApiError && caught.status === 403
+          ? "That password is not right."
+          : caught instanceof ApiError && caught.status === 429
+            ? "Too many attempts. Try again in a few minutes."
+            : "Something went wrong. Your account was not deleted.",
+      );
+      setBusy(null);
+    }
+  }
+
+  return (
+    <section className={DATA_SECTION} aria-labelledby="your-data">
+      <h2 id="your-data" className={DATA_TITLE}>
+        Your account and data
+      </h2>
+      <p className={DATA_BODY}>
+        Signed in as {reader?.email}. See the{" "}
+        <Link to="/privacy" className="underline">
+          privacy policy
+        </Link>{" "}
+        for what we keep and why.
+      </p>
+
+      <label className={`${CHECKBOX_ROW} mb-6`}>
+        <input
+          type="checkbox"
+          checked={reader?.newsletter ?? false}
+          onChange={(event) => void onNewsletter(event.target.checked)}
+          className={CHECKBOX}
+        />
+        <span className={CHECKBOX_LABEL}>
+          Weekly newsletter. We are not sending it yet; this records whether you
+          want it.
+        </span>
+      </label>
+
+      <div className={DATA_ACTIONS}>
+        <button
+          type="button"
+          onClick={() => void onExport()}
+          disabled={busy !== null}
+          className={PILL_BUTTON}
+        >
+          {busy === "export" ? "Preparing…" : "Download my data"}
+        </button>
+        {confirming ? null : (
+          <button
+            type="button"
+            onClick={() => setConfirming(true)}
+            className={DANGER_BUTTON}
+          >
+            Delete my account
+          </button>
+        )}
+      </div>
+
+      {confirming ? (
+        <form onSubmit={onDelete} className={DELETE_FORM}>
+          <p className={DATA_BODY}>
+            This erases your account, folders and saved articles straight away and
+            cannot be undone. Enter your password to confirm.
+          </p>
+          <label>
+            <span className={FIELD_LABEL}>Password</span>
+            <input
+              type="password"
+              required
+              autoComplete="current-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              className={FIELD}
+            />
+          </label>
+          {error ? (
+            <p role="alert" className={FORM_ERROR}>
+              {error}
+            </p>
+          ) : null}
+          <div className={`${DATA_ACTIONS} mb-0 mt-4`}>
+            <button
+              type="submit"
+              disabled={busy !== null || !password}
+              className={DANGER_BUTTON}
+            >
+              {busy === "delete" ? "Deleting…" : "Delete everything"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setConfirming(false);
+                setPassword("");
+                setError(null);
+              }}
+              className={PILL_BUTTON}
+            >
+              Keep my account
+            </button>
+          </div>
+        </form>
+      ) : null}
+    </section>
   );
 }
 

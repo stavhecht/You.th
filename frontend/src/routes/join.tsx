@@ -40,10 +40,13 @@ import {
   PANEL_ITEM_TITLE,
   PANEL_LABEL,
   PANEL_LIST,
+  PASSWORD_RULE_LIST,
+  PASSWORD_RULE_MARK,
   SPLIT,
   SUBMIT_BUTTON,
   WIDE_PAGE,
   chip,
+  passwordRule,
 } from "@/features/shell/pageStyles";
 import { ApiError } from "@/lib/api/client";
 import type { Subject } from "@/types/api";
@@ -63,6 +66,21 @@ const WHAT_IT_DOES = [
   },
 ];
 
+/**
+ * What a new password must contain. The server refuses anything short of this
+ * (`SignupRequest` in `backend/app/api/public/schemas.py`, `PASSWORD_RULES`);
+ * the two lists must change together, or the form passes a password the server
+ * refuses — or blocks one it would have taken.
+ */
+const PASSWORD_RULES: { label: string; met: (password: string) => boolean }[] =
+  [
+    { label: "At least 8 characters", met: (pw) => pw.length >= 8 },
+    { label: "A lowercase letter", met: (pw) => /[a-z]/.test(pw) },
+    { label: "A capital letter", met: (pw) => /[A-Z]/.test(pw) },
+    { label: "A number", met: (pw) => /[0-9]/.test(pw) },
+    { label: "A special character", met: (pw) => /[^A-Za-z0-9]/.test(pw) },
+  ];
+
 export function JoinRoute() {
   const { signup, login, signedIn } = useReader();
   const navigate = useNavigate();
@@ -71,10 +89,14 @@ export function JoinRoute() {
   const [mode, setMode] = useState<"signup" | "login">("signup");
   const [interests, setInterests] = useState<Subject[]>([]);
   const [newsletter, setNewsletter] = useState(true);
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const signingUp = mode === "signup";
+  const unmet = PASSWORD_RULES.filter((rule) => !rule.met(password));
+  const mismatch = confirm !== "" && confirm !== password;
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -82,8 +104,22 @@ export function JoinRoute() {
 
     const form = new FormData(event.currentTarget);
     const email = String(form.get("email") ?? "").trim();
-    const password = String(form.get("password") ?? "");
     const displayName = String(form.get("displayName") ?? "").trim();
+
+    if (signingUp) {
+      if (unmet.length) {
+        setError(
+          `Your password needs ${unmet
+            .map((rule) => rule.label.toLowerCase())
+            .join(", ")}.`,
+        );
+        return;
+      }
+      if (password !== confirm) {
+        setError("The two passwords do not match.");
+        return;
+      }
+    }
 
     setBusy(true);
     try {
@@ -209,15 +245,59 @@ export function JoinRoute() {
                   name="password"
                   type="password"
                   required
-                  // The floor matches the server's, so a password it will
-                  // refuse is caught here rather than after a round trip.
-                  minLength={signingUp ? 10 : undefined}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
                   autoComplete={signingUp ? "new-password" : "current-password"}
-                  placeholder={signingUp ? "At least 10 characters" : ""}
+                  aria-describedby={signingUp ? "password-rules" : undefined}
                   className={FIELD}
                 />
               </label>
+
+              {signingUp ? (
+                <label>
+                  <span className={FIELD_LABEL}>Confirm password</span>
+                  <input
+                    name="confirmPassword"
+                    type="password"
+                    required
+                    value={confirm}
+                    onChange={(event) => setConfirm(event.target.value)}
+                    autoComplete="new-password"
+                    aria-invalid={mismatch}
+                    aria-describedby="password-match"
+                    className={FIELD}
+                  />
+                </label>
+              ) : null}
             </div>
+
+            {signingUp ? (
+              // The rules are checked off as they are met, so the reader finds
+              // out what is missing while typing rather than after a submit.
+              <ul id="password-rules" className={PASSWORD_RULE_LIST}>
+                {PASSWORD_RULES.map((rule) => {
+                  const met = rule.met(password);
+                  return (
+                    <li key={rule.label} className={passwordRule(met)}>
+                      <span aria-hidden className={PASSWORD_RULE_MARK}>
+                        {met ? "✓" : "·"}
+                      </span>
+                      {rule.label}
+                      <span className="sr-only">{met ? " — done" : ""}</span>
+                    </li>
+                  );
+                })}
+                <li
+                  id="password-match"
+                  className={passwordRule(!mismatch && confirm !== "")}
+                >
+                  <span aria-hidden className={PASSWORD_RULE_MARK}>
+                    {mismatch ? "✕" : confirm !== "" ? "✓" : "·"}
+                  </span>
+                  {mismatch ? "Passwords do not match" : "Passwords match"}
+                </li>
+              </ul>
+            ) : null}
 
             {signingUp ? (
               <label className={`${CHECKBOX_ROW} mb-6`}>
@@ -299,7 +379,7 @@ function readable(caught: unknown, signingUp: boolean): string {
     }
     if (caught.status === 422) {
       return signingUp
-        ? "Check the email address, and use at least 10 characters for the password."
+        ? "Check the email address, and that the password meets every requirement."
         : "Check the email address.";
     }
   }

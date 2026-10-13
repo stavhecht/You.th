@@ -73,10 +73,10 @@
     --ew-rule: #cfc8bd;
     --ew-rule-soft: #e0dbd2;
 
-    --ew-accent: #ec3013;     /* ≈3.8:1 — chrome, focus ring, marks           */
-    --ew-accent-ink: #ae1800; /* ≈6.5:1 — the accent at text size             */
-    --ew-accent-hover: #c72510;
-    --ew-accent-wash: #fbf1ee;
+    --ew-accent: #6eb59b;     /* ≈2.1:1 — chrome, focus ring, fills; never text */
+    --ew-accent-ink: #26604b; /* ≈6.5:1 — the accent at text size             */
+    --ew-accent-hover: #5a9f86;
+    --ew-accent-wash: #eef6f2;
 
     /* The inverted pair: an ink-filled control on paper, and the dark panel on
        the sign-up page. Named for the relationship rather than for the colour,
@@ -192,10 +192,10 @@
     --ew-rule: #443f3b;
     --ew-rule-soft: #34302e;
 
-    --ew-accent: #ff5c3d;     /* ≈6.0:1 */
-    --ew-accent-ink: #ff8368; /* ≈8.0:1 */
-    --ew-accent-hover: #ff7457;
-    --ew-accent-wash: #2a1a16;
+    --ew-accent: #6eb59b;     /* ≈7.4:1 */
+    --ew-accent-ink: #8fd0b7; /* ≈10.1:1 */
+    --ew-accent-hover: #84c6ad;
+    --ew-accent-wash: #16241f;
 
     --ew-invert-bg: #f2efea;
     --ew-invert-fg: #191716;

@@ -83,6 +83,20 @@ export const SUBMIT_BUTTON =
 export const FORM_NOTE = "mt-3.5 font-body text-[11.5px] text-ink-4";
 
 /**
+ * The password requirements under the sign-up fields, ticked off as they are
+ * met. Ink rather than a red/green pair: an unmet rule is not an error until
+ * the form is submitted, and the mark is what changes, not just the colour.
+ */
+export const PASSWORD_RULE_LIST =
+  "mb-6 grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2";
+export function passwordRule(met: boolean): string {
+  return `flex items-center gap-2 font-body text-[12px] leading-snug ${
+    met ? "text-ink-2" : "text-ink-4"
+  }`;
+}
+export const PASSWORD_RULE_MARK = "w-3 flex-none text-center text-accent-ink";
+
+/**
  * A failure the reader has to act on, next to the control that failed.
  *
  * Not the toast: a toast disappears, and a rejected password or a taken email

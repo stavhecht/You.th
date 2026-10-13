@@ -41,7 +41,6 @@ from evaluation.evaluators.llm_judge import Judge, judge_unavailable_reason
 from evaluation.evaluators.source_validator import SourceValidator
 from evaluation.harness.http import EvalHttp
 from evaluation.harness.pipeline import EvalEnvironment, execute_case
-from evaluation.harness.research import run_scenario
 from evaluation.harness.trace import Trace, TraceRecorder
 from evaluation.schema import EvalCase
 from evaluation.scoring import Evaluators, score_case
@@ -194,6 +193,10 @@ async def _evaluators(
 
 async def _execute(case: EvalCase, env: EvalEnvironment, stop_after: StageName | None) -> Trace:
     if case.research_scenario:
+        # Imported here so the article suites still run while the research
+        # harness lags a change to app/research.
+        from evaluation.harness.research import run_scenario
+
         return await run_scenario(case.id, case.research_scenario)
     return await execute_case(case, env, stop_after=stop_after)
 

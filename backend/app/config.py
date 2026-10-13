@@ -171,6 +171,23 @@ class Settings(BaseSettings):
     #: half the calls (CLAUDE.md, APPRAISE). Two calls is kept for re-measuring
     #: when the appraisal model changes.
     appraisal_mode: Literal["one_call", "two_call"] = "one_call"
+    #: Whether SYNTHESIZE uses APPRAISE's relevance calls to trim its prompt:
+    #: a source labelled ``off_topic`` for every claim it was retrieved for is
+    #: left out, and the rest show only the claims they were not labelled
+    #: off-topic for. Proposed 2026-10-13 after a 22-source prompt was cited by
+    #: title words ("Retrieved for" all three claims) rather than by findings.
+    #:
+    #: **Measured and rejected the same day — leave it off.** 18 stance cases,
+    #: frozen searches, one sample per arm: prompts shrank 38% and latency fell
+    #: 242 s → 80 s, but the model cited the same number of sources (77 vs 75),
+    #: and verdict accuracy and uncertainty each fell 6 points. Four verdicts
+    #: rose a level, none fell; the creatine-kidney false premise went
+    #: no_evidence → weak with 11 of 12 papers dropped. The filter is biased
+    #: toward support by construction: APPRAISE's outcome guard rewrites a
+    #: refutation whose quote does not name the outcome to ``off_topic`` and
+    #: exempts ``supports``, so dropping ``off_topic`` drops the null trials.
+    #: Revisit only after that guard stops producing ``off_topic`` for them.
+    synthesis_relevance_filter: bool = False
 
     # --- pipeline ---
     worker_poll_interval_seconds: float = 5.0

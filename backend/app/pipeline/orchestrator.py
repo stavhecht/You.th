@@ -580,7 +580,9 @@ def build_default_pipeline(session: AsyncSession, settings: Settings) -> list[St
             build_appraisal_client(settings) if settings.appraisal_enabled else None,
             two_call=settings.appraisal_mode == "two_call",
         ),
-        SynthesizeStage(synthesis_client),
+        SynthesizeStage(
+            synthesis_client, relevance_filter=settings.synthesis_relevance_filter
+        ),
         # After SYNTHESIZE because it illustrates the draft, and before PERSIST
         # because PERSIST has to stay last: its write commits together with the
         # run's completion row (see ``run``), which is what stops a killed

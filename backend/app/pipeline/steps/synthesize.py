@@ -12,6 +12,7 @@ from app.domain.contracts import (
     ValidationReport,
     extract_handles,
 )
+from app.domain.enums import Stance
 from app.llm.base import LLMError, LLMResult, SynthesisClient
 from app.pipeline.stages import PipelineContext, StageError, StageName
 from app.services.no_evidence import no_evidence_draft
@@ -74,8 +75,9 @@ SECTIONS_EXPECTED_FROM = 6
 class SynthesizeStage:
     name = StageName.SYNTHESIZE
 
-    def __init__(self, client: SynthesisClient) -> None:
+    def __init__(self, client: SynthesisClient, *, relevance_filter: bool = False) -> None:
         self._client = client
+        self._relevance_filter = relevance_filter
 
     async def run(self, ctx: PipelineContext) -> PipelineContext:
         """Write the article, grounded strictly in the ranked abstracts.
@@ -102,6 +104,9 @@ class SynthesizeStage:
             return await self._revise(ctx)
 
         payload = self._build_input(ctx)
+        filtered = None
+        if self._relevance_filter:
+            payload, filtered = _filter_by_relevance(payload)
 
         if not payload.sources:
             return self._no_evidence(ctx, payload)
@@ -167,6 +172,8 @@ class SynthesizeStage:
                     - result.output.body.cited_handles()
                 ),
                 "body_words": _body_words(result.output),
+                # None when the filter is off, so on/off is one query.
+                "relevance_filter": filtered,
             },
         )
 
@@ -402,6 +409,46 @@ class SynthesizeStage:
             target_claims=ctx.extraction.target_claims,
             sources=ordered,
         )
+
+
+def _filter_by_relevance(payload: SynthesisInput) -> tuple[SynthesisInput, dict[str, object]]:
+    """Trim the prompt to what APPRAISE found relevant (``synthesis_relevance_filter``).
+
+    A source labelled ``off_topic`` for every claim it was retrieved for is
+    left out; the rest name only the claims they were not labelled off-topic
+    for. An unappraised claim counts as relevant: a missing label means nobody
+    looked, never "off topic".
+
+    **Never trims to nothing.** If every source was labelled off-topic the
+    payload is returned whole — an empty one would take the no-evidence
+    template, and labels measured at ~75% must not decide on their own that an
+    article has no evidence. ``claims`` is untouched, so the quorum validation
+    applies is the same either way; a dropped source is still recorded in
+    ``article_sources`` (PERSIST reads ``ctx.ranked``), uncited.
+    """
+    kept: list[PromptSource] = []
+    narrowed = 0
+    for source in payload.sources:
+        relevant = [
+            claim for claim in source.claims
+            if source.stances.get(claim) is not Stance.OFF_TOPIC
+        ]
+        if not relevant:
+            continue
+        if len(relevant) < len(source.claims):
+            narrowed += 1
+        kept.append(source.model_copy(update={"shown_claims": relevant}))
+
+    if not kept:
+        return payload, {"dropped": 0, "narrowed": 0, "skipped": "all_off_topic"}
+    dropped = sorted(
+        (s.handle for s in payload.sources if s.handle not in {k.handle for k in kept}),
+        key=lambda handle: int(handle[1:]),
+    )
+    return (
+        payload.model_copy(update={"sources": kept}),
+        {"dropped": len(dropped), "dropped_handles": dropped, "narrowed": narrowed},
+    )
 
 
 def _body_words(draft: SynthesisOutput) -> int:

@@ -693,3 +693,16 @@ export const RESEARCH_QUESTION = "mt-0.5 font-body text-micro italic text-ink-3"
 
 /** "Draft queued" in place of the buttons once a topic is promoted. */
 export const RESEARCH_DONE = "font-body text-micro text-ink-3";
+
+/** Questions people asked about a topic, quoted as collected. */
+export const RESEARCH_QUESTIONS = "mt-0.5 font-body text-micro text-ink-3";
+
+/**
+ * What a trend rests on: a few of the collected articles, posts and videos.
+ * Links, so a reviewer can check the trend before spending a draft on it.
+ */
+export const RESEARCH_SOURCES = "mt-1 space-y-0.5 font-body text-micro text-ink-4";
+
+export const RESEARCH_SOURCE_LINK =
+  "text-ink-3 underline decoration-rule underline-offset-2 hover:text-ink";
+

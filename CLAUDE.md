@@ -22,7 +22,9 @@ python -m scripts.migrate                # applies migrations via asyncpg; no ps
                                          # condition. 0002 swaps the subject enum
                                          # for editorial categories; 0003 moves the
                                          # research agent onto them. 0004 adds
-                                         # article_sources.stance (APPRAISE). Next is 0005.
+                                         # article_sources.stance (APPRAISE). 0005 adds
+                                         # the trend search's topics, observations and
+                                         # feed state. Next is 0006.
 python -m scripts.migrate --status
 python -m scripts.seed_admin --email you@example.com --name "Your Name"
 
@@ -38,6 +40,8 @@ python -m scripts.scan_trends                 # trend discovery; dry run makes t
                                               # (same code as the console's Run scan button)
 python -m scripts.scan_trends --bootstrap --apply   # one-time, ~3 min: build the baseline
                                                     # (4 months; retention keeps 120 days)
+python -m scripts.trend_search                # Trend Search Agent, live and dry: what the
+                                              # sources say today; --apply queues a real run
 
 # run
 uvicorn app.main:app --reload            # API :8000, OpenAPI at /docs
@@ -114,7 +118,7 @@ query planner. A green `pytest` with the DB down is a much weaker signal than it
 | `test_rerank_plan.py` | the `EXPLAIN` assertion that no approximate scan is chosen, and a paper scoring as its best chunk |
 | `test_reader_accounts.py` | the composite FK on `reader_saves`, the save-is-a-move primary key, folder-name uniqueness, and the contact `CHECK` |
 | `test_discovery_db.py` | the one-live-proposal-per-substance index, the observation ledger's idempotence, the three decision CHECKs, the descriptor FK that forces the scan's write order, and `pipeline_runs.origin` defaulting |
-| `test_research_db.py` | the research candidates' three decision CHECKs, single-flight, the worker's claim, and checkpoint upserts by primary key (it deletes the rows it commits) |
+| `test_research_db.py` | the research candidates' three decision CHECKs, single-flight (the check *and* the `research_runs_one_active` index), the worker's claim, checkpoint upserts by primary key, topic resolution and observation upserts being idempotent, history pruning keeping referenced topics, and feed state storing SQL `NULL` (it deletes the rows it commits) |
 
 Point them elsewhere with `TEST_DATABASE_URL`; they otherwise use `database_url` from
 settings. `test_discovery_db.py` runs against a *populated* database on purpose — after a
@@ -1090,57 +1094,153 @@ a query. It fails *visibly* — the run shows `failed` — so it costs one call,
 
 **The research agent (`app/research`) is the second proposer, and it proposes too.** The MeSH
 scan asks what researchers are publishing more of. The research agent asks what *people* are
-searching for more — Google Trends, DuckDuckGo web and news, News API — and then what PubMed
-and Europe PMC can responsibly say about it. It writes `research_candidates` and never
-enqueues: "generate 4–6 articles weekly" was specified, and the decision taken was automatic
-research with a human pressing Generate draft. DESIGN.md §4b has the design. What to know
-when editing:
+getting interested in, and since 2026-10-12 it is two halves in one LangGraph run
+(`research/graph.py`):
+
+- the **Trend Search Agent** (`research/trends/`) collects from publisher RSS feeds, Google
+  Trends, GDELT, news search and web search (and YouTube when keyed), folds
+  duplicates and syndicated copies into stories, clusters topics, scores them on momentum,
+  cross-source coverage, audience, freshness and editorial fit, and ranks them — **with no
+  scientific evidence anywhere in the score**;
+- the **evidence check** (`research/evidence.py`) asks PubMed and Europe PMC about the trend
+  agent's best topics only, and is the only thing that can mark a topic `selected`.
+
+It writes `research_candidates` and never enqueues: "generate 4–6 articles weekly" was
+specified, and the decision taken was automatic research with a human pressing Generate draft.
+DESIGN.md §4b has the design. What to know when editing:
 
 - **One entry point, two triggers.** `research/service.py::start_research_run` is called by
   `POST /console/research/runs` (the desk button, reviewer JWT) and
-  `POST /api/automation/research/runs` (n8n, `X-Trigger-Token`). n8n holds the schedule and
+  `POST /api/automation/research/runs` (n8n, `X-Trigger-Token`). n8n holds the schedule, the
+  parameters (`RESEARCH_WEEKLY_PARAMS`) and the notification (`RESEARCH_NOTIFY_URL`), and
   nothing else. Do not put research logic in a workflow, and do not route the desk button
-  through n8n: it must work while n8n is down. `mode` (weekly/manual) is metadata only.
-- **Runs are single-flight (409), and they run in the pipeline worker.** Both kinds of run
-  count papers against NCBI's per-IP ceiling through per-process throttles. A separate
-  research process would double the draw, so a queued draft waits behind a research run
-  (~8 minutes measured).
-- **Trend data decides what to *consider*; the literature decides what may be *proposed*.**
-  The evidence gate (`research_min_evidence_status`, default `emerging`) discards a breakout
-  topic with no literature whatever its trend score. Scoring is plain arithmetic in
-  `research/scoring.py`, not a model's judgement. A component with no data goes into
-  `scores.unavailable` and the rest is renormalised. It is never zero and never a guess,
-  except evidence: an unchecked topic gets no score at all.
-- **Google Trends' rising lists carry spam, and that was measured, not guessed.** On
-  2026-09-30 "fitness" and "protein" rising queries over 7 days were mostly unrelated
-  commercial queries at +7,000% ("learn golang", "online banking review"). The first live run
-  selected four product-review queries out of five. The defences are, in order:
-  1. `normalize.is_on_topic` requires a word in common with the seed or `WELLNESS_TERMS`;
-     `review`, `comparison` and `quotes` are shopping intent.
-  2. The triage model runs in batches of 25 and cannot make a topic out of more than 6 groups
-     or with the subject "various". Handed 75 at once, qwen2.5:7b made "General Wellness and
-     Health" out of 58 queries.
-  3. The evidence gate.
-
-  **Do not rely on the evidence gate alone.** Deep research gave "online banking review"
-  *moderate* evidence: the extraction model invented plausible claims, and the anchored query
-  found 14 papers.
-- **Triage output is deduplicated afterwards** (`triage.merge_duplicates`: same topic key,
-  or the same subject and outcome). Batches cannot see each other, so one run proposed
-  "gut health" beside "Gut Health". A query equal to its own seed ("sleep" under "sleep") is
-  dropped as the category rather than a trend in it.
-- **Research categories are the article categories.** `research/contracts.py::Category` lists
-  exactly `Subject`'s values, checked at import, so the desk's trending-topics filter and the
-  feed drawer cannot drift. It is a separate class, not an alias, and has **no docstring**:
-  `TriageOutput`'s schema is the triage model's grammar, and `Subject`'s docstring would reach
-  it as the enum's `description`. `other` has no seeds; asked for alone it searches every
-  seed and keeps what triage files under `other`.
+  through n8n: it must work while n8n is down. `mode` (weekly/manual) is metadata only. **No
+  request parameter can switch the evidence check off**; a trigger may narrow sources and raise
+  thresholds, never widen or lower them (`ResearchConfig.resolve`).
+- **Single-flight is an index now** (`research_runs_one_active`, migration 0005). The SELECT
+  check in `start_research_run` names the run in the way; the partial unique index is what
+  holds when two triggers race past it, caught as `IntegrityError` inside a savepoint → 409.
+- **Runs execute in the pipeline worker**, sharing NCBI's per-IP ceiling with article runs, so
+  a queued draft waits behind a research run (6.4 minutes measured end to end; collection is
+  bounded at 5 and enrichment at 4 — see "Exercised" below).
+- **The trend phase never sets `selected`.** The desk polls every 10 s and renders Promote
+  buttons for `selected` rows; a trend pick marked selected before the literature check would
+  have been promotable for minutes. Trend-ranked topics stay `candidate` with
+  `in_evidence_pool`; `research_science` makes survivors `shortlisted`; only the evidence
+  check's `select` makes them `selected`. `test_nothing_is_selected_before_the_evidence_check_has_run`
+  pins it. **Backfill routes to `research_science`**, not `deep_research`: backfilled topics
+  have no stage-1 counts.
+- **The trend output is frozen at the end of `select_trends`** (`state.trend_summary` →
+  `research_runs.summary`) and served by `GET …/runs/{id}/result` in snake_case — a documented
+  exception to the CamelModel convention, because it is the agent's output schema
+  (`TrendSearchResult`). Read time overlays each topic's current status and the evidence gate's
+  outcome as a *status* (`downstream.evidence_gate`); every topic says
+  `scientific_assessment: "not_assessed"`. `test_trend_output.py` walks the result and fails on
+  any evidence-score key.
+- **`research/trends/` must not import science or generation code.** `test_trend_scope.py`
+  checks direct imports (PubMed, Europe PMC, the query builder, the pipeline, `domain.contracts`,
+  `evidence.py`); transitive ones are allowed, since the throttle imports retrieval's base types.
+- **The trend score (`trends/scoring.py`, `trend-v1`) is pure and reproducible.**
+  `score_from_metrics(TopicMetrics, weights)` reads nothing else, and both are stored on the
+  candidate, so a stored score can be recomputed. Weights are integers summing to 100
+  (validator), so "60% measured" is exactly 0.6, never 0.6000000001 short.
+  - **Missing data is reweighted, with a floor.** A dimension with nothing measured is left out
+    and the rest renormalised; `data_coverage` is the measured share of the full score,
+    counting sub-signals *within* each dimension. Below `research_min_data_coverage` (0.6), or
+    with no momentum at all, the topic gets **no score** and is discarded "insufficient data".
+  - **A sub-signal only counts when it was applicable**: its source enabled and configured
+    (`TopicMetrics.applicable`). A deployment without a YouTube key is not marked down forever;
+    a source that was configured and *failed* does lower coverage, which is the point.
+  - **Count growth uses a prior of 5 on both windows** (`count_growth`): 0→2 articles is 62,
+    not a surge. Trends' 0-100 index keeps the old +1 smoothing.
+  - **Unknown is never zero**: a page that filled up leaves the earlier window `None`;
+    coverage is `coverage_measured=False` (not 0 outlets) when no news-like source answered;
+    undated items count toward coverage and are left out of freshness.
+- **Independence is counted over stories, never items** (`trends/documents.py`): exact URL →
+  canonical URL (named tracking parameters only — `?id=` and `?p=` identify articles) →
+  headline → near-duplicate headline at Jaccard **0.8**. It was 0.6 for a day and merged
+  "Readers ask whether *creatine* works" with "…whether *ashwagandha* works": templated
+  headlines differ in exactly the subject. A story's outlet is the *topic's own* earliest item
+  in it, not the story representative, which may be another topic's copy.
+- **Headlines reach triage as phrases, not sentences** (`trends/phrases.py`): 1–3 words
+  naming something specific (a non-generic lexicon word, or "vitamin d"-style qualifier).
+  **One outlet is enough to be considered** (`research_phrase_min_publishers`): measured
+  2026-10-12, a week of 356 feed stories from 12+ outlets had no specific wellness term in two
+  outlets' headlines, and a two-outlet floor found nothing. Cross-source is enforced at
+  selection (≥2 independent outlets after enrichment), where it measures coverage, not wording.
+  A specific *seed* term ("creatine") is kept for triage to angle; a generic one ("sleep") is
+  the category.
+  Triage was measured on short queries in batches of 25; whole headlines would re-create the
+  "General Wellness and Health" lumping. The prompt changed minimally ("rising on Google, and
+  phrases from recent news headlines"; "news events *with no health question*") and gets two
+  example headlines per group as context.
+- **What triage left out is asked again once, then set aside** (`triage_or_fallback`).
+  Measured 2026-10-12: qwen2.5:7b omitted 16 of 75 groups, and on the raw query "soulja boy
+  running for president" (seed "running") ranked fourth. A group from a batch whose *call*
+  failed keeps the deterministic fallback — it was never judged.
+- **After triage, three deterministic guards** (`trends/cluster.py`, `trends/graph.py`), each
+  from the same live run:
+  1. a candidate counts only items behind queries that **share a word with its subject or
+     outcome** — triage handed "coneflower for immune support" a phrase about carbs, and its
+     supporting sources were two articles about carbohydrates;
+  2. a bare subject naming a category (a seed, or only `GENERIC_WORDS`: "protein", "strength
+     training", "weight loss") with no outcome is **too broad for one article**;
+  3. products and shops are shopping intent (`shoes`, `headphones`, `store`, `brand`… in
+     `normalize._NOT_A_TOPIC`): "running shoes" ranked second.
+  A topic triage filed under an unrequested category is kept under its **seed's** category
+  when that one was requested (narrowed to supplements, triage filed creatine under nutrition).
+- **Google Trends' rising lists carry spam** (measured 2026-09-30: "learn golang", "online
+  banking review" at +7,000% under "fitness"). The defences, in order: `normalize.is_on_topic`
+  and the shopping words; triage in batches of 25 that cannot make a topic out of more than 6
+  groups or with the subject "various"; the guards above; the trend thresholds (≥2
+  independent outlets, `research_min_independent_sources`); and last the evidence gate.
+  **Do not rely on the evidence gate alone**: deep research gave "online banking review"
+  *moderate* evidence, because the extraction model invented plausible claims.
+- **Sources** (`trends/sources/`, one `TrendSource` protocol, built in `research/factory.py`):
+  every adapter raises `ProviderUnavailable` rather than returning `[]` for a failure, with
+  `permanent=True` for a rejected key or a spent quota. Per run, a source gets
+  `research_max_requests_per_source` calls, a phase deadline, and a circuit breaker (three
+  failures in a row and it is not asked again). Status `skipped` means not enabled or out of
+  budget — unmeasured, never zero.
+  - **Google News RSS is off by default.** Its feed states it is "for personal, non-commercial
+    use. Any other use of the feed is expressly prohibited." It is built and tested; enabling it
+    (`RESEARCH_ENABLED_SOURCES`) is a decision about this deployment's use, not a code change.
+  - **GDELT `{}` is unmeasured, not zero.** It answered `{}` for "creatine" over a week while
+    Google News listed 60 articles, in the middle of a run of 429s with no `Retry-After`. Its
+    plain-text errors arrive with status 200. The retry wrapper waits at least 10 s after a
+    refusal (`THROTTLE_WAIT`).
+  - **RSS replays its stored items on a 304** (`research_feed_state.items`); without them
+    "unchanged" would read as "empty". Feeds that refused a reader (NIH, Mayo Clinic: 403) are
+    left out, not fetched around.
+  - **The YouTube key goes in `X-Goog-Api-Key`**, never the URL: `logging_setup` masks
+    `api_key=` and `token=` but not `key=`. Lifetime views are never momentum.
+  - **Reddit was removed (2026-10-13)**: its Data API is approval-gated, and access did not
+    work for this project. The `TrendSource` protocol is the seam if it is ever re-added.
+  - **DuckDuckGo's "No results found." is an empty answer** (`web_search._no_results`): ddgs
+    raises that exact message only when every engine answered with nothing, and treating it as
+    a failure marked web search `failed` on narrow topics.
+- **Trend history** lives in `research_topics` (identity by `subject|outcome`, plus an
+  embedding match within a category for drifted wording) and `research_topic_observations`
+  (one row per topic per run, written once in `service.finish` as an upsert, and only when the
+  trend phase completed). **No incremented counters**: how often a topic was seen or proposed
+  is a count over observations. `resolve_topics` upserts and commits *before* the next
+  checkpoint, because candidates reference those ids. Status `preliminary` whenever nothing
+  compared two periods; repeat suppression holds a topic proposed within 28 days unless its
+  stories doubled or momentum ≥ 65.
+- **Research categories are the article categories.** `research/categories.py::Category`
+  (re-exported from `contracts.py`) lists exactly `Subject`'s values, checked at import, so the
+  desk's filter and the feed drawer cannot drift. It is a separate class, not an alias, and has
+  **no docstring**: `TriageOutput`'s schema is the triage model's grammar. The same goes for
+  every enum in `trends/contracts.py`. `other` has no seeds; asked for alone it searches every
+  seed and sweeps every feed.
 - **Deep research reuses the article pipeline's extraction and `TemplateQueryStrategy`**, so an
   `UnanchoredQuery` topic is discarded before anyone can promote it.
 - **pytrends is archived and its `retries=` option crashes under urllib3 2**
   (`method_whitelist`). It is created with `retries=0`, and `GoogleTrendsProvider` does its own
-  pacing (4 s) and 429 backoff (15 s, 45 s). The first request after a quiet spell is often a
-  429 that clears within ~20 s. Only that file imports pytrends.
+  pacing (4 s) and 429 backoff (15 s, 45 s). Only that file imports pytrends.
+- **`python -m scripts.trend_search`** runs the trend half live, dry by default (in-memory feed
+  state and history, no evidence check, no writes). Use it before touching scoring,
+  clustering or a source; `--apply` queues a real run as the desk does.
 
 ## Invariants — do not route around these
 
@@ -1294,8 +1394,11 @@ generated by a separate model call, so card and article cannot contradict each o
   `model_validator` in [config.py](backend/app/config.py) that refuses to start otherwise. Set
   closer, one slow `UPDATE` declares a live run abandoned and the sweep starts a second
   concurrent execution of it. Per-provider request *rates* are not settings — they are
-  constants in `retrieval/factory.py`, being facts about each API rather than knobs; only the
-  retry counts (`PROVIDER_MAX_RETRIES`, `PROVIDER_MAX_RETRY_WAIT_SECONDS`) are configurable.
+  constants in `retrieval/factory.py` (scholarly APIs) and `research/factory.py` (News API and
+  the trend sources: GDELT one per 6 s, Google News, RSS, Brave, YouTube), being facts
+  about each API rather than knobs; only the retry counts (`PROVIDER_MAX_RETRIES`,
+  `PROVIDER_MAX_RETRY_WAIT_SECONDS`) and the trend sources' per-run *budgets* are
+  configurable.
 - Password hashing is Argon2id via `argon2-cffi` — chosen over bcrypt to avoid 72-byte
   truncation. **The login throttle must stay ahead of the hash.** Argon2 costs 31ms per
   attempt, so `/auth/login` saturates a core at ~32 req/s of junk, and `equalise_timing()`
@@ -1345,8 +1448,9 @@ generated by a separate model call, so card and article cannot contradict each o
     stock Python install `.webp` is absent from the `mimetypes` table, so every generated
     illustration was served as `application/octet-stream`, and only browser sniffing in
     `<img>` kept it rendering.
-- **Three things prune themselves, one does not.** Measured 2026-09-30, the schema was lean —
-  almost every column is read — but three tables grew without bound. Now:
+- **Four things prune themselves, one does not.** Measured 2026-09-30, the schema was lean —
+  almost every column is read — but three tables grew without bound, and the trend search
+  (2026-10-12) added a fourth. Now:
   - A succeeded MeSH scan deletes ledger rows older than
     `DISCOVERY_OBSERVATION_RETENTION_DAYS` (120). A validator keeps that at or above what the
     baseline windows and the angle lookback read. Shortening it past them would quietly shrink
@@ -1354,6 +1458,11 @@ generated by a separate model call, so card and article cannot contradict each o
   - A finished research run deletes candidates nobody decided on from runs older than
     `RESEARCH_RETENTION_DAYS` (60). Promoted and dismissed ones stay, because novelty reads
     them. A discarded candidate is stored without its example results.
+  - A finished research run deletes trend observations older than
+    `RESEARCH_HISTORY_RETENTION_DAYS` (180) and topics nothing refers to any more. A validator
+    keeps it above the repeat cooloff, the novelty lookback and the trend-status lookback:
+    pruning inside them would make a topic look new again. `research_feed_state` holds one row
+    per feed and needs no pruning.
   - Orphaned images do **not** prune themselves. Every Regenerate orphans the old frames, so
     run `scripts.prune_media`. It deletes only what no article column mentions, after a grace
     period.
@@ -1367,6 +1476,12 @@ generated by a separate model call, so card and article cannot contradict each o
   and less recall, and nothing flagged it. `OPENALEX_MAILTO` no longer buys the polite pool on
   its own. `ThrottledClient` now treats a `Retry-After` of an hour or more as a spent quota:
   it fails the call at once and sends that provider nothing more for the rest of the run.
+- **The trend sources' keys are optional, and each is skipped without one**, with the reason
+  in the run's provider status: `BRAVE_SEARCH_API_KEY` (web search through Brave's documented
+  API; ddgs otherwise), `YOUTUBE_API_KEY` (~1,010 of the default 10,000 daily quota units a
+  run, `YOUTUBE_MAX_SEARCHES_PER_RUN`). Keys travel in
+  headers, never in a logged URL. `RESEARCH_ENABLED_SOURCES` lists what a run may use;
+  `google_news` is deliberately not in the default (see the research section).
 - **`NEWS_API_KEY` is optional, and its free plan is for development only**: 100 requests a
   day, delayed 24 h. A run uses up to 50. When it is unset or out of quota, DuckDuckGo news
   answers instead, and the candidate's `signals.news.source` says which one.
@@ -1422,6 +1537,19 @@ tells you which code to trust):
   ran live against real papers (an ashwagandha RCT parsed to Introduction / Methods / Results /
   Discussion), and `FullTextStage` ran end to end on cached sources with the live Ollama
   embedder. Not yet inside a full pipeline run.
+- **Exercised 2026-10-12/13: the Trend Search Agent and the split run, live.** A default run
+  through the worker (all categories; RSS, GDELT, Google Trends, news, web) took **6.4 minutes**:
+  448 items (384 from 21 feeds), 38 exact-URL and 8 title duplicates folded, 31 phrases, 12
+  candidates enriched, 9 eligible, 7 evidence-checked (PubMed and Europe PMC answered every
+  count), **5 selected**, one discarded for no literature. Confidence read *low* on all five,
+  correctly: Google Trends was refusing this IP after a day of test runs, and GDELT throttled,
+  so ~64% of each score was measured. Google News RSS answered every request (off by terms).
+  **YouTube and Brave, 2026-10-13**: a trend run on RSS, news, Brave and YouTube made 8
+  searches each (YouTube ~808 quota units; 176 videos; Brave 123 results), raised data coverage
+  to 85% and gave every ranked topic four kinds of source; neither key appeared in the logs or
+  the result. YouTube's `relevanceLanguage` is a hint, not a filter: Hindi and German videos
+  came back. n8n 2.41.4 imported both new
+  workflows in a scratch instance, and the manual webhook passed 202, 409 and 422 through.
 - **Exercised 2026-09-30: the research agent end to end.** Google Trends (pytrends), DuckDuckGo
   web and news, PubMed and Europe PMC counts, qwen triage and deep research ran live in the
   worker: 22 seeds returned 254 rising queries in ~4 minutes and the run took ~8 minutes. n8n

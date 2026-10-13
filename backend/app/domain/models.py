@@ -14,6 +14,7 @@ fine. Always apply the migration.
 from __future__ import annotations
 
 from datetime import date, datetime
+from typing import Any
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
@@ -724,6 +725,9 @@ class ResearchRun(Base):
     )
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    #: The Trend Search Agent's output, frozen when its phase ends, with the
+    #: run's observability counts. ``/result`` serves it. NULL until then.
+    summary: Mapped[dict[str, Any] | None] = mapped_column(NullableJSONB)
 
 
 class ResearchCandidate(Base):
@@ -742,9 +746,14 @@ class ResearchCandidate(Base):
     canonical_topic: Mapped[str] = mapped_column(Text, nullable=False)
     category: Mapped[str | None] = mapped_column(Text)
     queries: Mapped[list] = mapped_column(JSONB, nullable=False)
-    #: ``{trend, web, news, science, content, potential}`` — raw provider data.
+    #: ``CandidateTopic.signals_json()``: subject, outcome, the trend, news, web
+    #: and science signals, the topic's metrics, status, questions and
+    #: supporting sources.
     signals: Mapped[dict] = mapped_column(JSONB, nullable=False)
-    #: Component scores, ``overall``, ``weights_used`` and ``unavailable``.
+    #: ``TrendScores``: dimension scores, ``overall`` (the trend score),
+    #: weights, ``unavailable``, data coverage, confidence, version. Rows from
+    #: before the split carry the old evidence-weighted shape, without
+    #: ``version``.
     scores: Mapped[dict] = mapped_column(JSONB, nullable=False)
     evidence_status: Mapped[str | None] = mapped_column(Text)
     overall: Mapped[float | None] = mapped_column(Float)
@@ -762,6 +771,83 @@ class ResearchCandidate(Base):
     )
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     dismiss_reason: Mapped[str | None] = mapped_column(Text)
+    #: The persistent topic this candidate is an observation of.
+    topic_ref_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("research_topics.id", ondelete="SET NULL")
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+
+class ResearchTopic(Base):
+    """A trend topic's identity across research runs (``research/trends/history.py``).
+
+    No counters: how often it was seen or proposed is counted from
+    ``research_topic_observations``, never incremented here.
+    """
+
+    __tablename__ = "research_topics"
+
+    id: Mapped[str] = mapped_column(UUID_PK, primary_key=True, server_default=GEN_UUID)
+    #: ``subject|outcome``, normalised (``history.topic_key``).
+    topic_key: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    label: Mapped[str] = mapped_column(Text, nullable=False)
+    subject: Mapped[str] = mapped_column(Text, nullable=False)
+    outcome: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
+    category: Mapped[str] = mapped_column(Text, nullable=False)
+    first_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    last_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    merged_into: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("research_topics.id", ondelete="SET NULL")
+    )
+
+
+class ResearchTopicObservation(Base):
+    """One run's view of one topic: the trend history, one row per (topic, run)."""
+
+    __tablename__ = "research_topic_observations"
+
+    topic_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("research_topics.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    research_run_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("research_runs.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    window_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    window_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    stories: Mapped[int] = mapped_column(Integer, nullable=False)
+    independent_publishers: Mapped[int] = mapped_column(Integer, nullable=False)
+    trend_score: Mapped[float | None] = mapped_column(Float)
+    data_coverage: Mapped[float] = mapped_column(Float, nullable=False)
+    trend_status: Mapped[str | None] = mapped_column(Text)
+    scoring_version: Mapped[str] = mapped_column(Text, nullable=False)
+    proposed: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    metrics: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    scores: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+
+
+class ResearchFeedState(Base):
+    """Per publisher feed: conditional-request validators and the last items."""
+
+    __tablename__ = "research_feed_state"
+
+    feed_url: Mapped[str] = mapped_column(Text, primary_key=True)
+    etag: Mapped[str | None] = mapped_column(Text)
+    last_modified: Mapped[str | None] = mapped_column(Text)
+    last_fetched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_success_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_status: Mapped[int | None] = mapped_column(Integer)
+    last_error: Mapped[str | None] = mapped_column(Text)
+    consecutive_failures: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    #: The last parsed entries, replayed on a 304. NULL until the first success.
+    items: Mapped[list[dict[str, Any]] | None] = mapped_column(NullableJSONB)

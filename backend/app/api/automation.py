@@ -12,8 +12,8 @@ reach reviewer or reader routes: those check their own bearer JWTs, and this
 dependency is attached to this router only.
 
 What the token grants is deliberately small: starting a research run (which
-proposes and never enqueues generation) and reading research runs. No article,
-reviewer or reader data is reachable with it.
+proposes and never enqueues generation), reading research runs and their trend
+results. No article, reviewer or reader data is reachable with it.
 """
 
 from __future__ import annotations
@@ -23,11 +23,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 
-from app.api.console.research import research_run_out, start_run
+from app.api.console.research import read_result, research_run_out, start_run
 from app.api.console.schemas import AutomationResearchRequest, ResearchRunOut
 from app.api.deps import SessionDep, SettingsDep
 from app.domain.models import ResearchRun
 from app.research import service
+from app.research.trends.contracts import TrendSearchResult
 
 
 async def require_trigger_token(
@@ -76,3 +77,15 @@ async def read_research_run(run_id: str, session: SessionDep) -> ResearchRunOut:
     if run is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "research run not found")
     return research_run_out(run, await service.candidates_for(session, run_id))
+
+
+@router.get("/research/runs/{run_id}/result", response_model=TrendSearchResult)
+async def read_research_result(run_id: str, session: SessionDep) -> TrendSearchResult:
+    """The Trend Search Agent's output, for n8n to forward once a run finishes.
+
+    snake_case on purpose (the agent's documented output schema), unlike the
+    camelCase run record. Topics carry ``scientific_assessment:
+    "not_assessed"`` and the evidence gate's outcome as a status — never an
+    evidence score.
+    """
+    return await read_result(session, run_id)

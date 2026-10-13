@@ -31,6 +31,7 @@ from app.domain.enums import ResearchCandidateStatus, ResearchRunMode, RunOrigin
 from app.domain.models import ResearchCandidate, ResearchRun
 from app.research import service
 from app.research.service import ResearchAlreadyActive
+from app.research.trends.contracts import TrendSearchResult
 
 router = APIRouter(dependencies=[Depends(require_reviewer)], tags=["console:research"])
 
@@ -77,6 +78,7 @@ def candidate_out(candidate: ResearchCandidate) -> ResearchCandidateOut:
         pipeline_run_id=candidate.pipeline_run_id,
         decided_at=candidate.decided_at,
         dismiss_reason=candidate.dismiss_reason,
+        topic_ref_id=candidate.topic_ref_id,
     )
 
 
@@ -113,9 +115,10 @@ async def create_research_run(
 ) -> ResearchRunOut:
     """Queue a research run now. 202: it takes minutes; poll ``GET``.
 
-    Spends Google Trends, search, news and PubMed requests plus one small local
-    model call per topic triaged — no generation run. 409 while another
-    research run is queued or running.
+    Spends trend-source requests (feeds, Trends, news, web, GDELT, and YouTube
+    when keyed), local triage calls, and PubMed/Europe PMC requests
+    for the evidence check — no generation run. 409 while another research run
+    is queued or running.
     """
     return await start_run(
         session,
@@ -143,6 +146,22 @@ async def get_research_run(
     if run is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "research run not found")
     return research_run_out(run, await service.candidates_for(session, run_id))
+
+
+@router.get("/research/runs/{run_id}/result", response_model=TrendSearchResult)
+async def get_research_result(
+    run_id: str, session: SessionDep, reviewer: ReviewerDep
+) -> TrendSearchResult:
+    """The Trend Search Agent's output for a run (snake_case, ``TrendSearchResult``)."""
+    return await read_result(session, run_id)
+
+
+async def read_result(session: AsyncSession, run_id: str) -> TrendSearchResult:
+    """Shared by the console and automation routes."""
+    run = await session.get(ResearchRun, run_id)
+    if run is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "research run not found")
+    return service.build_result(run, await service.candidates_for(session, run_id))
 
 
 async def _load_promotable(session: AsyncSession, candidate_id: str) -> ResearchCandidate:

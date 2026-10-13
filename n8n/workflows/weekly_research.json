@@ -42,17 +42,17 @@
             }
           ]
         },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\"mode\": \"weekly\"}",
         "options": {
           "response": {
             "response": {
               "neverError": true,
-              "fullResponse": false
+              "fullResponse": true
             }
           }
-        }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify(Object.assign({}, JSON.parse($env.RESEARCH_WEEKLY_PARAMS || '{}'), { mode: 'weekly' })) }}"
       }
     },
     {
@@ -73,12 +73,12 @@
           },
           "conditions": [
             {
-              "id": "has-id",
-              "leftValue": "={{ $json.id }}",
+              "id": "accepted",
+              "leftValue": "={{ $json.statusCode === 202 }}",
               "rightValue": "",
               "operator": {
-                "type": "string",
-                "operation": "exists",
+                "type": "boolean",
+                "operation": "true",
                 "singleValue": true
               }
             }
@@ -89,13 +89,71 @@
       }
     },
     {
+      "id": "already-running",
+      "name": "Already running?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        660,
+        160
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "conflict",
+              "leftValue": "={{ $json.statusCode === 409 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "skip",
+      "name": "Skipped: a run is already going",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        880,
+        100
+      ],
+      "notes": "Runs are single-flight. A weekly slot that finds a manual run in progress lets it finish.",
+      "parameters": {}
+    },
+    {
+      "id": "start-failed",
+      "name": "Could not start",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        880,
+        260
+      ],
+      "parameters": {
+        "errorMessage": "={{ 'The research run did not start: HTTP ' + $json.statusCode + ' ' + JSON.stringify($json.body) }}"
+      }
+    },
+    {
       "id": "wait",
       "name": "Wait a minute",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
         660,
-        -100
+        -120
       ],
       "webhookId": "6f1c2d3e-8a4b-4c5d-9e6f-7a8b9c0d1e2f",
       "parameters": {
@@ -110,11 +168,11 @@
       "typeVersion": 4.2,
       "position": [
         880,
-        -100
+        -120
       ],
       "parameters": {
         "method": "GET",
-        "url": "={{ $env.EVIDWELL_API_URL }}/api/automation/research/runs/{{ $('Start research run').item.json.id }}",
+        "url": "={{ $env.EVIDWELL_API_URL }}/api/automation/research/runs/{{ $('Start research run').item.json.body.id }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -124,7 +182,14 @@
             }
           ]
         },
-        "options": {}
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": false
+            }
+          }
+        }
       }
     },
     {
@@ -134,7 +199,7 @@
       "typeVersion": 2.2,
       "position": [
         1100,
-        -100
+        -120
       ],
       "parameters": {
         "conditions": {
@@ -161,15 +226,150 @@
       }
     },
     {
+      "id": "result",
+      "name": "Read trend result",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        -40
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.EVIDWELL_API_URL }}/api/automation/research/runs/{{ $('Start research run').item.json.body.id }}/result",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Trigger-Token",
+              "value": "={{ $env.RESEARCH_TRIGGER_TOKEN }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "run-failed",
+      "name": "Failed before finding trends?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1540,
+        -40
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "failed",
+              "leftValue": "={{ $json.status === 'failed' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "run-failed-stop",
+      "name": "Research run failed",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        1760,
+        60
+      ],
+      "parameters": {
+        "errorMessage": "={{ 'Research run ' + $json.label + ' failed: ' + ($json.errors || []).join('; ') }}"
+      }
+    },
+    {
+      "id": "notify",
+      "name": "Notify?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1760,
+        -140
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "has-url",
+              "leftValue": "={{ Boolean($env.RESEARCH_NOTIFY_URL) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "send",
+      "name": "Send summary",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1980,
+        -220
+      ],
+      "notes": "Slack-compatible: a 'text' line plus the topics. Points anywhere RESEARCH_NOTIFY_URL says.",
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.RESEARCH_NOTIFY_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: 'EvidWell research run ' + $json.label + ': ' + $json.status + ', ' + $json.topics.length + ' trending topic(s): ' + $json.topics.map(t => t.topic + ' (' + t.trend_score + ', ' + t.trend_status + ', ' + t.status + ')').join('; '), run_id: $json.run_id, status: $json.status, topics: $json.topics.map(t => ({ topic: t.topic, category: t.category, trend_score: t.trend_score, trend_status: t.trend_status, status: t.status, evidence_gate: t.downstream.evidence_gate, supporting_sources: t.supporting_sources.length })) }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      }
+    },
+    {
       "id": "done",
       "name": "Research finished",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
       "position": [
-        1320,
-        0
+        1980,
+        -60
       ],
-      "notes": "Add a notification here (email, Slack) if wanted: $json.status, $json.label and $json.candidates are available.",
+      "notes": "The trend result is $('Read trend result').item.json: topics with scores, sources and the evidence gate's status.",
       "parameters": {}
     }
   ],
@@ -207,7 +407,25 @@
         ],
         [
           {
-            "node": "Research finished",
+            "node": "Already running?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Already running?": {
+      "main": [
+        [
+          {
+            "node": "Skipped: a run is already going",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Could not start",
             "type": "main",
             "index": 0
           }
@@ -245,6 +463,64 @@
             "index": 0
           }
         ],
+        [
+          {
+            "node": "Read trend result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read trend result": {
+      "main": [
+        [
+          {
+            "node": "Failed before finding trends?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Failed before finding trends?": {
+      "main": [
+        [
+          {
+            "node": "Research run failed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify?": {
+      "main": [
+        [
+          {
+            "node": "Send summary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Research finished",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send summary": {
+      "main": [
         [
           {
             "node": "Research finished",

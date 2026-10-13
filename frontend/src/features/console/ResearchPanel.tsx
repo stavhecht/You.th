@@ -1,11 +1,14 @@
 /**
  * Trending topics from the research agent — the desk half of `app/research`.
  *
- * "Find trending topics" starts the same run n8n's weekly schedule starts: it
- * reads Google Trends, web search and news for what people are asking about,
- * checks each topic against PubMed and Europe PMC, and proposes the strongest
- * few. It proposes; nothing here is generated until a reviewer presses
- * Generate draft, and nothing generated publishes without an approval.
+ * "Find trending topics" starts the same run n8n's weekly schedule starts. Its
+ * first half, the Trend Search Agent, reads publisher feeds, Google Trends,
+ * news, GDELT and the web (and YouTube when keyed) for what people
+ * are getting interested in, and scores each topic on momentum, cross-source
+ * coverage, audience, freshness and editorial fit. Its second half checks the
+ * best of those against PubMed and Europe PMC and proposes the few that pass.
+ * It proposes; nothing here is generated until a reviewer presses Generate
+ * draft, and nothing generated publishes without an approval.
  *
  * Three things this panel is careful about, for the same reasons as
  * `TrendCandidates`:
@@ -13,7 +16,11 @@
  * **Popularity and evidence are shown apart.** Each proposal says how the
  * topic is trending *and*, separately, what the literature holds — "search
  * interest +100%" and "2 meta-analyses, 5 trials" are different claims, and a
- * single number would hide which one a topic rests on.
+ * single number would hide which one a topic rests on. The trend score has no
+ * evidence in it at all; the evidence line is the gate it passed.
+ *
+ * **A trend shows what it rests on.** The collected articles and posts behind
+ * it are linked, so "trending" can be checked before a draft is spent on it.
  *
  * **Missing data is named, not zeroed.** When news or web search could not be
  * reached the score says "not measured: news", matching the server, which
@@ -43,6 +50,7 @@ import type {
   ResearchCategory,
   ResearchRun,
   ResearchRunRequest,
+  ResearchSupportingSource,
 } from "@/types/api";
 import { PRIMARY, SECONDARY } from "./controls";
 import {
@@ -73,8 +81,11 @@ import {
   RESEARCH_OPTION,
   RESEARCH_OPTIONS,
   RESEARCH_QUESTION,
+  RESEARCH_QUESTIONS,
   RESEARCH_SCORE,
   RESEARCH_SELECT,
+  RESEARCH_SOURCE_LINK,
+  RESEARCH_SOURCES,
   RESEARCH_SUBHEAD,
   candidatesChevron,
 } from "./styles";
@@ -87,6 +98,13 @@ const CATEGORIES: { value: ResearchCategory; label: string }[] = SUBJECTS.map(
 const STAGE_WORDS: Record<string, string> = {
   queued: "waiting for the worker",
   loading_config: "starting",
+  collecting_sources: "reading feeds, Google Trends, news and GDELT",
+  normalizing_items: "folding duplicate and syndicated stories",
+  clustering_topics: "grouping searches and headlines into topics",
+  checking_history: "checking against earlier runs and recent articles",
+  enriching_topics: "searching each topic across the sources",
+  selecting_trends: "ranking what is trending",
+  // Before the trend search split; older runs still name these.
   discovering_trends: "reading Google Trends",
   expanding_topics: "following related searches",
   building_candidates: "grouping searches into topics",
@@ -102,6 +120,12 @@ const STAGE_WORDS: Record<string, string> = {
 };
 
 const COMPONENT_WORDS: Record<string, string> = {
+  momentum: "momentum",
+  coverage: "coverage",
+  audience: "audience",
+  freshness: "freshness",
+  editorial_fit: "fit",
+  // The evidence-weighted components of runs before the trend search split.
   trend_growth: "trend",
   news_momentum: "news",
   scientific_evidence: "evidence",
@@ -130,10 +154,26 @@ function evidenceLine(candidate: ResearchCandidate): string {
   );
 }
 
-/** How it is trending — search, news and the web, in that order. */
+const STATUS_WORDS: Record<string, string> = {
+  emerging: "emerging",
+  accelerating: "accelerating",
+  steady: "steady",
+  declining: "declining",
+  preliminary: "preliminary (no earlier period measured)",
+};
+
+/** How it is trending — status and outlets, then search, news and the web. */
 function trendLine(candidate: ResearchCandidate): string {
   const parts: string[] = [];
-  const { trend, news, web } = candidate.signals;
+  const { trend, news, web, metrics, trend_status } = candidate.signals;
+  if (trend_status) parts.push(STATUS_WORDS[trend_status] ?? trend_status);
+  if (metrics?.coverage_measured) {
+    const kinds = metrics.source_types.length;
+    parts.push(
+      `${plural(metrics.independent_publishers, "independent outlet")}` +
+        (kinds > 1 ? ` across ${kinds} kinds of source` : ""),
+    );
+  }
   if (trend?.is_breakout) parts.push("breakout search");
   else if (trend?.growth_percent != null)
     parts.push(`search interest ${trend.growth_percent >= 0 ? "+" : ""}${Math.round(trend.growth_percent)}%`);
@@ -147,7 +187,8 @@ function trendLine(candidate: ResearchCandidate): string {
 }
 
 function scoreLine(candidate: ResearchCandidate): string {
-  const { components, unavailable, overall } = candidate.scores;
+  const { components, unavailable, overall, version, data_coverage, confidence } =
+    candidate.scores;
   if (overall == null) return "";
   const parts = Object.entries(components).map(
     ([name, value]) => `${COMPONENT_WORDS[name] ?? name} ${Math.round(value)}`,
@@ -155,7 +196,18 @@ function scoreLine(candidate: ResearchCandidate): string {
   const missing = unavailable.length
     ? ` · not measured: ${unavailable.map((name) => COMPONENT_WORDS[name] ?? name).join(", ")}`
     : "";
-  return `Score ${Math.round(overall)} — ${parts.join(", ")}${missing}`;
+  const measured =
+    data_coverage != null ? ` · ${Math.round(data_coverage * 100)}% of the score measured` : "";
+  const sure = confidence ? `, ${confidence} confidence` : "";
+  const label = version ? "Trend score" : "Score";
+  return `${label} ${Math.round(overall)} — ${parts.join(", ")}${missing}${measured}${sure}`;
+}
+
+/** Only http(s) links reach an href: these titles and URLs came off the open web. */
+function safeSources(candidate: ResearchCandidate): ResearchSupportingSource[] {
+  return (candidate.signals.supporting_sources ?? [])
+    .filter((source) => /^https?:\/\//i.test(source.url))
+    .slice(0, 5);
 }
 
 function describeError(failure: unknown, fallback: string): string {
@@ -185,6 +237,10 @@ function ProposalRow({ candidate, runId }: { candidate: ResearchCandidate; runId
   });
   const busy = promote.isPending || dismiss.isPending;
   const decided = candidate.status === "promoted" || candidate.status === "dismissed";
+  const sources = safeSources(candidate);
+  const questions = (candidate.signals.key_questions ?? [])
+    .filter((q) => q !== candidate.signals.reader_question)
+    .slice(0, 3);
 
   const onDismiss = (event: FormEvent) => {
     event.preventDefault();
@@ -201,6 +257,26 @@ function ProposalRow({ candidate, runId }: { candidate: ResearchCandidate; runId
         <p className={CANDIDATE_EVIDENCE}>{evidenceLine(candidate)}</p>
         {trendLine(candidate) ? <p className={CANDIDATE_MIX}>{trendLine(candidate)}</p> : null}
         {scoreLine(candidate) ? <p className={RESEARCH_SCORE}>{scoreLine(candidate)}</p> : null}
+        {questions.length ? (
+          <p className={RESEARCH_QUESTIONS}>Asked: {questions.join(" · ")}</p>
+        ) : null}
+        {sources.length ? (
+          <ul className={RESEARCH_SOURCES} aria-label="What this trend rests on">
+            {sources.map((source) => (
+              <li key={source.url}>
+                <a
+                  className={RESEARCH_SOURCE_LINK}
+                  href={source.url}
+                  target="_blank"
+                  rel="noopener noreferrer nofollow"
+                >
+                  {source.title}
+                </a>
+                {source.publisher ? ` · ${source.publisher}` : ""}
+              </li>
+            ))}
+          </ul>
+        ) : null}
         {(promote.isError || dismiss.isError) && (
           <p className={CANDIDATES_ERROR}>
             {describeError(promote.error ?? dismiss.error, "Could not save that.")}
@@ -314,10 +390,14 @@ function statusLine(run: ResearchRun): string {
   return run.notes.length ? `${head} ${run.notes.join(" ")}` : head;
 }
 
-/** Providers that did not fully answer, so the reader knows what is missing. */
+/**
+ * Sources that did not fully answer, so the reader knows what is missing.
+ * "skipped" (not enabled for this deployment or run) is not a problem and is
+ * left out; a key that is missing reads "unavailable".
+ */
 function providerLine(run: ResearchRun): string | null {
   const problems = Object.entries(run.providerStatus)
-    .filter(([, status]) => status.status !== "ok")
+    .filter(([, status]) => status.status !== "ok" && status.status !== "skipped")
     .map(([name, status]) => `${name.replace("_", " ")} ${status.status}`);
   return problems.length ? `Sources not fully available: ${problems.join(", ")}.` : null;
 }
@@ -390,7 +470,7 @@ export function ResearchPanel() {
           className={CANDIDATES_SCAN}
           disabled={busy || categories.length === 0}
           onClick={onStart}
-          title="Reads Google Trends, web search and news, checks each topic in PubMed and Europe PMC, and proposes the strongest. No drafts are generated."
+          title="Reads publisher feeds, Google Trends, news, GDELT and the web, scores what is trending, checks the best in PubMed and Europe PMC, and proposes those that pass. No drafts are generated."
         >
           {busy ? (
             <LoaderCircle className="size-3.5 animate-spin" aria-hidden />
@@ -457,8 +537,8 @@ export function ResearchPanel() {
               </p>
             ) : proposals.length === 0 && !live ? (
               <p className={CANDIDATES_EMPTY}>
-                Nothing proposed: no topic passed the evidence and material checks. The
-                reasons are listed below.
+                Nothing proposed: no topic met the trend thresholds and passed the
+                evidence check. The reasons are listed below.
               </p>
             ) : (
               proposals.map((candidate) => (
@@ -478,7 +558,9 @@ export function ResearchPanel() {
                     </span>
                     <span className={CANDIDATES_SUPPRESSED_WHY}>
                       {candidate.status === "shortlisted"
-                        ? `shortlisted, outscored (${Math.round(candidate.overall ?? 0)})`
+                        ? `passed the evidence check, outscored (${
+                            candidate.overall == null ? "—" : Math.round(candidate.overall)
+                          })`
                         : candidate.discardReason}
                     </span>
                   </li>

@@ -43,6 +43,10 @@ dependencies = [
     # there. It brings pandas. ddgs is keyless DuckDuckGo web and news search.
     "pytrends>=4.9.2",
     "ddgs>=9.0",
+    # Trend search RSS/Atom parsing (`research/trends/sources/rss.py`). Handles
+    # the malformed, mis-encoded and half-Atom feeds real publishers serve, and
+    # normalises their dates; a hand parser would relearn each of those.
+    "feedparser>=6.0.11",
 ]
 
 [project.optional-dependencies]

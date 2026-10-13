@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from collections.abc import Mapping
 from typing import Protocol
 
 from ollama import AsyncClient
@@ -83,8 +84,8 @@ class TriageOutput(BaseModel):
 
 
 TRIAGE_SYSTEM_PROMPT = f"""\
-You sort search queries that are rising on Google into article topics for a \
-wellness, fitness and health publication.
+You sort search queries rising on Google, and phrases from recent news \
+headlines, into article topics for a wellness, fitness and health publication.
 
 Group only queries that ask about the same specific thing into one topic; most \
 topics cover one or two queries. Never make a catch-all topic. For each topic \
@@ -96,52 +97,89 @@ only for a wellness topic that fits none of the rest.
 - is_wellness_topic: true only when a science-based article on wellness, \
 fitness, nutrition, sleep, recovery or health could address it. False for \
 celebrities, brands, products for sale, shopping queries ("best running \
-shoes", "cheap protein powder"), shops, news events, sports results, games, and \
-recipes with no health question.
+shoes", "cheap protein powder"), shops, news events with no health question, \
+sports results, games, and recipes with no health question.
 - subject: the substance, food, activity or practice the topic is about, like \
 "creatine" or "zone 2 training". Use the common name.
 - outcome: what people want from it, like "sleep" or "muscle growth". Leave it \
 empty when the query names no outcome.
 - reader_question: the reader's question in one sentence.
 
-Only use the queries given. Do not judge whether any claim is true."""
+A line may end with headlines the phrase was seen in; use them only to \
+understand what the phrase refers to. Only use the queries given. Do not judge \
+whether any claim is true."""
+
+
+#: Example headlines per query group, by cluster id. Context, not topics.
+Examples = Mapping[int, list[str]]
 
 
 class TriageClient(Protocol):
-    async def triage(self, clusters: list[QueryCluster]) -> TriageOutput: ...
+    async def triage(
+        self, clusters: list[QueryCluster], examples: Examples | None = None
+    ) -> TriageOutput: ...
 
 
 class OllamaTriageClient:
     def __init__(self, client: AsyncClient, model: str) -> None:
         self._client = client
         self._model = model
+        #: Batches that failed in the last call; their groups fall back to
+        #: the deterministic reading instead of failing every other batch too.
+        self.failed_batches = 0
+        #: Cluster ids in those failed batches: never asked, so not "left out".
+        self.failed_ids: set[int] = set()
 
-    async def triage(self, clusters: list[QueryCluster]) -> TriageOutput:
+    async def triage(
+        self, clusters: list[QueryCluster], examples: Examples | None = None
+    ) -> TriageOutput:
         topics: list[TriageTopic] = []
-        for start in range(0, len(clusters), TRIAGE_BATCH):
-            result = await structured_chat(
-                self._client,
-                call="research triage",
-                model=self._model,
-                system=TRIAGE_SYSTEM_PROMPT,
-                user=build_triage_user_prompt(clusters[start : start + TRIAGE_BATCH]),
-                output_format=TriageOutput,
-                num_ctx=TRIAGE_NUM_CTX,
-                max_tokens=TRIAGE_MAX_TOKENS,
-            )
+        self.failed_batches = 0
+        self.failed_ids = set()
+        batches = range(0, len(clusters), TRIAGE_BATCH)
+        last_error: LLMError | None = None
+        for start in batches:
+            try:
+                result = await structured_chat(
+                    self._client,
+                    call="research triage",
+                    model=self._model,
+                    system=TRIAGE_SYSTEM_PROMPT,
+                    user=build_triage_user_prompt(
+                        clusters[start : start + TRIAGE_BATCH], examples
+                    ),
+                    output_format=TriageOutput,
+                    num_ctx=TRIAGE_NUM_CTX,
+                    max_tokens=TRIAGE_MAX_TOKENS,
+                )
+            except LLMError as exc:
+                self.failed_batches += 1
+                batch_clusters = clusters[start : start + TRIAGE_BATCH]
+                self.failed_ids.update(c.cluster_id for c in batch_clusters)
+                last_error = exc
+                logger.warning("research triage batch at %d failed: %s", start, exc)
+                continue
             batch: TriageOutput = result.output
             topics.extend(batch.topics)
+        if last_error is not None and self.failed_batches == len(batches):
+            raise last_error
         return TriageOutput(topics=topics)
 
 
-def build_triage_user_prompt(clusters: list[QueryCluster]) -> str:
+def build_triage_user_prompt(
+    clusters: list[QueryCluster], examples: Examples | None = None
+) -> str:
     lines = []
     for cluster in clusters:
         others = [query for query in cluster.queries if query != cluster.representative.query]
         also = f"; also: {', '.join(others[:4])}" if others else ""
+        seen = (examples or {}).get(cluster.cluster_id) or []
+        headlines = (
+            "; seen in: " + "; ".join(f'"{title[:120]}"' for title in seen[:2]) if seen else ""
+        )
         lines.append(
             f"{cluster.cluster_id}: {cluster.representative.query} "
-            f"(seed: {cluster.representative.seed}{also})"
+            f"(seed: {cluster.representative.seed}{also}{headlines})"
         )
     return "Queries:\n" + "\n".join(lines)
 
@@ -151,6 +189,7 @@ def apply_triage(
     output: TriageOutput | None,
     *,
     allowed: list[Category],
+    unclassified: set[int] | None = None,
 ) -> tuple[list[CandidateTopic], int]:
     """Candidates from the model's grouping, checked against what was sent.
 
@@ -158,19 +197,19 @@ def apply_triage(
     reading because the model skipped them (all of them when ``output`` is
     None). Non-wellness and out-of-category topics come back *discarded with a
     reason*, not dropped, so the desk can show what was considered.
+
+    ``unclassified`` names groups a working model was asked about and left out
+    — twice (``triage_or_fallback`` asks again). They come back discarded:
+    nobody judged them to be wellness topics, and measured 2026-10-12 one of
+    them ("soulja boy running for president", under the seed "running") was
+    ranked fourth on the raw query. A group the model was never asked about
+    (its batch failed) keeps the deterministic reading as before.
     """
     by_id = {cluster.cluster_id: cluster for cluster in clusters}
     claimed: set[int] = set()
     candidates: list[CandidateTopic] = []
 
-    for topic in output.topics if output is not None else []:
-        ids = [i for i in dict.fromkeys(topic.ids) if i in by_id and i not in claimed]
-        if (
-            not ids
-            or len(ids) > MAX_GROUPS_PER_TOPIC
-            or topic.subject.strip().lower() in _VAGUE_SUBJECTS
-        ):
-            continue
+    for topic, ids in _accepted(output, by_id):
         claimed.update(ids)
         members = [by_id[i] for i in ids]
         candidate = _candidate(
@@ -187,22 +226,61 @@ def apply_triage(
 
     skipped = [cluster for cluster in clusters if cluster.cluster_id not in claimed]
     for cluster in skipped:
-        candidates.append(
-            _candidate(
-                [cluster],
-                canonical=cluster.representative.query,
-                category=cluster.category,
-                subject=fallback_subject(cluster.representative.query),
-                outcome="",
-                reader_question=None,
-            )
+        candidate = _candidate(
+            [cluster],
+            canonical=cluster.representative.query,
+            category=cluster.category,
+            subject=fallback_subject(cluster.representative.query),
+            outcome="",
+            reader_question=None,
         )
+        if unclassified and cluster.cluster_id in unclassified:
+            candidate.discard("triage did not classify this query (asked twice)")
+        candidates.append(candidate)
 
     candidates = merge_duplicates(candidates)
     for candidate in candidates:
-        if candidate.live and candidate.category not in allowed:
+        if not candidate.live or candidate.category in allowed:
+            continue
+        # Triage filed it elsewhere, but it was found under a requested
+        # category's seed: keep it there. Measured 2026-10-12 — narrowed to
+        # supplements, triage filed "Creatine and Muscle Growth" under
+        # nutrition, and the run discarded the very topic its seed asked about.
+        seeded = next((c for c in candidate.seed_categories if c in allowed), None)
+        if seeded is not None:
+            candidate.category = seeded
+        else:
             candidate.discard(f"category {candidate.category.value} was not requested")
     return candidates, len(skipped)
+
+
+def _accepted(
+    output: TriageOutput | None, by_id: Mapping[int, QueryCluster]
+) -> list[tuple[TriageTopic, list[int]]]:
+    """The model's topics that pass the checks, each with the ids it claims.
+
+    Ids must be ones we sent, each claimed once (first topic wins); a topic
+    spanning more than ``MAX_GROUPS_PER_TOPIC`` groups, or with a subject that
+    names nothing, is refused and its groups stay unclaimed.
+    """
+    claimed: set[int] = set()
+    accepted: list[tuple[TriageTopic, list[int]]] = []
+    for topic in output.topics if output is not None else []:
+        ids = [i for i in dict.fromkeys(topic.ids) if i in by_id and i not in claimed]
+        if (
+            not ids
+            or len(ids) > MAX_GROUPS_PER_TOPIC
+            or topic.subject.strip().lower() in _VAGUE_SUBJECTS
+        ):
+            continue
+        claimed.update(ids)
+        accepted.append((topic, ids))
+    return accepted
+
+
+def claimed_ids(output: TriageOutput | None, clusters: list[QueryCluster]) -> set[int]:
+    by_id = {cluster.cluster_id: cluster for cluster in clusters}
+    return {i for _, ids in _accepted(output, by_id) for i in ids}
 
 
 def merge_duplicates(candidates: list[CandidateTopic]) -> list[CandidateTopic]:
@@ -229,6 +307,9 @@ def merge_duplicates(candidates: list[CandidateTopic]) -> list[CandidateTopic]:
             continue
         existing.queries = list(dict.fromkeys(existing.queries + candidate.queries))
         existing.seeds = list(dict.fromkeys(existing.seeds + candidate.seeds))
+        existing.seed_categories = list(
+            dict.fromkeys(existing.seed_categories + candidate.seed_categories)
+        )
     return kept
 
 
@@ -244,6 +325,7 @@ def _candidate(
     trends = [trend for member in members for trend in member.trends]
     trends.sort(key=lambda t: (not t.is_breakout, -(t.rising_percent or 0), t.depth))
     queries = list(dict.fromkeys(trend.query for trend in trends))
+    seed_categories = list(dict.fromkeys(trend.category for trend in trends))
     return CandidateTopic(
         topic_id=str(uuid.uuid4()),
         canonical_topic=canonical,
@@ -253,6 +335,7 @@ def _candidate(
         reader_question=reader_question,
         queries=queries,
         seeds=list(dict.fromkeys(trend.seed for trend in trends)),
+        seed_categories=seed_categories,
     )
 
 
@@ -261,6 +344,7 @@ async def triage_or_fallback(
     clusters: list[QueryCluster],
     *,
     allowed: list[Category],
+    examples: Examples | None = None,
 ) -> tuple[list[CandidateTopic], str | None]:
     """Run triage, degrading to the deterministic reading on any failure.
 
@@ -273,11 +357,41 @@ async def triage_or_fallback(
             "triage skipped (no local model configured); topics are the raw queries",
         )
     try:
-        output = await client.triage(clusters)
+        output = await client.triage(clusters, examples)
     except LLMError as exc:
         logger.warning("research triage failed, using raw queries: %s", exc)
         candidates, _ = apply_triage(clusters, None, allowed=allowed)
         return candidates, f"triage failed ({exc}); topics are the raw queries"
-    candidates, skipped = apply_triage(clusters, output, allowed=allowed)
-    note = f"triage skipped {skipped} query groups; they use the raw query" if skipped else None
-    return candidates, note
+    failed = int(getattr(client, "failed_batches", 0) or 0)
+    never_asked: set[int] = set(getattr(client, "failed_ids", set()) or set())
+
+    # Groups the model was shown and gave no usable answer for — left out, or
+    # lumped into a refused catch-all — get one more, smaller ask: a 7B model
+    # drops ids from a batch of 25 (16 of 75 on 2026-10-12), and alone they
+    # are usually answered. Whatever is still unclaimed is set aside.
+    answered = claimed_ids(output, clusters) | never_asked
+    omitted = [c for c in clusters if c.cluster_id not in answered]
+    still_omitted: set[int] = set()
+    if omitted:
+        try:
+            retry = await client.triage(omitted, examples)
+        except LLMError as exc:
+            logger.warning("research triage retry failed: %s", exc)
+        else:
+            output = TriageOutput(topics=[*output.topics, *retry.topics])
+            still_omitted = {c.cluster_id for c in omitted} - claimed_ids(output, clusters)
+    candidates, skipped = apply_triage(
+        clusters, output, allowed=allowed, unclassified=still_omitted
+    )
+    notes: list[str] = []
+    if omitted:
+        notes.append(
+            f"triage gave no usable answer for {len(omitted)} query groups and was asked "
+            f"again; {len(still_omitted)} stayed unclassified and were set aside"
+        )
+    fallback = skipped - len(still_omitted)
+    if fallback:
+        notes.append(f"triage skipped {fallback} query groups; they use the raw query")
+    if failed:
+        notes.append(f"{failed} triage batch{'es' if failed != 1 else ''} failed")
+    return candidates, "; ".join(notes) or None

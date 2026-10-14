@@ -140,11 +140,18 @@ disagree with. Raw values are narrowed against the enum on read rather than cast
 is a string a stranger can send someone, and an unknown value reads as "no filter", which is
 both the safe interpretation and the one that keeps a mistyped link working.
 
-**Search is client-side over loaded pages, and the empty state says so.** There is no search
-endpoint. Inventing a `?q=` answered by a `LIKE` over the card columns would be a search that
-silently misses the body of every article — a smaller promise honestly stated beats a larger
-one quietly broken, so the empty state reads "nothing matching X in the N articles loaded so
-far" rather than "nothing published".
+**Search is server-side over the whole approved article, with a typo fallback that says what
+it is.** `GET /feed?q=` (migration 0006, `FeedService.search`). It was client-side over loaded
+pages until 2026-10-14, because the only server search on offer was a `LIKE` over card columns
+that would silently miss every article's body. Now `approve()` writes a weighted tsvector —
+headline, product and ingredients; then qualifier, summary, claims and excerpt; then the body's
+text — built by one SQL function, `article_search_document`, that the migration's backfill
+calls too. Only what a reader is shown is indexed: not `topic` (generation input), not cited
+sources' titles. Full text ranks first (`websearch_to_tsquery`, `ts_rank_cd`); only when it finds
+nothing, and the query uses no search syntax (`-word`, quotes, `or`), does a trigram
+`word_similarity` match over headline + product answer — and the response says `match:
+"similar"`, which the page renders as "no exact matches", because a close spelling can be wrong.
+A search is relevance-ordered, never personalised, and offset-paged up to 200 results.
 
 ### 3.2 Auth: two kinds of account, minimal, with a real audit trail
 

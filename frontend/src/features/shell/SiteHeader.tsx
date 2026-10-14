@@ -15,7 +15,7 @@
 
 import { useState } from "react";
 import { Link, NavLink, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { Moon, Sun } from "lucide-react";
+import { Moon, Search, Sun } from "lucide-react";
 
 import { useReader, readerInitials } from "@/features/reader/auth";
 import { useTheme } from "@/lib/theme";
@@ -30,8 +30,8 @@ import {
   MENU_BUTTON,
   NAV_LINK_ACCENT,
   SEARCH_FORM,
+  SEARCH_ICON,
   SEARCH_INPUT,
-  SEARCH_RING,
   SITE_HEADER,
   THEME_TOGGLE,
   WORDMARK,
@@ -153,7 +153,7 @@ function SearchField() {
         navigate({ pathname: "/", search: next.toString() });
       }}
     >
-      <span aria-hidden className={SEARCH_RING} />
+      <Search size={14} strokeWidth={2} aria-hidden className={SEARCH_ICON} />
       <input
         name="q"
         type="search"
@@ -161,8 +161,8 @@ function SearchField() {
         // underneath it — clearing a search from the feed has to empty the box.
         key={params.get("q") ?? ""}
         defaultValue={params.get("q") ?? ""}
-        placeholder="Search research"
-        aria-label="Search published research"
+        placeholder="Search article"
+        aria-label="Search published articles"
         className={SEARCH_INPUT}
       />
     </form>

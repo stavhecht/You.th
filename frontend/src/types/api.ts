@@ -156,6 +156,12 @@ export interface GeneratedImagery {
 export interface FeedPage {
   items: FeedCard[];
   nextCursor: string | null;
+  /**
+   * Null for the feed. For a search: `text` when articles matched the words,
+   * `similar` when nothing did and these are titles spelled like the query —
+   * which the page has to say, because a close spelling can be wrong.
+   */
+  match: "text" | "similar" | null;
 }
 
 /**

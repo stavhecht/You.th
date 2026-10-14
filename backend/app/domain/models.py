@@ -34,7 +34,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from app.config import get_settings
@@ -266,6 +266,13 @@ class Article(Base):
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     rejection_reason: Mapped[str | None] = mapped_column(Text)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    #: Weighted full-text document for public search, written at publish time
+    #: by the SQL function ``article_search_document`` (migration 0006) — never
+    #: built in Python, so the backfill and the publish path cannot index an
+    #: article two different ways. Deferred: it is a predicate, never a payload,
+    #: and loading it with every article would ship a tsvector nobody reads.
+    search_document: Mapped[Any | None] = mapped_column(TSVECTOR, deferred=True)
 
     #: A cited source has been retracted. The article stays `published` — this
     #: raises a banner and puts the row in front of a reviewer, who decides.

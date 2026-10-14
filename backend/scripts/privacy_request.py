@@ -20,8 +20,9 @@ What it covers, by table:
   approved this article", and removing staff access is ``is_active = false``,
   a different decision from a reader's erasure request.
 
-What it cannot reach, and the privacy policy says so: database backups (the
-2026-09-30 ``evidwell_backup_20260930`` copy among them), and server logs.
+What it cannot reach, and the privacy policy says so: database backups and
+server logs. (The 2026-09-30 ``evidwell_backup_20260930`` copy was dropped on
+2026-10-14, so it no longer holds anyone's data.)
 
 The default output is counts only, so running it does not echo someone's
 messages into a terminal scrollback; ``--export`` writes the full copy to a file.

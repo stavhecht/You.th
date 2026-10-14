@@ -16,7 +16,8 @@ python -m scripts.migrate                # applies migrations via asyncpg; no ps
                                          # chunk_settings, full-text excerpts and the research
                                          # tables, and dropping 7 write-only columns. The data
                                          # was COPIED into a fresh database, not discarded; the
-                                         # old one is kept as evidwell_backup_20260930. Squashing
+                                         # old copy, evidwell_backup_20260930, was dropped on
+                                         # 2026-10-14. Squashing
                                          # is only free while every database holding the schema
                                          # can be rebuilt; the file's header states that
                                          # condition. 0002 swaps the subject enum
@@ -24,7 +25,9 @@ python -m scripts.migrate                # applies migrations via asyncpg; no ps
                                          # research agent onto them. 0004 adds
                                          # article_sources.stance (APPRAISE). 0005 adds
                                          # the trend search's topics, observations and
-                                         # feed state. Next is 0006.
+                                         # feed state. 0006 adds public
+                                         # search (tsvector + pg_trgm). Next
+                                         # is 0007.
 python -m scripts.migrate --status
 python -m scripts.seed_admin --email you@example.com --name "Your Name"
 
@@ -108,7 +111,7 @@ Two declared checks do not currently pass, so don't read a failure as something 
 
 ## Testing gotchas
 
-**Ten suites skip silently when no database is reachable**, and they are the ones covering
+**Eleven suites skip silently when no database is reachable**, and they are the ones covering
 guarantees a fake session cannot express — SQL semantics, transaction boundaries, and the
 query planner. A green `pytest` with the DB down is a much weaker signal than it looks:
 
@@ -123,6 +126,7 @@ query planner. A green `pytest` with the DB down is a much weaker signal than it
 | `test_reader_accounts.py` | the composite FK on `reader_saves`, the save-is-a-move primary key, folder-name uniqueness, and the contact `CHECK` |
 | `test_discovery_db.py` | the one-live-proposal-per-substance index, the observation ledger's idempotence, the three decision CHECKs, the descriptor FK that forces the scan's write order, and `pipeline_runs.origin` defaulting |
 | `test_reader_privacy.py` | account export and erasure reaching exactly the caller's rows (the folder/save cascade), the password re-check and its throttle on `DELETE /readers/me`, and `privacy_request` erasing by address |
+| `test_feed_search.py` | `approve()` indexing the *edited* body through `article_search_document`, drafts never answering a search, citation markers and `topic` staying out of the index, and the typo fallback answering only when full text found nothing and the query used no `-word` |
 | `test_research_db.py` | the research candidates' three decision CHECKs, single-flight (the check *and* the `research_runs_one_active` index), the worker's claim, checkpoint upserts by primary key, topic resolution and observation upserts being idempotent, history pruning keeping referenced topics, and feed state storing SQL `NULL` (it deletes the rows it commits) |
 
 Point them elsewhere with `TEST_DATABASE_URL`; they otherwise use `database_url` from
@@ -776,8 +780,12 @@ feed follows below. Filtering instead would let an account quietly shrink the wo
 would make every *unclassified* article (`subject IS NULL`) invisible to anyone with an
 interest set. The cost is that the tiered sort cannot use `articles_feed_idx`; the tier is
 therefore skipped entirely for a reader with no interests, which is every anonymous request.
-Free-text search is client-side over loaded pages — there is no search endpoint — and the
-empty state says so rather than claiming nothing exists.
+Free-text search is `GET /feed?q=`, server-side over every published article's approved text
+(migration 0006, DESIGN.md §3.1): full text first, a trigram typo fallback only when that finds
+nothing, labelled `match: "similar"`. The tsvector is built by the SQL function
+`article_search_document`, called by `approve()` and by the migration's backfill — never in
+Python, so the two cannot index differently. `_TYPO_TITLE` in `services/feed.py` must match
+`articles_title_trgm_idx`'s expression exactly or the index goes unused.
 
 **`subject` is reviewer-set and stays optional.** It is the product's one chromatic axis and
 it cannot be derived: `product` is free text, and guessing would put a confident colour on an

@@ -42,8 +42,14 @@ export function FeedRoute() {
     useBrowseState();
   const { reader, signedIn } = useReader();
 
+  // Off while searching too: the server orders a search by relevance and
+  // ignores this, so a "For you" toggle there would be decorative.
   const personalised =
-    signedIn && !plain && (reader?.interests.length ?? 0) > 0 && subject === null;
+    signedIn &&
+    !plain &&
+    (reader?.interests.length ?? 0) > 0 &&
+    subject === null &&
+    !query;
 
   const feed = useFeed({
     query,
@@ -67,8 +73,15 @@ export function FeedRoute() {
           <div className={FEED_ACTIONS}>
             {feed.status === "success" ? (
               <span className={FEED_COUNT}>
-                {count} {count === 1 ? "article" : "articles"} · every one
-                editor-approved
+                {/*
+                  Close spellings are said to be close spellings. The fallback
+                  can be wrong ("stres" finds "strength"), and a grid presented
+                  as matches for a word it does not contain reads as a broken
+                  search.
+                */}
+                {feed.match === "similar" && count > 0
+                  ? `No exact matches · ${count} with a similar title`
+                  : `${count} ${count === 1 ? "article" : "articles"} · every one editor-approved`}
               </span>
             ) : null}
 
@@ -77,7 +90,7 @@ export function FeedRoute() {
               A toggle that does nothing is worse than no toggle: it teaches
               that the control is decorative.
             */}
-            {signedIn && (reader?.interests.length ?? 0) > 0 && subject === null ? (
+            {signedIn && (reader?.interests.length ?? 0) > 0 && subject === null && !query ? (
               <button
                 onClick={() => setPlain(!plain)}
                 aria-pressed={personalised}

@@ -36,6 +36,10 @@ async def get_feed(
             description="Lift the signed-in reader's interests to the top",
         ),
     ] = True,
+    q: Annotated[
+        str | None,
+        Query(max_length=200, description="Search published articles"),
+    ] = None,
 ) -> FeedPageOut:
     """Cursor-paginated feed of published article cards.
 
@@ -48,7 +52,23 @@ async def get_feed(
     never narrow it, so the two feeds hold the same articles in a different
     order. ``personalise=false`` is how the reader asks for the plain
     chronological feed without signing out.
+
+    ``q`` turns the page into a search: ranked by relevance rather than date,
+    narrowed by ``verdict`` and ``subject`` as the feed is, and never
+    personalised (``FeedService.search`` says why). A blank ``q`` is the feed.
     """
+    query = (q or "").strip()
+    if query:
+        try:
+            found, next_cursor, match = await FeedService(session).search(
+                query, cursor, limit, verdict, subject
+            )
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Malformed cursor"
+            ) from None
+        return FeedPageOut(items=found, next_cursor=next_cursor, match=match)
+
     interests: list[Subject] = []
     if reader is not None and personalise:
         row = await session.get(Reader, reader.id)

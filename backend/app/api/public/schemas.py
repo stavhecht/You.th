@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -81,8 +82,13 @@ class FeedPageOut(CamelModel):
     items: list[FeedCardOut]
     #: Opaque cursor. Null when there are no further pages. Cursor-based rather
     #: than offset-based because the feed is append-ish and offsets skip or
-    #: repeat items when something publishes mid-scroll.
+    #: repeat items when something publishes mid-scroll. A search's cursor is
+    #: opaque too, and is not interchangeable with the feed's.
     next_cursor: str | None = None
+    #: Null for the feed. For a search, ``text`` when the articles matched the
+    #: words, ``similar`` when nothing did and these are titles spelled like
+    #: the query — which the page must say, because they can be wrong.
+    match: Literal["text", "similar"] | None = None
 
 
 class ArticleOut(CamelModel):

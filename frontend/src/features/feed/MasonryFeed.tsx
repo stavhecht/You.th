@@ -56,7 +56,6 @@ export function MasonryFeed({
   filtered,
   onClearFilters,
   query,
-  matchedWithin,
 }: Props) {
   const sentinel = useRef<HTMLDivElement>(null);
 
@@ -97,7 +96,6 @@ export function MasonryFeed({
       <EmptyState
         filtered={filtered}
         query={query}
-        matchedWithin={matchedWithin}
         onClearFilters={onClearFilters}
       />
     );
@@ -144,21 +142,18 @@ function FeedSkeleton() {
 /**
  * Nothing to show, and the three reasons are not interchangeable.
  *
- * A text search matched nothing *in what has loaded* — which is a smaller claim
- * than "nothing exists", and saying the larger one would be a lie about the
- * archive, because search runs client-side (see `useFeed`). A filter matched
- * nothing published. Or the feed itself is empty, which on a human-reviewed
- * publication is a normal early state rather than a failure.
+ * A search matched nothing published — neither the words, anywhere in an
+ * approved article, nor a title spelled like them (see `useFeed`). A filter
+ * matched nothing published. Or the feed itself is empty, which on a
+ * human-reviewed publication is a normal early state rather than a failure.
  */
 function EmptyState({
   filtered,
   query,
-  matchedWithin,
   onClearFilters,
 }: {
   filtered: boolean;
   query: string;
-  matchedWithin: number;
   onClearFilters: () => void;
 }) {
   const searching = Boolean(query);
@@ -167,16 +162,14 @@ function EmptyState({
     <div className={FEED_STATE}>
       <p className={FEED_STATE_TITLE}>
         {searching
-          ? `Nothing matching “${query}” yet.`
+          ? `No published article mentions “${query}” yet.`
           : filtered
             ? "Nothing published under that yet."
             : "Nothing published yet."}
       </p>
       <p className={FEED_STATE_BODY}>
         {searching
-          ? `Searched the ${matchedWithin} ${
-              matchedWithin === 1 ? "article" : "articles"
-            } loaded so far. Scroll the full feed to widen the search, or clear it and browse by category.`
+          ? "Searched every published article, including its full text. Try another word, or clear the search and browse by category."
           : "Every article here is read and approved by a person before it goes live, so the shelf fills slowly on purpose."}
       </p>
       {filtered ? (

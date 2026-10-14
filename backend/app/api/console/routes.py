@@ -142,7 +142,7 @@ async def login(
 
     retry_after = throttle.retry_after(ip=ip, email=email)
     if retry_after is not None:
-        logger.warning("login refused for %r from %s: throttled", email, ip)
+        logger.warning("login refused from %s: throttled", ip)
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many login attempts. Try again later.",
@@ -171,7 +171,7 @@ async def login(
         role=UserRole(user.role),
     )
     token, expires_in = create_access_token(reviewer, settings.jwt_secret)
-    logger.info("reviewer %s logged in", user.email)
+    logger.info("reviewer %s logged in", user.id)
     return TokenResponse(access_token=token, expires_in=expires_in)
 
 

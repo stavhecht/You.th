@@ -96,6 +96,12 @@ async def _call_ddgs(
             try:
                 return await asyncio.to_thread(lambda: fn(factory()))
             except Exception as exc:
+                if _no_results(exc):
+                    # ddgs raises this exact message only when every engine
+                    # answered and none had a result; an engine *error* is
+                    # raised as itself instead. So this one is "asked, and
+                    # there was nothing" — an empty answer, not a failure.
+                    return []
                 last = exc
                 logger.info(
                     "%s failed (attempt %d/%d): %s", what, attempt + 1, retries + 1, exc
@@ -103,3 +109,7 @@ async def _call_ddgs(
                 if attempt < retries:
                     await sleep(retry_wait)
         raise ProviderUnavailable(f"{what} failed: {type(last).__name__}: {last}") from last
+
+
+def _no_results(exc: BaseException) -> bool:
+    return type(exc).__name__ == "DDGSException" and str(exc) == "No results found."

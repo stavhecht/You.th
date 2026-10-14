@@ -32,7 +32,7 @@ export const PAGE_STANDFIRST =
 
 export const ABOUT_PAGE = "mx-auto max-w-[720px] px-gutter pb-20 pt-[34px]";
 export const ABOUT_LOGO_WRAP = "mb-[26px] text-center leading-none";
-export const ABOUT_LOGO = "youth-mark mx-auto h-auto w-[300px] max-w-full";
+export const ABOUT_LOGO = "youth-mark mx-auto h-auto w-[101px] max-w-full";
 
 /**
  * The one centred display heading in the product.
@@ -49,7 +49,7 @@ export const ABOUT_LEAD =
 
 /** The medical disclaimer, given a panel so it cannot be skimmed past. */
 export const ABOUT_CALLOUT =
-  "mb-11 rounded-panel bg-surface-2 px-[26px] py-[22px] font-body text-[15px] font-bold leading-[1.6] text-ink";
+  "mb-11 rounded-panel bg-surface-2 px-[26px] py-[22px] text-pretty text-center font-body text-[15px] font-bold leading-[1.6] text-ink";
 
 export const ABOUT_RULES =
   "grid grid-cols-1 gap-x-8 gap-y-6 border-t border-rule-soft pt-5 sm:grid-cols-3";
@@ -63,7 +63,7 @@ export const FORM_GRID = "grid grid-cols-1 gap-3.5 sm:grid-cols-2";
 export const FIELD_LABEL =
   "mb-[7px] block font-body text-label-sm font-bold uppercase tracking-[0.13em] text-ink-3";
 export const FIELD =
-  "w-full rounded-field border border-rule bg-surface px-4 py-[13px] font-body text-[14px] text-ink outline-none placeholder:text-ink-4 focus:border-ink-3";
+  "w-full rounded-field border border-rule bg-surface px-4 py-[13px] font-body text-[14px] text-ink placeholder:text-ink-4 focus:border-ink-3";
 export const TEXTAREA = `${FIELD} min-h-[120px] resize-y leading-[1.55]`;
 
 export const CHECKBOX_ROW = "flex cursor-pointer items-start gap-2.5";
@@ -78,9 +78,23 @@ export const CHECKBOX_LABEL = "font-body text-[12.5px] leading-[1.5] text-ink-2"
  * compete with. Flush-left label, per the design system.
  */
 export const SUBMIT_BUTTON =
-  "w-full rounded-full border-0 bg-accent px-6 py-4 text-left font-body text-[12px] font-bold uppercase leading-none tracking-[0.12em] text-[#fffdfa] transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50";
+  "w-full rounded-full border-0 bg-accent px-6 py-4 text-left font-body text-[12px] font-bold uppercase leading-none tracking-[0.12em] text-accent-on transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50";
 
 export const FORM_NOTE = "mt-3.5 font-body text-[11.5px] text-ink-4";
+
+/**
+ * The password requirements under the sign-up fields, ticked off as they are
+ * met. Ink rather than a red/green pair: an unmet rule is not an error until
+ * the form is submitted, and the mark is what changes, not just the colour.
+ */
+export const PASSWORD_RULE_LIST =
+  "mb-6 grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2";
+export function passwordRule(met: boolean): string {
+  return `flex items-center gap-2 font-body text-[12px] leading-snug ${
+    met ? "text-ink-2" : "text-ink-4"
+  }`;
+}
+export const PASSWORD_RULE_MARK = "w-3 flex-none text-center text-accent-ink";
 
 /**
  * A failure the reader has to act on, next to the control that failed.
@@ -138,7 +152,7 @@ export const GUEST_BODY = "mb-[22px] font-body text-[14px] leading-[1.6] text-in
 
 export const NEW_FOLDER_ROW = "mb-[26px] mt-2 flex items-center gap-2";
 export const NEW_FOLDER_INPUT =
-  "w-[170px] border-0 border-b border-rule bg-transparent px-0 py-[7px] font-body text-[12.5px] text-ink outline-none placeholder:text-ink-4 focus:border-ink";
+  "w-[170px] border-0 border-b border-rule bg-transparent px-0 py-[7px] font-body text-[12.5px] text-ink placeholder:text-ink-4 focus:border-ink";
 export const NEW_FOLDER_ACTION =
   "border-0 bg-transparent px-0 py-[7px] font-body text-label-sm font-bold uppercase tracking-[0.12em] text-accent-ink hover:text-accent";
 
@@ -155,3 +169,56 @@ export const DONE_TITLE = "mb-2 font-heading text-[19px] font-bold text-ink";
 export const DONE_BODY = "mb-[22px] font-body text-[14px] leading-[1.6] text-ink-2";
 export const DONE_ACTION =
   "rounded-full border-0 bg-invert px-[22px] py-3.5 font-body text-[11px] font-bold uppercase leading-none tracking-[0.12em] text-invert-fg transition-colors hover:bg-accent-ink";
+
+/* --- legal pages and the site footer ------------------------------------ */
+
+/**
+ * Privacy and Terms. Prose pages at the reading measure, set like the article
+ * body rather than like the marketing pages, because they are read the same
+ * way: top to bottom, looking for one answer.
+ */
+export const LEGAL_PAGE = "mx-auto max-w-prose px-gutter pb-20 pt-[34px]";
+export const LEGAL_UPDATED = "mt-3 font-body text-[12px] text-ink-4";
+export const LEGAL_H2 =
+  "mb-3 mt-10 font-heading text-[22px] font-bold leading-tight tracking-[-0.01em] text-ink";
+export const LEGAL_P = "mb-4 font-body text-[15.5px] leading-[1.65] text-ink-2";
+export const LEGAL_LIST =
+  "mb-4 list-disc space-y-2 pl-5 font-body text-[15.5px] leading-[1.6] text-ink-2";
+export const LEGAL_TABLE =
+  "mb-5 w-full border-collapse font-body text-[13.5px] leading-[1.5] text-ink-2";
+export const LEGAL_TH =
+  "border-b border-rule px-2 py-2 text-left align-top font-bold text-ink";
+export const LEGAL_TD = "border-b border-rule-soft px-2 py-2 align-top";
+/**
+ * A fact only the operator can supply. Marked loudly on purpose — a page that
+ * looks finished while naming no controller is worse than one that is plainly
+ * a draft. See COMPLIANCE_BUSINESS_INPUTS.md.
+ */
+export const LEGAL_PLACEHOLDER =
+  "rounded-[3px] bg-accent-wash px-1 font-semibold text-ink";
+export const LEGAL_DRAFT_NOTE =
+  "mb-8 rounded-field border-l-2 border-accent bg-accent-wash px-3.5 py-2.5 font-body text-[12.5px] leading-normal text-ink";
+
+/** The one line under every collection form that says what happens to it. */
+export const COLLECTION_NOTICE =
+  "mt-3.5 font-body text-[11.5px] leading-[1.5] text-ink-3";
+
+export const SITE_FOOTER =
+  "mx-auto flex max-w-page flex-wrap items-center gap-x-5 gap-y-2 border-t border-rule-soft px-gutter py-6 font-body text-[11px] uppercase tracking-[0.12em] text-ink-3";
+export const SITE_FOOTER_LINK = "transition-colors hover:text-ink";
+
+/* --- "Your data" on /you --------------------------------------------------- */
+
+export const DATA_SECTION = "mt-14 border-t border-rule-soft pt-8";
+export const DATA_TITLE =
+  "mb-2 font-heading text-[22px] font-bold leading-tight text-ink";
+export const DATA_BODY = "mb-5 max-w-[60ch] font-body text-[14px] leading-[1.6] text-ink-2";
+export const DATA_ACTIONS = "mb-6 flex flex-wrap items-center gap-3";
+export const DANGER_BUTTON =
+  "inline-flex items-center gap-2 rounded-full border border-accent bg-transparent px-3.5 py-[7px] font-body text-[10.5px] font-semibold uppercase leading-none tracking-[0.12em] text-accent-ink transition-colors hover:bg-accent-wash disabled:cursor-not-allowed disabled:opacity-50";
+export const DELETE_FORM =
+  "mt-2 max-w-[420px] rounded-field border border-rule px-4 py-4";
+
+/** Off-screen until focused, then pinned over the site bar's top-left. */
+export const SKIP_LINK =
+  "sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100] focus:rounded-full focus:bg-ink focus:px-4 focus:py-2.5 focus:font-body focus:text-[12px] focus:font-semibold focus:text-ground";

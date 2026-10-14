@@ -32,7 +32,7 @@ dependencies = [
     # `text_to_image` returns; `imagery/huggingface.py` re-encodes it to WebP.
     "huggingface-hub>=0.35",
     "pillow>=11.0",
-    "pyjwt>=2.10",
+    "pyjwt>=2.15",
     "argon2-cffi>=23.1",
     # Starlette parses multipart bodies through this; without it the console's
     # image upload endpoint raises at import time rather than at request time.
@@ -43,6 +43,10 @@ dependencies = [
     # there. It brings pandas. ddgs is keyless DuckDuckGo web and news search.
     "pytrends>=4.9.2",
     "ddgs>=9.0",
+    # Trend search RSS/Atom parsing (`research/trends/sources/rss.py`). Handles
+    # the malformed, mis-encoded and half-Atom feeds real publishers serve, and
+    # normalises their dates; a hand parser would relearn each of those.
+    "feedparser>=6.0.11",
 ]
 
 [project.optional-dependencies]

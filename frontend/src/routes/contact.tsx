@@ -19,6 +19,7 @@ import { useReader } from "@/features/reader/auth";
 import { ApiError } from "@/lib/api/client";
 import {
   CHIP_ROW,
+  COLLECTION_NOTICE,
   DONE_ACTION,
   DONE_BODY,
   DONE_CARD,
@@ -191,11 +192,28 @@ export function ContactRoute() {
           {busy ? "Sending…" : "Send it over →"}
         </button>
 
-        {error ? <p className={FORM_ERROR}>{error}</p> : null}
+        {error ? (
+          <p role="alert" className={FORM_ERROR}>
+            {error}
+          </p>
+        ) : null}
 
         <p className={FORM_NOTE}>
           We read everything. We answer the ones we can check against published
           research.
+        </p>
+
+        {/* Notice at collection — PPL s.11, GDPR Art 13. Asks the sender to
+            leave health details out because the note is free text that the
+            editorial team reads, and nothing it is for needs them. */}
+        <p className={COLLECTION_NOTICE}>
+          Your email, name and message are read only by our editorial team, to
+          consider your request and reply. Please do not include details about your
+          own health. See the{" "}
+          <Link to="/privacy" className="underline">
+            privacy policy
+          </Link>{" "}
+          for how long we keep messages and how to have yours deleted.
         </p>
       </form>
     </main>

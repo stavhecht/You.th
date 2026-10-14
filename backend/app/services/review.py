@@ -15,7 +15,7 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select, tuple_
+from sqlalchemy import select, text, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.enums import ArticleStatus, StudyType, Subject
@@ -142,6 +142,11 @@ class ReviewService:
         article.published_at = now
 
         await self._session.flush()
+        # After the flush, because the function reads the row as it now stands:
+        # published, with the card columns just derived. Built in SQL by the
+        # same function migration 0006 backfilled with, so a newly published
+        # article is indexed exactly as the older ones were.
+        await self._session.execute(_INDEX_FOR_SEARCH, {"article_id": article_id})
         logger.info("article %s published by reviewer %s", article_id, reviewer_id)
 
     async def set_subject(
@@ -455,6 +460,12 @@ class ReviewService:
         if article is None:
             raise ReviewError(f"article {article_id} not found")
         return article
+
+
+_INDEX_FOR_SEARCH = text(
+    "UPDATE articles a SET search_document = article_search_document(a) "
+    "WHERE a.id = :article_id"
+)
 
 
 def _badge(report: dict[str, Any] | None) -> str:

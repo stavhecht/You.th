@@ -30,7 +30,12 @@ from app.domain.enums import (
     UserRole,
     Verdict,
 )
-from app.research.contracts import Category, ResearchParams
+from app.research.contracts import (
+    Category,
+    ResearchParams,
+    clean_queries,
+    known_sources,
+)
 
 # --- auth ------------------------------------------------------------------
 
@@ -517,9 +522,35 @@ class ResearchRunRequest(CamelModel):
     trend_window_days: int | None = Field(default=None, ge=1, le=30)
     geo: str | None = Field(default=None, min_length=2, max_length=2)
     language: str | None = Field(default=None, min_length=2, max_length=2)
+    #: A subset of the sources settings enable (``RESEARCH_ENABLED_SOURCES``).
+    enabled_sources: list[str] | None = None
+    #: Lowers the per-source request budget; cannot raise it.
+    max_requests_per_source: int | None = Field(default=None, ge=1, le=200)
+    #: Raise the selection bars for this run; settings are the floor.
+    min_trend_score: float | None = Field(default=None, ge=0, le=100)
+    min_data_coverage: float | None = Field(default=None, ge=0, le=1)
+    #: Topics to look into on top of what the sweep finds (at most 10).
+    queries: list[str] | None = Field(default=None, max_length=10)
+
+    # The same checks ``ResearchParams`` makes, here so a bad value is a 422
+    # at the edge rather than a validation error inside the route.
+    @field_validator("enabled_sources")
+    @classmethod
+    def _known_sources(cls, value: list[str] | None) -> list[str] | None:
+        return known_sources(value)
+
+    @field_validator("queries")
+    @classmethod
+    def _clean_queries(cls, value: list[str] | None) -> list[str] | None:
+        return clean_queries(value)
 
     def to_params(self) -> ResearchParams:
-        return ResearchParams.model_validate(self.model_dump())
+        # ``by_alias=False`` is load-bearing: ``CamelModel`` serialises by
+        # alias, ``ResearchParams`` is snake_case and ignores unknown keys, so
+        # a plain ``model_dump()`` silently dropped every two-word field
+        # (``targetArticleCount``, ``trendWindowDays``) while one-word ones
+        # (``geo``, ``categories``) survived and made it look like it worked.
+        return ResearchParams.model_validate(self.model_dump(by_alias=False))
 
 
 class AutomationResearchRequest(ResearchRunRequest):
@@ -548,6 +579,8 @@ class ResearchCandidateOut(CamelModel):
     pipeline_run_id: str | None
     decided_at: datetime | None
     dismiss_reason: str | None
+    #: The persistent topic (``research_topics``) this candidate observes.
+    topic_ref_id: str | None = None
 
 
 class ResearchRunOut(CamelModel):

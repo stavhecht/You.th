@@ -11,14 +11,30 @@ from __future__ import annotations
 
 import json
 from functools import lru_cache
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import Field, ValidationInfo, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+
+#: A list field that accepts `a,b,c` as well as a JSON array.
+#:
+#: ``NoDecode`` is load-bearing, not decoration. pydantic-settings treats any
+#: complex-typed field as JSON and calls ``json.loads`` inside the dotenv
+#: *source*, which is upstream of every validator — so a plain
+#: ``mode="before"`` validator never sees the value, and `FOO=a,b` raises
+#: SettingsError before it can be split. ``NoDecode`` suppresses that decode and
+#: hands the raw string to `_split_csv` below.
+CsvList = Annotated[list[str], NoDecode]
 
 #: Weakest to strongest. Mirrored by ``research/contracts.py::EvidenceStatus``;
 #: kept as strings here so config does not import the research package.
 _EVIDENCE_STATUSES = ("none", "limited", "emerging", "moderate", "strong")
+#: Mirrored by ``research/contracts.py::SOURCE_NAMES``, for the same reason.
+_TREND_SOURCES = (
+    "google_trends", "rss", "google_news", "gdelt", "news", "web", "youtube",
+)
+#: How far back trend status and newness read a topic's observations.
+_TREND_STATUS_LOOKBACK_DAYS = 56
 
 
 class Settings(BaseSettings):
@@ -155,6 +171,23 @@ class Settings(BaseSettings):
     #: half the calls (CLAUDE.md, APPRAISE). Two calls is kept for re-measuring
     #: when the appraisal model changes.
     appraisal_mode: Literal["one_call", "two_call"] = "one_call"
+    #: Whether SYNTHESIZE uses APPRAISE's relevance calls to trim its prompt:
+    #: a source labelled ``off_topic`` for every claim it was retrieved for is
+    #: left out, and the rest show only the claims they were not labelled
+    #: off-topic for. Proposed 2026-10-13 after a 22-source prompt was cited by
+    #: title words ("Retrieved for" all three claims) rather than by findings.
+    #:
+    #: **Measured and rejected the same day — leave it off.** 18 stance cases,
+    #: frozen searches, one sample per arm: prompts shrank 38% and latency fell
+    #: 242 s → 80 s, but the model cited the same number of sources (77 vs 75),
+    #: and verdict accuracy and uncertainty each fell 6 points. Four verdicts
+    #: rose a level, none fell; the creatine-kidney false premise went
+    #: no_evidence → weak with 11 of 12 papers dropped. The filter is biased
+    #: toward support by construction: APPRAISE's outcome guard rewrites a
+    #: refutation whose quote does not name the outcome to ``off_topic`` and
+    #: exempts ``supports``, so dropping ``off_topic`` drops the null trials.
+    #: Revisit only after that guard stops producing ``off_topic`` for them.
+    synthesis_relevance_filter: bool = False
 
     # --- pipeline ---
     worker_poll_interval_seconds: float = 5.0
@@ -311,42 +344,85 @@ class Settings(BaseSettings):
     #: validator below keeps it above what the scorer needs.
     discovery_observation_retention_days: int = 120
 
-    # --- research agent (internet trends -> evidence-scored proposals) ---
+    # --- research agent: trend search, then the evidence check ---
     # See app/research/ and DESIGN.md "Research agent". A research run
     # *proposes*: it never enqueues a pipeline run, exactly like the MeSH scan
-    # above. These are the only definitions of these values — the graph, the
-    # scorer and the API read them from here.
+    # above. Its first half (app/research/trends/) finds and scores what people
+    # are getting interested in; its second half checks the literature for the
+    # best of those. These are the only definitions of these values — the
+    # graph, the scorers and the API read them from here.
     #: How many topics a run selects for the desk. Clamped to [min, max] when a
     #: request asks for a specific number.
     research_target_article_count: int = 5
     research_min_article_count: int = 4
     research_max_article_count: int = 6
-    #: Candidates kept after clustering and the wellness filter, and the number
-    #: that get the cheap signals (trend, news, science counts).
+    #: Candidate topics kept after clustering and triage.
     research_max_candidates: int = 50
-    #: Candidates given a web search (~8 s each). The shortlist is drawn from
-    #: these, so it must be at least `research_shortlist_size`.
-    research_web_pool_size: int = 20
-    #: Candidates that get deep research: extraction plus the anchored query
-    #: the article pipeline will actually run.
-    research_shortlist_size: int = 10
+    #: Trend sources a run may use. A trigger can narrow this list, never widen
+    #: it. A source needing a key it does not have is skipped and says so.
+    #: `google_news` is deliberately absent: its feed is published "for
+    #: personal, non-commercial use" (see research/trends/sources/google_news.py)
+    #: — add it here only if that fits this deployment.
+    research_enabled_sources: CsvList = [
+        "google_trends", "rss", "gdelt", "news", "web", "youtube",
+    ]
+    #: Requests a run may send each source. Bounds cost and time; a source that
+    #: runs out is reported `skipped: budget`, which is unmeasured, never zero.
+    research_max_requests_per_source: int = 40
+    #: Wall-clock limits on the collect and enrich phases. Requests still
+    #: running at the deadline are abandoned and reported, not waited for.
+    research_collect_deadline_seconds: float = 300.0
+    research_enrich_deadline_seconds: float = 240.0
+    #: Candidates enriched with topic-specific searches (news, GDELT volume,
+    #: Trends interest, web, YouTube). Only enriched topics can be
+    #: selected.
+    research_enrich_pool_size: int = 15
+    #: Trend-ranked topics handed to the evidence check. Raised to the target
+    #: count when lower, so the check always has enough to choose from.
+    research_evidence_pool_size: int = 8
     research_trend_window_days: int = 7
-    research_news_window_days: int = 7
     research_scientific_window_days: int = 365
-    #: Scoring weights. Must sum to 1 (checked below). A component with no data
-    #: is dropped and the rest renormalised — never filled in.
-    research_weight_trend: float = 0.30
-    research_weight_news: float = 0.15
-    research_weight_evidence: float = 0.25
-    research_weight_source_quality: float = 0.10
-    research_weight_reader_interest: float = 0.15
-    research_weight_novelty: float = 0.05
+    #: Trend score weights, integers summing to 100 (checked below). A
+    #: dimension with no data is dropped and the rest renormalised — never
+    #: filled in.
+    research_weight_momentum: int = 30
+    research_weight_coverage: int = 25
+    research_weight_audience: int = 20
+    research_weight_freshness: int = 15
+    research_weight_editorial_fit: int = 10
+    #: A topic whose measured share of the trend score is below this gets no
+    #: score at all ("insufficient data"), never a score built on what is left.
+    research_min_data_coverage: float = 0.6
+    #: The lowest trend score a topic may be selected with.
+    research_min_trend_score: float = 0.0
+    #: Distinct outlets (deduplicated stories, syndication collapsed) a topic
+    #: needs this window before it can be selected: one outlet is not a trend.
+    #: Two is the least that is cross-source. Three emptied the first live
+    #: run (2026-10-12) with Google News off and GDELT refusing requests, the
+    #: two sources that supply most outlets.
+    research_min_independent_sources: int = 2
+    #: Outlets a headline phrase needs before it is *considered*. One: measured
+    #: 2026-10-12, a week of 356 feed stories from 12+ outlets had no specific
+    #: wellness term in two outlets' headlines, so requiring two at discovery
+    #: found nothing. The cross-source rule is enforced at selection instead
+    #: (`research_min_independent_sources`, after enrichment searches each
+    #: source for the topic), where it measures coverage rather than wording.
+    research_phrase_min_publishers: int = 1
+    #: Selected topics per category, for a varied desk. Ignored when a run asks
+    #: for one category.
+    research_max_per_category: int = 2
+    #: A topic proposed this recently is not proposed again unless its coverage
+    #: has doubled or it is accelerating.
+    research_repeat_cooloff_days: int = 28
+    #: Topic observations (trend history) are kept this long. At least the
+    #: novelty lookback, the cooloff and the status lookback (checked below).
+    research_history_retention_days: int = 180
+    #: Optional JSON file replacing the default RSS feeds
+    #: (research/trends/feeds.py documents the shape). Empty: the defaults.
+    research_sources_file: str = ""
     #: The weakest evidence a selected topic may rest on:
     #: none < limited < emerging < moderate < strong.
     research_min_evidence_status: str = "emerging"
-    #: Relevant web results + news articles below which a topic has too little
-    #: material to research. Applied only when either signal was available.
-    research_min_sources: int = 5
     #: Cosine similarity at which two trend queries are one topic.
     research_cluster_threshold: float = 0.88
     #: Cosine similarity at which a candidate repeats a recent article or an
@@ -359,13 +435,14 @@ class Settings(BaseSettings):
     research_trends_anchor: str = "vitamin d"
     #: Seconds between Google Trends requests. It 429s readily; be patient.
     research_trends_request_interval_seconds: float = 4.0
-    #: Rising queries whose own related queries are fetched as an expansion.
-    research_expand_top: int = 5
+    #: Rising queries whose own related queries are also fetched. 0 since the
+    #: news and feed sources supply breadth; each one is a 4 s+ Trends call.
+    research_expand_top: int = 0
     research_geo: str = "US"
     research_language: str = "en"
-    #: Domains whose results count toward `source_quality`. A suffix match, so
-    #: ".gov" covers every US government site.
-    research_authoritative_domains: list[str] = [
+    #: Domains counted as authoritative among a topic's web results (shown to
+    #: the reviewer). A suffix match, so ".gov" covers every US government site.
+    research_authoritative_domains: CsvList = [
         ".gov",
         ".edu",
         "nih.gov",
@@ -391,6 +468,14 @@ class Settings(BaseSettings):
     #: News API (its free plan is 100 requests a day) does not mean deleting
     #: the key from `.env`.
     news_api_enabled: bool = True
+    #: Brave Search API subscription token. Set, web search uses Brave's
+    #: documented API; empty, it falls back to keyless DuckDuckGo (ddgs).
+    brave_search_api_key: str = ""
+    #: YouTube Data API v3 key. Empty skips the YouTube source.
+    youtube_api_key: str = ""
+    #: `search.list` calls a run may make (100 quota units each, of a default
+    #: 10,000 a day). Statistics lookups cost 1 unit and are not counted here.
+    youtube_max_searches_per_run: int = 10
     #: Candidates nobody promoted or dismissed are deleted this long after their
     #: run finished. Novelty reads only decided candidates, so undecided ones
     #: from an old run are never read again — and a run writes ~45 of them.
@@ -455,6 +540,7 @@ class Settings(BaseSettings):
         "enabled_providers",
         "discovery_seeds",
         "research_authoritative_domains",
+        "research_enabled_sources",
         mode="before",
     )
     @classmethod
@@ -542,20 +628,32 @@ class Settings(BaseSettings):
     def _research_settings_are_consistent(self) -> Settings:
         """Refuse a research configuration that cannot mean what it says.
 
-        Weights not summing to one would make ``overall`` a number on no
-        particular scale; a min above the max, or a shortlist larger than the
-        pool it is drawn from, would silently shrink every run.
+        Trend weights not summing to 100 would make the score a number on no
+        particular scale; a min above the max would silently shrink every run;
+        an unknown source name in the enabled list would be silently ignored.
         """
         weights = (
-            self.research_weight_trend
-            + self.research_weight_news
-            + self.research_weight_evidence
-            + self.research_weight_source_quality
-            + self.research_weight_reader_interest
-            + self.research_weight_novelty
+            self.research_weight_momentum,
+            self.research_weight_coverage,
+            self.research_weight_audience,
+            self.research_weight_freshness,
+            self.research_weight_editorial_fit,
         )
-        if abs(weights - 1.0) > 1e-6:
-            raise ValueError(f"research_weight_* must sum to 1, got {weights:.4f}")
+        if any(w < 0 for w in weights) or sum(weights) != 100:
+            raise ValueError(
+                f"research_weight_* must be non-negative integers summing to 100, "
+                f"got {sum(weights)}"
+            )
+        if not 0.0 <= self.research_min_data_coverage <= 1.0:
+            raise ValueError("research_min_data_coverage must be between 0 and 1")
+        unknown = sorted(set(self.research_enabled_sources) - set(_TREND_SOURCES))
+        if unknown:
+            raise ValueError(
+                f"research_enabled_sources has unknown sources {unknown}; "
+                f"known: {', '.join(_TREND_SOURCES)}"
+            )
+        if self.research_enrich_pool_size < 1 or self.research_evidence_pool_size < 1:
+            raise ValueError("research enrich and evidence pools must hold at least 1 topic")
         if not (
             1
             <= self.research_min_article_count
@@ -566,11 +664,6 @@ class Settings(BaseSettings):
                 "research article counts must satisfy 1 <= min <= target <= max, got "
                 f"{self.research_min_article_count} / {self.research_target_article_count}"
                 f" / {self.research_max_article_count}"
-            )
-        if self.research_shortlist_size > self.research_web_pool_size:
-            raise ValueError(
-                f"research_shortlist_size ({self.research_shortlist_size}) must not "
-                f"exceed research_web_pool_size ({self.research_web_pool_size})"
             )
         if self.research_min_evidence_status not in _EVIDENCE_STATUSES:
             raise ValueError(
@@ -607,6 +700,21 @@ class Settings(BaseSettings):
             )
         if self.research_retention_days < 1:
             raise ValueError("research_retention_days must be at least 1")
+        # Trend history feeds the novelty-free parts of the score (newness,
+        # the history momentum signal), repeat suppression and trend status.
+        # Pruning inside any of their lookbacks would make a topic look new
+        # again, or a repeat look fresh.
+        history_needed = max(
+            self.research_repeat_cooloff_days,
+            self.research_novelty_lookback_days,
+            _TREND_STATUS_LOOKBACK_DAYS,
+        )
+        if self.research_history_retention_days < history_needed:
+            raise ValueError(
+                f"research_history_retention_days ({self.research_history_retention_days}) "
+                f"must be at least {history_needed}: repeat suppression, novelty and "
+                "trend status read that far back"
+            )
         return self
 
     def validate_embedding_dim(self, provider_dimension: int) -> None:

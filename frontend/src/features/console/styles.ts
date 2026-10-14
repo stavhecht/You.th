@@ -41,7 +41,7 @@ export const REVIEW_HEADER = "sticky top-0 z-40 border-b-2 border-rule bg-ground
 export const REVIEW_BAR =
   "mx-auto grid h-header max-w-console grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 px-gutter";
 export const REVIEW_BRAND = "block justify-self-center leading-none";
-export const REVIEW_BRAND_LOGO = "youth-mark block h-auto w-[132px] sm:w-[150px]";
+export const REVIEW_BRAND_LOGO = "youth-mark block h-auto w-[44px] sm:w-[50px]";
 
 /** Names the surface, in the left column where the public bar puts browse. */
 export const REVIEW_BRAND_TAG =
@@ -693,3 +693,16 @@ export const RESEARCH_QUESTION = "mt-0.5 font-body text-micro italic text-ink-3"
 
 /** "Draft queued" in place of the buttons once a topic is promoted. */
 export const RESEARCH_DONE = "font-body text-micro text-ink-3";
+
+/** Questions people asked about a topic, quoted as collected. */
+export const RESEARCH_QUESTIONS = "mt-0.5 font-body text-micro text-ink-3";
+
+/**
+ * What a trend rests on: a few of the collected articles, posts and videos.
+ * Links, so a reviewer can check the trend before spending a draft on it.
+ */
+export const RESEARCH_SOURCES = "mt-1 space-y-0.5 font-body text-micro text-ink-4";
+
+export const RESEARCH_SOURCE_LINK =
+  "text-ink-3 underline decoration-rule underline-offset-2 hover:text-ink";
+

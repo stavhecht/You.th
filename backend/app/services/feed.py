@@ -11,9 +11,20 @@ from __future__ import annotations
 import base64
 from collections.abc import Sequence
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal, cast
 
-from sqlalchemy import Select, and_, case, func, or_, select, tuple_
+from sqlalchemy import (
+    Select,
+    Text,
+    and_,
+    case,
+    func,
+    literal,
+    literal_column,
+    or_,
+    select,
+    tuple_,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.enums import ArticleStatus, Subject, Verdict
@@ -27,6 +38,87 @@ class ArticleNotFound(LookupError):
 def _published_only(statement: Select[Any]) -> Select[Any]:
     """The single audit point for the public surface's visibility rule."""
     return statement.where(Article.status == ArticleStatus.PUBLISHED)
+
+
+#: What a public search answered with. ``text``: full-text matches.
+#: ``similar``: nothing matched, and these are titles spelled like the query.
+SearchMatch = Literal["text", "similar"]
+
+#: Deepest a search can be paged. Search is offset-paged, so this bounds the
+#: work one request can ask for; nobody reads past the tenth page of results.
+MAX_SEARCH_RESULTS = 200
+
+#: The card columns, shared by the feed and search so the two cannot render a
+#: tile differently. ``Article.id`` is not part of the card; it is the keyset
+#: tiebreak.
+_CARD_COLUMNS = (
+    Article.slug,
+    Article.card_headline,
+    Article.card_excerpt,
+    Article.card_verdict,
+    Article.verdict_qualifier,
+    Article.card_image,
+    Article.card_image_alt,
+    Article.subject,
+    Article.published_at,
+    Article.id,
+)
+
+#: Must match ``articles_title_trgm_idx`` in migration 0006 expression for
+#: expression, or the planner cannot use the index. The space is a literal, not
+#: a bound parameter, for the same reason.
+_TYPO_TITLE = Article.card_headline.op("||")(literal_column("' '")).op("||")(
+    Article.product
+)
+
+
+def _full_text(query: str) -> tuple[Any, Any]:
+    """Predicate and rank for full text. ``websearch_to_tsquery`` never raises."""
+    tsquery = func.websearch_to_tsquery(
+        literal_column("'english'::regconfig"), literal(query, Text)
+    )
+    return (
+        Article.search_document.op("@@")(tsquery),
+        func.ts_rank_cd(Article.search_document, tsquery),
+    )
+
+
+def _similar_title(query: str) -> tuple[Any, Any]:
+    """Predicate and score for the typo fallback.
+
+    ``<%`` is word similarity at ``pg_trgm.word_similarity_threshold`` (0.6
+    by default) — whether the query resembles *some run of words* in the
+    title, which is the question a misspelt search asks. Whole-string
+    similarity (``%``) compares a one-word query against a whole headline and
+    scored a plain typo at 0.21; migration 0006 has the measurement.
+    """
+    bound = literal(query, Text)
+    return bound.op("<%")(_TYPO_TITLE), func.word_similarity(bound, _TYPO_TITLE)
+
+
+def _may_be_misspelt(query: str) -> bool:
+    """False when the query uses ``websearch_to_tsquery`` syntax."""
+    words = query.lower().split()
+    return '"' not in query and "or" not in words and not any(
+        word.startswith("-") for word in words
+    )
+
+
+def _card(row: Any) -> dict[str, Any]:
+    return {
+        "slug": row.slug,
+        # Fall back to the article headline if a legacy row predates
+        # card materialisation; a card with an empty title is worse
+        # than one whose excerpt is missing.
+        "headline": row.card_headline or "",
+        "excerpt": row.card_excerpt or "",
+        "verdict": row.card_verdict,
+        "verdict_qualifier": row.verdict_qualifier,
+        "image": row.card_image,
+        "image_alt": row.card_image_alt,
+        "subject": row.subject,
+        "published_at": row.published_at,
+    }
 
 
 class FeedService:
@@ -71,19 +163,7 @@ class FeedService:
             else None
         )
 
-        columns = [
-            Article.slug,
-            Article.card_headline,
-            Article.card_excerpt,
-            Article.card_verdict,
-            Article.verdict_qualifier,
-            Article.card_image,
-            Article.card_image_alt,
-            Article.subject,
-            Article.published_at,
-            Article.id,
-        ]
-        statement = _published_only(select(*columns))
+        statement = _published_only(select(*_CARD_COLUMNS))
 
         if tier is not None:
             statement = statement.add_columns(tier.label("tier"))
@@ -130,24 +210,87 @@ class FeedService:
                 getattr(last, "tier", 0), last.published_at, last.id
             )
 
-        items = [
-            {
-                "slug": row.slug,
-                # Fall back to the article headline if a legacy row predates
-                # card materialisation; a card with an empty title is worse
-                # than one whose excerpt is missing.
-                "headline": row.card_headline or "",
-                "excerpt": row.card_excerpt or "",
-                "verdict": row.card_verdict,
-                "verdict_qualifier": row.verdict_qualifier,
-                "image": row.card_image,
-                "image_alt": row.card_image_alt,
-                "subject": row.subject,
-                "published_at": row.published_at,
-            }
-            for row in rows
-        ]
-        return items, next_cursor
+        return [_card(row) for row in rows], next_cursor
+
+    async def search(
+        self,
+        query: str,
+        cursor: str | None = None,
+        limit: int = 24,
+        verdict: Verdict | None = None,
+        subject: Subject | None = None,
+    ) -> tuple[list[dict[str, Any]], str | None, SearchMatch]:
+        """Published cards matching ``query``, best match first.
+
+        Full text over ``search_document`` first (migration 0006 says what is
+        in it and why). Only when that finds **nothing** does it fall back to
+        trigram word similarity over headline and product, which is what makes
+        "magnesum" find magnesium. The third return value says which one
+        answered, because the fallback can be wrong ("stres" matches
+        "strength") and the page has to be able to say "close matches" rather
+        than present them as results.
+
+        A query using search syntax — quotes, ``-word``, ``or`` — gets no
+        fallback. The reader said exactly what they wanted, and trigram
+        similarity cannot honour it: measured, ``creatine -muscle`` excluded
+        the creatine article and the fallback then returned it.
+
+        The mode is decided on the first page and carried in the cursor, so a
+        reader paging through typo matches is not switched to full text when a
+        later page happens to be empty, or the reverse.
+
+        Interests play no part here. Relevance is the order a search promises;
+        lifting a weaker match above a stronger one because of its subject
+        would break that promise, and the "order, never narrow" rule is about
+        the feed, which a search is not.
+
+        Offset-paged, unlike the feed, because the sort key is a float rank
+        that a keyset cursor would have to round-trip exactly — and capped at
+        ``MAX_SEARCH_RESULTS``, so a reader cannot page an offset deep enough
+        to make the scan expensive. The feed's reason for keyset paging (the
+        head moves while you scroll) applies far less to a ranked list.
+        """
+        if cursor:
+            match, offset = _decode_search_cursor(cursor)
+        else:
+            match, offset = "text", 0
+
+        async def rows_for(mode: SearchMatch) -> list[Any]:
+            clauses = _full_text(query) if mode == "text" else _similar_title(query)
+            return await self._search_rows(clauses, verdict, subject, offset, limit)
+
+        rows = await rows_for(match)
+        if not rows and match == "text" and offset == 0 and _may_be_misspelt(query):
+            match = "similar"
+            rows = await rows_for(match)
+
+        next_cursor = None
+        if len(rows) > limit:
+            rows = rows[:limit]
+            if offset + limit < MAX_SEARCH_RESULTS:
+                next_cursor = _encode_search_cursor(match, offset + limit)
+        return [_card(row) for row in rows], next_cursor, match
+
+    async def _search_rows(
+        self,
+        clauses: tuple[Any, Any],
+        verdict: Verdict | None,
+        subject: Subject | None,
+        offset: int,
+        limit: int,
+    ) -> list[Any]:
+        predicate, score = clauses
+        statement = (
+            _published_only(select(*_CARD_COLUMNS))
+            .where(predicate)
+            .order_by(score.desc(), Article.published_at.desc(), Article.id.desc())
+        )
+        if verdict is not None:
+            statement = statement.where(Article.card_verdict == verdict)
+        if subject is not None:
+            statement = statement.where(Article.subject == subject)
+        result = await self._session.execute(statement.offset(offset).limit(limit + 1))
+        return list(result.all())
 
     async def facets(self) -> dict[str, Any]:
         """How many published articles sit under each subject and each verdict.
@@ -288,6 +431,25 @@ def _encode_cursor(tier: int, published_at: datetime, article_id: str) -> str:
     return base64.urlsafe_b64encode(
         f"{tier}|{published_at.isoformat()}|{article_id}".encode()
     ).decode()
+
+
+def _encode_search_cursor(match: SearchMatch, offset: int) -> str:
+    return base64.urlsafe_b64encode(f"search|{match}|{offset}".encode()).decode()
+
+
+def _decode_search_cursor(cursor: str) -> tuple[SearchMatch, int]:
+    """Refuses a feed cursor, a negative offset, or one past the cap."""
+    try:
+        raw = base64.urlsafe_b64decode(cursor.encode()).decode()
+        kind, match, offset_text = raw.split("|", 2)
+        offset = int(offset_text)
+    except (ValueError, UnicodeDecodeError) as exc:
+        raise ValueError("malformed cursor") from exc
+    if kind != "search" or match not in ("text", "similar"):
+        raise ValueError("malformed cursor")
+    if not 0 <= offset < MAX_SEARCH_RESULTS:
+        raise ValueError("malformed cursor")
+    return cast(SearchMatch, match), offset
 
 
 def _decode_cursor(cursor: str) -> tuple[int, datetime, str]:

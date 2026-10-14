@@ -18,6 +18,10 @@
  * - **The logo is centred and the nav is not.** The bar is a three-column grid
  *   with the mark in the middle column, so the wordmark stays optically centred
  *   on the page regardless of how wide the two nav clusters grow.
+ * - **The bar spans the window; the page below does not.** The menu sits at
+ *   the window's left edge and the account controls at its right, a gutter in
+ *   from each, while content keeps the `max-w-page` measure. Chrome belongs to
+ *   the window, content to the column.
  *
  * `ROUTE_MESSAGE` lives here rather than in either feature because all three
  * route-level waiting states — the lazy review boundary, the auth gate and the
@@ -32,20 +36,30 @@
 export const SITE_HEADER = "sticky top-0 z-40 border-b border-rule-soft bg-ground";
 
 /**
- * Three columns with the mark in the middle, so it sits on the page's centre
+ * Three columns with the mark in the middle, so it sits on the window's centre
  * line rather than wherever the left cluster happens to end. The outer columns
  * are `minmax(0,1fr)` so a long nav truncates instead of pushing the mark off
- * centre.
+ * centre. Full width, not `max-w-page`: the clusters sit at the window's edges.
  */
 export const HEADER_BAR =
-  "mx-auto grid h-header max-w-page grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-6 px-gutter";
+  "grid h-header w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-6 px-gutter";
 
 export const HEADER_LEFT = "flex min-w-0 items-center gap-3.5";
 export const HEADER_RIGHT = "flex flex-none items-center justify-end gap-3";
 
 /** The wordmark. `youth-mark` is what inverts it on the dark theme. */
 export const WORDMARK = "block leading-none";
-export const WORDMARK_IMAGE = "youth-mark block h-auto w-[132px] max-w-full sm:w-[168px]";
+/**
+ * As tall as the bar: the full 68px `h-header` from `sm` up. The PNG is
+ * cropped to the mark with a 2px margin, so that margin is all the breathing
+ * room there is — any taller and the bar grows. Sized by height because height
+ * is the constraint.
+ *
+ * 52px on a phone (~149px wide), not 68: the outer grid columns share what the
+ * mark leaves over, and the right one holds the avatar and theme toggle (~71px)
+ * — a full-height mark (~195px) would push them into it on a 375px screen.
+ */
+export const WORDMARK_IMAGE = "youth-mark block h-[52px] w-auto max-w-none sm:h-header";
 
 /** The hamburger — three rules, drawn rather than iconified. */
 export const MENU_BUTTON =
@@ -55,19 +69,30 @@ export const MENU_BAR = "h-[2px] bg-current";
 
 /** Search. A pill on the surface, so it reads as a field and not as a button. */
 export const SEARCH_FORM =
-  "flex min-w-0 max-w-[240px] flex-1 items-center gap-2 rounded-full border border-rule-soft bg-surface px-3.5 py-2 focus-within:border-ink-3";
-export const SEARCH_RING =
-  "h-[11px] w-[11px] flex-none rounded-full border-[1.5px] border-ink-3";
+  "flex min-w-0 max-w-[240px] flex-1 items-center gap-2 rounded-full border border-rule-soft bg-surface px-3.5 py-2 focus-within:border-ink-3 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent-ink";
+export const SEARCH_ICON = "flex-none text-ink-3";
 /** A field, not a button — so it takes the interface serif like other prose. */
 export const SEARCH_INPUT =
   "w-full min-w-0 border-0 bg-transparent p-0 font-body text-[12.5px] text-ink outline-none placeholder:text-ink-4";
 
-const NAV_LINK =
-  "whitespace-nowrap font-ui text-micro font-semibold uppercase leading-none tracking-[0.13em] transition-colors";
+/**
+ * A rule that draws itself under the link from left to right on hover and
+ * keyboard focus. `bg-current`, so it takes the link's own colour — ink for
+ * About, accent for Join. Scaled rather than widened, so the animation is a
+ * transform and never reflows the bar; under reduced motion it simply appears.
+ */
+const NAV_UNDERLINE =
+  "relative after:absolute after:inset-x-0 after:-bottom-[5px] after:h-[1.5px] after:origin-left after:scale-x-0 after:bg-current after:transition-transform after:duration-300 after:ease-out hover:after:scale-x-100 focus-visible:after:scale-x-100 motion-reduce:after:transition-none";
 
-/** The current route steps up in ink; the accent is reserved for "your feed". */
+const NAV_LINK = `${NAV_UNDERLINE} whitespace-nowrap font-ui text-micro font-semibold uppercase leading-none tracking-[0.13em] transition-colors`;
+
+/**
+ * The current route steps up in ink and keeps its rule drawn, so the underline
+ * reads as "you are here" as well as "you could go here". The accent is
+ * reserved for "your feed".
+ */
 export function navLink(isActive: boolean): string {
-  return `${NAV_LINK} ${isActive ? "text-ink" : "text-ink-3 hover:text-ink"}`;
+  return `${NAV_LINK} ${isActive ? "text-ink after:scale-x-100" : "text-ink-3 hover:text-ink"}`;
 }
 
 /** The one accented link in the bar — the account, which is the thing to do. */

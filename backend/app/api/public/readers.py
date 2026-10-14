@@ -19,6 +19,8 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, status
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 
 from app.api.deps import (
     ClientIpDep,
@@ -29,6 +31,7 @@ from app.api.deps import (
 )
 from app.api.public.schemas import (
     CreateFolderRequest,
+    DeleteAccountRequest,
     FolderOut,
     ReaderLoginRequest,
     ReaderOut,
@@ -161,6 +164,66 @@ async def update_me(
         interests=list(row.interests),
         newsletter=row.newsletter,
     )
+
+
+# --- your data ------------------------------------------------------------
+#
+# The two routes a privacy notice promises: a copy of what we hold, and
+# erasure. Both act on the caller's own row only — the subject comes from the
+# token, never from the path — so neither can be pointed at someone else.
+
+
+@router.get("/me/export")
+async def export_me(reader: ReaderDep, session: SessionDep) -> JSONResponse:
+    """A machine-readable copy of the account, as a file download.
+
+    ``Content-Disposition: attachment`` so the browser saves it rather than
+    rendering it, and ``no-store`` so no cache between here and the reader
+    keeps a copy of someone's account data.
+    """
+    data = await ReaderService(session).export(reader.id)
+    return JSONResponse(
+        content=jsonable_encoder({"format": "you.th-reader-export/1", **data}),
+        headers={
+            "Content-Disposition": 'attachment; filename="youth-account-data.json"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_me(
+    payload: DeleteAccountRequest,
+    reader: ReaderDep,
+    session: SessionDep,
+    throttle: ReaderLoginThrottleDep,
+    ip: ClientIpDep,
+) -> None:
+    """Erase the caller's account after re-checking their password.
+
+    The password check goes through the **reader login throttle**, keyed the
+    same way, before any hashing. Without it, a stolen token would turn this
+    route into an unthrottled password oracle for the account it belongs to —
+    the one thing ``/login`` is built not to be.
+    """
+    retry_after = throttle.retry_after(ip=ip, email=reader.email)
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many attempts. Try again later.",
+            headers={"Retry-After": str(max(1, int(retry_after)))},
+        )
+
+    service = ReaderService(session)
+    row = await service.get(reader.id)
+    if not verify_password(payload.password, row.password_hash):
+        throttle.record_failure(ip=ip, email=reader.email)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="That password is not right."
+        )
+
+    throttle.record_success(ip=ip, email=reader.email)
+    await service.delete_account(reader.id)
 
 
 # --- folders and saves -----------------------------------------------------

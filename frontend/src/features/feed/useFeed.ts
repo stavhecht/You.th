@@ -10,21 +10,22 @@
  * framework-agnostic, so the Next.js port can call it from a server component
  * without dragging react-query along (DESIGN.md §3.1).
  *
- * **Which narrowing happens where, and why.** Verdict and subject are *server*
- * filters: the feed is paginated, so narrowing those client-side would only
- * narrow the pages already loaded and a category with nothing on page one would
- * look empty. Free text is the opposite — there is no search endpoint, and
- * inventing a `?q=` that the backend answers with a `LIKE` over card columns
- * would be a search that quietly misses the body of every article. Matching
- * what has loaded is a smaller promise, and `matchedWithin` below is what lets
- * the UI make exactly that promise rather than implying a full-corpus search.
+ * **Every narrowing happens on the server**, free text included. The feed is
+ * paginated, so narrowing client-side would only narrow the pages already
+ * loaded — a category with nothing on page one would look empty, and a search
+ * would miss everything not yet scrolled to. Free text used to be the
+ * exception, matched against loaded cards only, because the alternative on
+ * offer was a `LIKE` over card columns that would quietly miss every
+ * article's body. `GET /feed?q=` now searches the whole approved text of every
+ * published article (migration 0006), so "nothing matched" is a claim about
+ * the archive and the empty state can make it.
  */
 
 import { useMemo } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 
 import { feedKeys, fetchFeed, type FeedFilter } from "@/lib/api/feed";
-import type { FeedCard } from "@/types/api";
+import type { FeedCard, FeedPage } from "@/types/api";
 
 export interface Feed {
   items: FeedCard[];
@@ -35,18 +36,19 @@ export interface Feed {
   fetchNextPage: () => void;
   refetch: () => void;
   /**
-   * How many cards the text search was applied to. Zero when nothing is being
-   * searched. The empty state uses it to say "nothing in the N loaded so far"
-   * rather than "nothing published", which would be a claim about the archive.
+   * How a search was answered; null for the feed. `similar` means nothing
+   * matched the words and these are close spellings, which the page says.
+   * Read from the first page: the server decides the mode there and keeps it.
    */
-  matchedWithin: number;
+  match: FeedPage["match"];
 }
 
-export function useFeed(filter: FeedFilter & { query?: string }): Feed {
+export function useFeed(filter: FeedFilter): Feed {
   const serverFilter: FeedFilter = {
     verdict: filter.verdict ?? null,
     subject: filter.subject ?? null,
     personalise: filter.personalise,
+    query: filter.query?.trim() || null,
   };
 
   const query = useInfiniteQuery({
@@ -56,15 +58,9 @@ export function useFeed(filter: FeedFilter & { query?: string }): Feed {
     getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
 
-  const loaded = useMemo(
+  const items = useMemo(
     () => query.data?.pages.flatMap((page) => page.items) ?? [],
     [query.data],
-  );
-
-  const text = (filter.query ?? "").trim().toLowerCase();
-  const items = useMemo(
-    () => (text ? loaded.filter((card) => matches(card, text)) : loaded),
-    [loaded, text],
   );
 
   return {
@@ -75,20 +71,6 @@ export function useFeed(filter: FeedFilter & { query?: string }): Feed {
     isFetchingNextPage: query.isFetchingNextPage,
     fetchNextPage: () => void query.fetchNextPage(),
     refetch: () => void query.refetch(),
-    matchedWithin: text ? loaded.length : 0,
+    match: query.data?.pages[0]?.match ?? null,
   };
-}
-
-/**
- * Headline, excerpt and the verdict's scope limit.
- *
- * The qualifier is in here on purpose — it is where a card says "for
- * pigmentation" or "at 10–20%", which is exactly the kind of thing someone
- * types into a search box, and it is not repeated anywhere else on the tile.
- */
-function matches(card: FeedCard, text: string): boolean {
-  return [card.headline, card.excerpt, card.verdictQualifier ?? ""]
-    .join(" ")
-    .toLowerCase()
-    .includes(text);
 }

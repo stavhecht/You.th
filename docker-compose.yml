@@ -204,6 +204,9 @@ services:
       EVIDWELL_API_URL: ${EVIDWELL_API_URL:-http://backend:8000}
       RESEARCH_TRIGGER_TOKEN: ${RESEARCH_TRIGGER_TOKEN:-}
       RESEARCH_WEEKLY_CRON: ${RESEARCH_WEEKLY_CRON:-0 8 * * 0}
+      # Optional: JSON parameters for the weekly run, and a URL to POST its summary to.
+      RESEARCH_WEEKLY_PARAMS: ${RESEARCH_WEEKLY_PARAMS:-}
+      RESEARCH_NOTIFY_URL: ${RESEARCH_NOTIFY_URL:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:

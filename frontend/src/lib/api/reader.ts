@@ -91,6 +91,30 @@ export async function updateMe(payload: {
   });
 }
 
+/**
+ * A copy of everything the account holds, as the server built it.
+ *
+ * Returned as the parsed JSON rather than turned into a file here: making a
+ * download needs `document` and `URL.createObjectURL`, and this layer stays
+ * free of browser globals (see `client.ts`). The caller saves it.
+ */
+export async function exportMyData(): Promise<unknown> {
+  return apiFetch<unknown>("/readers/me/export");
+}
+
+/**
+ * Erase the account, its folders and its saves. Needs the current password.
+ *
+ * A wrong password answers 403, not 401, so it reads as "try again" rather
+ * than as an expired session.
+ */
+export async function deleteAccount(password: string): Promise<void> {
+  return apiFetch<void>("/readers/me", {
+    method: "DELETE",
+    body: JSON.stringify({ password }),
+  });
+}
+
 export async function fetchFolders(): Promise<Folder[]> {
   return apiFetch<Folder[]>("/readers/folders");
 }

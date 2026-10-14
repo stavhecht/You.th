@@ -42,6 +42,15 @@ export const FEED_PAGE = "pb-16";
 export const HERO =
   "relative ml-[calc(50%-50vw)] aspect-[16/9] max-h-[68vh] w-screen overflow-hidden bg-tile";
 export const HERO_VIDEO = "h-full w-full object-cover saturate-[0.72]";
+/**
+ * Pause/play for the hero footage: a bare ▶ / ⏸ glyph in the statement's own
+ * colour and 70% opacity, so it reads as part of the same quiet layer rather
+ * than as a control competing with it. Full opacity on hover and focus, so it
+ * is findable when someone is actually reaching for it. 32px square keeps a
+ * comfortable hit area around a small glyph.
+ */
+export const HERO_TOGGLE =
+  "absolute bottom-3 right-3 flex h-8 w-8 items-center justify-center border-0 bg-transparent p-0 font-body text-[15px] leading-none text-[#f4f0ed] opacity-70 transition-opacity hover:opacity-100 focus-visible:opacity-100";
 
 /**
  * The statement over the hero video.

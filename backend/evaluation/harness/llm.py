@@ -83,6 +83,11 @@ def synthesis_key(model_id: str, payload: SynthesisInput, feedback: str | None) 
     synthesis live and sampling a new draft.
     """
     shown = payload.model_dump(mode="json", exclude={"sources": {"__all__": {"stances"}}})
+    # ``shown_claims`` is None unless ``synthesis_relevance_filter`` is on, and
+    # left out then so recordings made before it existed still replay.
+    for source in shown["sources"]:
+        if source.get("shown_claims") is None:
+            source.pop("shown_claims", None)
     return stable_key("synthesize", model_id, shown, feedback or "")
 
 

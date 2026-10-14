@@ -12,7 +12,7 @@
  * and passes it down. Putting it in this hook would give every caller its own
  * disconnected copy.
  *
- *   ?q=          free text, matched client-side over what has loaded
+ *   ?q=          server-side search over every published article
  *   ?verdict=    server-side filter
  *   ?subject=    server-side filter
  *   ?plain=1     turn off a signed-in reader's interest ordering

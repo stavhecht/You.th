@@ -501,6 +501,12 @@ class PromptSource(BaseModel):
     #: disagreement between them is visible. A claim missing here was not
     #: appraised, which is not the same as ``unclear``.
     stances: dict[str, Stance] = Field(default_factory=dict)
+    #: The claims the prompt's "Retrieved for:" line names, when that differs
+    #: from ``claims``: those APPRAISE did not label ``off_topic``. ``None``
+    #: means unfiltered, and the line shows ``claims``. Rendering only —
+    #: validation's quorum still reads ``claims``, which is what retrieval
+    #: actually did. Set only under ``synthesis_relevance_filter``.
+    shown_claims: list[str] | None = None
 
 
 class SynthesisInput(BaseModel):

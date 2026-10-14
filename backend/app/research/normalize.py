@@ -36,6 +36,11 @@ _NOT_A_TOPIC = frozenset({
     "price", "prices", "cost", "costs", "coupon", "discount", "deal", "deals", "sale",
     "amazon", "walmart", "costco", "target", "stock", "stocks", "shares", "lawsuit",
     "lawsuits", "login", "app", "apk", "ticket", "tickets",
+    # Products and shops (measured 2026-10-12: "running shoes" ranked second,
+    # "supplement store near me" reached triage). A product is bought, not
+    # researched; its health question, if any, is phrased without the product.
+    "shoe", "shoes", "sneaker", "sneakers", "headphones", "earbuds", "leggings",
+    "apparel", "store", "stores", "shop", "shops", "brand", "brands",
 })
 
 
@@ -96,6 +101,11 @@ def query_key(query: str) -> str:
 def is_not_a_topic(query: str) -> bool:
     words = set(normalize_query(query).split())
     return bool(words & _NOT_A_TOPIC) or not query_key(query)
+
+
+def singular(word: str) -> str:
+    """Public face of the naive singular, for the trend search's phrase matching."""
+    return _singular(word)
 
 
 def _singular(word: str) -> str:

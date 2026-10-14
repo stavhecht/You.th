@@ -289,7 +289,7 @@ def render_source_block(payload: SynthesisInput) -> str:
         block = (
             f"[{source.handle}] {_round(source.title)}\n"
             f"Type: {label} | {journal}, {year}\n"
-            f"Retrieved for: {'; '.join(source.claims)}\n"
+            f"Retrieved for: {'; '.join(source.shown_claims or source.claims)}\n"
             f"Abstract: {_round(source.abstract)}"
         )
         # Only the few open-access papers FULL_TEXT chose have these.

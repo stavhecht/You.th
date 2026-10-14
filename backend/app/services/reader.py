@@ -97,7 +97,7 @@ class ReaderService:
             ReaderFolder(reader_id=reader.id, name=DEFAULT_FOLDER_NAME)
         )
         await self._session.flush()
-        logger.info("reader %s signed up", reader.email)
+        logger.info("reader %s signed up", reader.id)
         return reader
 
     async def by_email(self, email: str) -> Reader | None:
@@ -138,6 +138,83 @@ class ReaderService:
             reader.newsletter = newsletter
         await self._session.flush()
         return reader
+
+    async def export(self, reader_id: str) -> dict[str, Any]:
+        """Everything this account holds about the reader, as plain data.
+
+        The access/portability copy (GDPR Arts 15 and 20, Israeli PPL s.13).
+        Built from the tables, not from the API's response models, so a field
+        added to ``readers`` later is not silently left out of the copy just
+        because no screen shows it yet — ``test_the_export_carries_every_reader_column``
+        fails when that happens.
+
+        Excludes ``password_hash`` deliberately: it is a credential, not
+        information about the person, and handing it out only gives an
+        offline-cracking target to whoever gets hold of the file.
+
+        Contact-form requests are **not** included even when the address
+        matches. Signup never verifies that the reader owns their email, so
+        matching on it would let anyone read messages someone else sent by
+        registering with that person's address. Those go through the privacy
+        contact and ``scripts/privacy_request.py`` instead.
+        """
+        reader = await self.get(reader_id)
+        folders = await self.folders(reader_id)
+
+        rows = await self._session.execute(
+            select(
+                Article.slug,
+                Article.headline,
+                ReaderSave.folder_id,
+                ReaderSave.created_at,
+            )
+            .join(ReaderSave, ReaderSave.article_id == Article.id)
+            .where(ReaderSave.reader_id == reader_id)
+            .order_by(ReaderSave.created_at)
+        )
+        saves_by_folder: dict[str, list[dict[str, Any]]] = {}
+        for row in rows.all():
+            saves_by_folder.setdefault(row.folder_id, []).append(
+                {"article": row.slug, "headline": row.headline, "saved_at": row.created_at}
+            )
+
+        return {
+            "account": {
+                column.name: getattr(reader, column.key)
+                for column in Reader.__table__.columns
+                if column.name != "password_hash"
+            },
+            "folders": [
+                {
+                    "name": folder["name"],
+                    "created_at": folder["created_at"],
+                    "saves": saves_by_folder.get(folder["id"], []),
+                }
+                for folder in folders
+            ],
+        }
+
+    async def delete_account(self, reader_id: str) -> None:
+        """Erase the account: the ``readers`` row, its folders and its saves.
+
+        A hard delete, not ``is_active = false``. A deactivated row still holds
+        the email, name and interests, which is exactly what an erasure request
+        asks us to stop holding. Folders and saves go with it through
+        ``ON DELETE CASCADE`` (``reader_folders``, ``reader_saves``); nothing
+        else references ``readers``, so no published article or audit trail is
+        touched.
+
+        What this cannot reach, and the privacy policy says so: copies already
+        in database backups, and server logs, which age out on their own
+        schedules rather than being rewritten.
+        """
+        result = await self._session.execute(
+            delete(Reader).where(Reader.id == reader_id)
+        )
+        if result.rowcount == 0:  # type: ignore[attr-defined]
+            raise ReaderError("no such reader")
+        await self._session.flush()
+        logger.info("reader %s deleted their account", reader_id)
 
     # --- folders ----------------------------------------------------------
 

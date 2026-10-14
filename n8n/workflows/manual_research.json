@@ -46,7 +46,7 @@
           "response": {
             "response": {
               "neverError": true,
-              "fullResponse": false
+              "fullResponse": true
             }
           }
         }
@@ -62,9 +62,13 @@
         0
       ],
       "parameters": {
-        "respondWith": "firstIncomingItem",
-        "options": {}
-      }
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json.body) }}",
+        "options": {
+          "responseCode": "={{ $json.statusCode }}"
+        }
+      },
+      "notes": "Passes the backend's status through: 202 with the run, 409 when one is already going, 422 for a bad parameter."
     }
   ],
   "connections": {

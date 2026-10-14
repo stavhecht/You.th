@@ -67,16 +67,24 @@
 
     --ew-ink: #201e1d;      /* ≈15.6:1 — headlines, body, verdict marks       */
     --ew-ink-2: #504b48;    /* ≈8.1:1  — excerpts, secondary prose            */
-    --ew-ink-3: #77706a;    /* ≈4.9:1  — meta, qualifiers, study type         */
-    --ew-ink-4: #8b847d;    /* ≈3.7:1  — rules and 14px+ only, never body     */
+    /* Ratios are against --ew-bg, the ground most text sits on — not against
+       --ew-surface, which is lighter and flatters every value. Measured that
+       way, ink-3 was 4.32:1 and ink-4 3.27:1, both under WCAG 1.4.3's 4.5:1
+       (IS 5568 AA), and ink-4 carried real text: form notes, dates, password
+       rules. Both are now text-safe; ink-4 stays a step lighter than ink-3. */
+    --ew-ink-3: #6b645f;    /* ≈5.2:1  — meta, qualifiers, study type         */
+    --ew-ink-4: #736c66;    /* ≈4.6:1  — the quietest text; still AA          */
 
     --ew-rule: #cfc8bd;
     --ew-rule-soft: #e0dbd2;
 
-    --ew-accent: #ec3013;     /* ≈3.8:1 — chrome, focus ring, marks           */
-    --ew-accent-ink: #ae1800; /* ≈6.5:1 — the accent at text size             */
-    --ew-accent-hover: #c72510;
-    --ew-accent-wash: #fbf1ee;
+    --ew-accent: #6eb59b;     /* ≈2.1:1 — chrome, focus ring, fills; never text */
+    --ew-accent-ink: #26604b; /* ≈6.5:1 — the accent at text size             */
+    --ew-accent-hover: #5a9f86;
+    --ew-accent-wash: #eef6f2;
+    /* Text on an accent fill. Dark in both themes: white on #6eb59b is 2.4:1,
+       this is 7.4:1 (5.7:1 on hover). */
+    --ew-on-accent: #1a1817;
 
     /* The inverted pair: an ink-filled control on paper, and the dark panel on
        the sign-up page. Named for the relationship rather than for the colour,
@@ -186,16 +194,17 @@
 
     --ew-ink: #f2efea;      /* ≈14.9:1 */
     --ew-ink-2: #c2bcb5;    /* ≈8.6:1  */
-    --ew-ink-3: #98918a;    /* ≈5.1:1  */
-    --ew-ink-4: #7d766f;    /* ≈3.4:1  */
+    --ew-ink-3: #98918a;    /* ≈5.7:1  */
+    --ew-ink-4: #8f877f;    /* ≈5.1:1 on bg, 4.6:1 on surface — was 4.0:1 */
 
     --ew-rule: #443f3b;
     --ew-rule-soft: #34302e;
 
-    --ew-accent: #ff5c3d;     /* ≈6.0:1 */
-    --ew-accent-ink: #ff8368; /* ≈8.0:1 */
-    --ew-accent-hover: #ff7457;
-    --ew-accent-wash: #2a1a16;
+    --ew-accent: #6eb59b;     /* ≈7.4:1 */
+    --ew-accent-ink: #8fd0b7; /* ≈10.1:1 */
+    --ew-accent-hover: #84c6ad;
+    --ew-accent-wash: #16241f;
+    --ew-on-accent: #1a1817;
 
     --ew-invert-bg: #f2efea;
     --ew-invert-fg: #191716;
@@ -247,9 +256,12 @@
     color: #fff;
   }
 
-  /* Never the browser default blue — the accent ring is part of the system. */
+  /* Never the browser default blue — the accent ring is part of the system.
+     Drawn in accent-*ink*, the same hue at text strength: the fill accent is
+     2.1:1 on the light ground, too faint to find a focused control by
+     (WCAG 1.4.11 / 2.4.7). */
   *:focus-visible {
-    outline: 2px solid var(--ew-accent);
+    outline: 2px solid var(--ew-accent-ink);
     outline-offset: 2px;
   }
 

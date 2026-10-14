@@ -156,6 +156,12 @@ export interface GeneratedImagery {
 export interface FeedPage {
   items: FeedCard[];
   nextCursor: string | null;
+  /**
+   * Null for the feed. For a search: `text` when articles matched the words,
+   * `similar` when nothing did and these are titles spelled like the query —
+   * which the page has to say, because a close spelling can be wrong.
+   */
+  match: "text" | "similar" | null;
 }
 
 /**
@@ -587,17 +593,47 @@ export interface ResearchRunRequest {
   trendWindowDays?: number;
   geo?: string;
   language?: string;
+  /** A subset of the sources the server enables; it cannot enable another. */
+  enabledSources?: string[];
+  maxRequestsPerSource?: number;
+  /** Raise the bars for this run; the server's settings are the floor. */
+  minTrendScore?: number;
+  minDataCoverage?: number;
+  /** Topics to look into on top of what the sweep finds (at most 10). */
+  queries?: string[];
 }
+
+export type TrendStatus = "emerging" | "accelerating" | "steady" | "declining" | "preliminary";
 
 /**
  * The stored scoring record, verbatim — so its keys are snake_case.
  * `unavailable` lists components with no data; they are left out, never zeroed.
+ *
+ * Runs since the trend search split (`version` "trend-v1") score momentum,
+ * coverage, audience, freshness and editorial fit, with no evidence in the
+ * score; older rows have no `version` and the evidence-weighted components.
  */
 export interface ResearchScores {
+  version?: string;
   components: Record<string, number>;
   unavailable: string[];
   weights_used: Record<string, number>;
   overall: number | null;
+  /** 0-1: how much of the full score could be measured. */
+  data_coverage?: number;
+  confidence?: "high" | "medium" | "low" | null;
+  /** Why there is no score, when there is none. */
+  insufficient?: string | null;
+}
+
+/** A collected item shown as evidence that a topic is being discussed. */
+export interface ResearchSupportingSource {
+  source_name: string;
+  source_type: "search" | "news" | "feed" | "web" | "video";
+  title: string;
+  url: string;
+  publisher: string | null;
+  published_at: string | null;
 }
 
 export interface ResearchEvidenceCounts {
@@ -647,6 +683,20 @@ export interface ResearchSignals {
     } | null;
     failures: string[];
   };
+  /** What the trend score was computed from; absent on rows from before the split. */
+  metrics?: {
+    window_days: number;
+    stories: number;
+    independent_publishers: number;
+    syndicated_copies: number;
+    source_types: string[];
+    coverage_measured: boolean;
+    questions: number;
+  } | null;
+  trend_status?: TrendStatus | null;
+  key_questions?: string[];
+  supporting_sources?: ResearchSupportingSource[];
+  in_evidence_pool?: boolean;
 }
 
 export interface ResearchCandidate {
@@ -664,13 +714,18 @@ export interface ResearchCandidate {
   pipelineRunId: string | null;
   decidedAt: string | null;
   dismissReason: string | null;
+  /** The persistent topic this candidate observes, stable across runs. */
+  topicRefId?: string | null;
 }
 
 export interface ResearchProviderStatus {
-  status: "ok" | "partial" | "failed" | "unavailable";
+  /** `skipped`: not enabled for the run, or its budget or time ran out. */
+  status: "ok" | "partial" | "failed" | "unavailable" | "skipped";
   detail: string | null;
   calls: number;
   failures: number;
+  retries?: number;
+  items?: number;
 }
 
 export interface ResearchRun {

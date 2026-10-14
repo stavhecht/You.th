@@ -21,7 +21,17 @@ from app.research.contracts import EvidenceCounts, NewsArticle, WebResult
 
 
 class ProviderUnavailable(RuntimeError):
-    """The provider could not answer: throttled, down, unconfigured, or broken."""
+    """The provider could not answer: throttled, down, unconfigured, or broken.
+
+    ``permanent`` marks a failure that asking again cannot fix within this run
+    — a rejected key (401/403), a spent daily quota. The trend agent stops
+    calling such a source for the rest of the run instead of burning its time
+    budget on identical refusals.
+    """
+
+    def __init__(self, message: str, *, permanent: bool = False) -> None:
+        super().__init__(message)
+        self.permanent = permanent
 
 
 @dataclass(frozen=True, slots=True)

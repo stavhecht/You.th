@@ -63,6 +63,7 @@ export default {
           ink: "var(--ew-accent-ink)", // the accent at text size
           hover: "var(--ew-accent-hover)",
           wash: "var(--ew-accent-wash)",
+          on: "var(--ew-on-accent)", // text on an accent fill
         },
 
         // The only chromatic axis in the product. Subject, never verdict.

@@ -127,6 +127,28 @@ NEGATIVE_PUBLICATION_TYPES: frozenset[str] = frozenset(
     }
 )
 
+#: A review that names itself narrative stays narrative, whatever it surveys.
+#: "A Narrative Review of meta-analyses" is still a narrative review.
+_NARRATIVE_TITLE_RE = re.compile(
+    r"\bnarrative\b[^.:]{0,30}\breview\b|(?<!systematic )\bliterature review\b", re.I
+)
+
+#: Abstract prose in which a review describes *its own* method, as opposed to
+#: the literature it surveys. Measured 2026-10-13: three narrative reviews in
+#: one article graded ``meta_analysis`` because their abstracts said "evidence
+#: from randomized trials and meta-analyses indicates…" — 25 papers in the cache
+#: whose titles say narrative or literature review were graded above it. A
+#: review's abstract mentions meta-analyses for the same reason it mentions
+#: trials: they are what it reviews.
+_SELF_DESCRIBED_REVIEW_RE = re.compile(
+    r"\b(this|the present|the current|our)\s+(systematic review|meta-?analys[ie]s)\b"
+    r"|\bwe\s+(conducted|performed|undertook|carried out)\s+an?\s+[^.]{0,40}?"
+    r"(systematic review|meta-?analys[ie]s)\b"
+    r"|\bsystematic(ally)?\s+(literature\s+)?search(ed)?\b"
+    r"|\bPRISMA\b",
+    re.I,
+)
+
 #: Title/abstract fallbacks, checked only when publication type is unusable.
 #: Ordered strongest-first; first match wins.
 TEXT_PATTERNS: list[tuple[re.Pattern[str], StudyType]] = [
@@ -412,9 +434,22 @@ def classify_study_type(
     if normalised_types & PROVISIONAL_REVIEW_TYPES:
         # Tagged a review and nothing more specific. The text may sharpen that
         # into a systematic review or meta-analysis; anything else it thinks it
-        # sees is the surveyed literature, not this paper.
-        if guess is not None and guess in REVIEW_FAMILY:
+        # sees is the surveyed literature, not this paper. And even a review-
+        # family word counts only where it describes this paper — in its title,
+        # or in an abstract sentence about its own method.
+        if _NARRATIVE_TITLE_RE.search(title):
+            return StudyType.NARRATIVE_REVIEW
+        if (
+            guess is not None
+            and guess in REVIEW_FAMILY
+            and _SELF_DESCRIBED_REVIEW_RE.search(abstract)
+        ):
             return guess
+        title_guess = next(
+            (study for pattern, study in TEXT_PATTERNS if pattern.search(title)), None
+        )
+        if title_guess in REVIEW_FAMILY:
+            return title_guess
         return StudyType.NARRATIVE_REVIEW
 
     if guess is not None:

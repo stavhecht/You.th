@@ -86,6 +86,25 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    @app.middleware("http")
+    async def _security_headers(request: Request, call_next):  # type: ignore[no-untyped-def]
+        """Three headers every API response can carry without breaking anything.
+
+        ``nosniff`` matters most here: ``/api/media`` serves stored bytes, and
+        the store decides their type from magic bytes so the browser must not
+        second-guess it. Nothing under ``/api`` is meant to be framed, and no
+        URL here should leak to a third party as a referrer.
+
+        A Content-Security-Policy is deliberately not set: these responses are
+        JSON and images, and the policy that matters is the SPA's, which is
+        served by whatever hosts ``frontend/dist`` in production — not this app.
+        """
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        return response
+
     app.include_router(public_feed.router, prefix="/api")                      # app client
     app.include_router(public_readers.router, prefix="/api")                  # accounts
     app.include_router(public_contact.router, prefix="/api")                  # let us know

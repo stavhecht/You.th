@@ -16,8 +16,9 @@ import secrets
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import delete, func, or_, select, update
+from sqlalchemy import and_, delete, exists, func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.config import Settings
@@ -32,16 +33,33 @@ from app.domain.models import (
     DiscoveryCandidate,
     PipelineRun,
     ResearchCandidate,
+    ResearchFeedState,
     ResearchRun,
+    ResearchTopic,
+    ResearchTopicObservation,
 )
 from app.research.contracts import (
     CandidateTopic,
+    Category,
     PastTopic,
     ResearchConfig,
     ResearchParams,
     ResearchStage,
     ResearchState,
 )
+from app.research.trends.contracts import (
+    CollectionWindow,
+    Downstream,
+    ResultStatus,
+    TrendSearchResult,
+)
+from app.research.trends.history import (
+    KnownTopic,
+    Observation,
+    ResolvedTopic,
+    TopicRef,
+)
+from app.research.trends.sources.rss import FeedState
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +97,10 @@ async def start_research_run(
     )
     if active is not None:
         raise ResearchAlreadyActive(f"research run {active} is already queued or running")
+    # The check above names the run in the way; the partial unique index
+    # ``research_runs_one_active`` is what actually holds when two triggers
+    # race past it, so the insert runs in a savepoint and a violation is the
+    # same 409.
 
     now = datetime.now(UTC)
     config = ResearchConfig.resolve(settings, params)
@@ -96,8 +118,14 @@ async def start_research_run(
         attempts=0,
         created_at=now,
     )
-    session.add(run)
-    await session.flush()
+    try:
+        async with session.begin_nested():
+            session.add(run)
+            await session.flush()
+    except IntegrityError as exc:
+        raise ResearchAlreadyActive(
+            "a research run is already queued or running (started at the same moment)"
+        ) from exc
     logger.info("queued research run %s (%s)", run.label, mode.value)
     return run
 
@@ -205,6 +233,7 @@ async def checkpoint(factory: async_sessionmaker[AsyncSession], state: ResearchS
                 },
                 stage_log=state.stage_log,
                 notes=state.notes,
+                summary=run_summary(state),
                 heartbeat_at=datetime.now(UTC),
             )
         )
@@ -225,6 +254,14 @@ async def checkpoint(factory: async_sessionmaker[AsyncSession], state: ResearchS
 async def finish(factory: async_sessionmaker[AsyncSession], state: ResearchState) -> None:
     await checkpoint(factory, state)
     failed = state.failed is not None
+    if state.trend_summary is not None:
+        # The trend phase finished, so its measurements are whole even when
+        # the evidence check later failed. A failed trend phase writes nothing:
+        # partial metrics would read as a decline next week.
+        try:
+            await record_observations(factory, state)
+        except Exception:
+            logger.exception("could not record trend history for run %s", state.label)
     async with factory() as session:
         await session.execute(
             update(ResearchRun)
@@ -237,6 +274,26 @@ async def finish(factory: async_sessionmaker[AsyncSession], state: ResearchState
             )
         )
         await session.commit()
+
+
+async def fail_unloadable(
+    factory: async_sessionmaker[AsyncSession], run_id: str, message: str
+) -> None:
+    """Mark a claimed run failed when its stored state cannot even be loaded."""
+    try:
+        async with factory() as session:
+            await session.execute(
+                update(ResearchRun)
+                .where(ResearchRun.id == run_id)
+                .values(
+                    status=ResearchRunStatus.FAILED,
+                    error={"message": f"could not load the run: {message}"},
+                    finished_at=datetime.now(UTC),
+                )
+            )
+            await session.commit()
+    except Exception:
+        logger.exception("could not record that research run %s failed to load", run_id)
 
 
 async def prune_undecided(
@@ -280,7 +337,338 @@ def candidate_row(candidate: CandidateTopic, run_id: str) -> dict[str, Any]:
         "rank": candidate.rank,
         "status": candidate.status,
         "discard_reason": candidate.discard_reason,
+        "topic_ref_id": candidate.topic_ref_id,
     }
+
+
+def run_summary(state: ResearchState) -> dict[str, Any] | None:
+    """What ``research_runs.summary`` holds: the frozen trend output and counts."""
+    if state.trend_summary is None and not state.counts:
+        return None
+    return {"trend": state.trend_summary, "counts": state.counts}
+
+
+# --- trend history -----------------------------------------------------------
+
+
+async def record_observations(
+    factory: async_sessionmaker[AsyncSession], state: ResearchState
+) -> int:
+    """One observation per scored, enriched topic: the trend history.
+
+    An upsert on (topic, run), so finishing a run twice writes the same rows.
+    ``proposed`` is whether the run finally selected it — what repeat
+    suppression asks about.
+    """
+    assert state.window_start is not None and state.window_end is not None
+    rows = []
+    for candidate in state.candidates:
+        if (
+            candidate.topic_ref_id is None
+            or candidate.metrics is None
+            or not candidate.in_enrich_pool
+        ):
+            continue
+        metrics, scores = candidate.metrics, candidate.scores
+        rows.append(
+            {
+                "topic_id": candidate.topic_ref_id,
+                "research_run_id": state.run_id,
+                "observed_at": state.window_end,
+                "window_start": state.window_start,
+                "window_end": state.window_end,
+                "stories": metrics.stories,
+                "independent_publishers": metrics.independent_publishers,
+                "trend_score": scores.overall,
+                "data_coverage": scores.data_coverage,
+                "trend_status": (
+                    candidate.trend_status.value if candidate.trend_status else None
+                ),
+                "scoring_version": scores.version,
+                "proposed": candidate.status
+                in (ResearchCandidateStatus.SELECTED, ResearchCandidateStatus.PROMOTED),
+                "metrics": metrics.model_dump(mode="json"),
+                "scores": scores.model_dump(mode="json"),
+            }
+        )
+    if not rows:
+        return 0
+    # One topic can back two candidates when wording drifted onto one key;
+    # the later (lower-ranked) row would otherwise make the upsert collide.
+    unique = {row["topic_id"]: row for row in reversed(rows)}
+    async with factory() as session:
+        statement = insert(ResearchTopicObservation).values(list(unique.values()))
+        await session.execute(
+            statement.on_conflict_do_update(
+                index_elements=["topic_id", "research_run_id"],
+                set_={
+                    key: statement.excluded[key]
+                    for key in rows[0]
+                    if key not in ("topic_id", "research_run_id")
+                },
+            )
+        )
+        await session.commit()
+    return len(unique)
+
+
+class PostgresTopicStore:
+    """``trends/history.py::TopicStore`` over ``research_topics`` and its observations."""
+
+    def __init__(self, factory: async_sessionmaker[AsyncSession]) -> None:
+        self._factory = factory
+
+    async def known(self, since: datetime) -> list[KnownTopic]:
+        async with self._factory() as session:
+            rows = await session.execute(
+                select(ResearchTopic).where(
+                    ResearchTopic.last_seen_at >= since, ResearchTopic.merged_into.is_(None)
+                )
+            )
+            return [
+                KnownTopic(
+                    id=topic.id,
+                    topic_key=topic.topic_key,
+                    label=topic.label,
+                    category=Category(topic.category),
+                    last_seen_at=topic.last_seen_at,
+                )
+                for topic in rows.scalars()
+            ]
+
+    async def resolve(
+        self, refs: list[TopicRef], *, now: datetime, exclude_run: str
+    ) -> dict[str, ResolvedTopic]:
+        if not refs:
+            return {}
+        values = [
+            {
+                "topic_key": ref.topic_key,
+                "label": ref.label,
+                "subject": ref.subject,
+                "outcome": ref.outcome,
+                "category": ref.category.value,
+                "first_seen_at": now,
+                "last_seen_at": now,
+            }
+            for ref in {ref.topic_key: ref for ref in refs}.values()
+        ]
+        async with self._factory() as session:
+            statement = insert(ResearchTopic).values(values)
+            result = await session.execute(
+                statement.on_conflict_do_update(
+                    index_elements=["topic_key"],
+                    set_={
+                        "label": statement.excluded.label,
+                        "last_seen_at": func.greatest(
+                            ResearchTopic.last_seen_at, statement.excluded.last_seen_at
+                        ),
+                    },
+                ).returning(
+                    ResearchTopic.topic_key,
+                    ResearchTopic.id,
+                    ResearchTopic.first_seen_at,
+                    ResearchTopic.merged_into,
+                )
+            )
+            rows = result.all()
+            target = {key: merged or topic_id for key, topic_id, _, merged in rows}
+            first_seen = {key: seen for key, _, seen, _ in rows}
+            observed = await session.execute(
+                select(
+                    ResearchTopicObservation.topic_id,
+                    ResearchTopicObservation.research_run_id,
+                    ResearchTopicObservation.observed_at,
+                    ResearchTopicObservation.stories,
+                    ResearchTopicObservation.proposed,
+                ).where(
+                    ResearchTopicObservation.topic_id.in_(set(target.values())),
+                    ResearchTopicObservation.research_run_id != exclude_run,
+                )
+            )
+            by_topic: dict[str, list[Observation]] = {}
+            for topic_id, run_id, observed_at, stories, proposed in observed:
+                by_topic.setdefault(topic_id, []).append(
+                    Observation(
+                        run_id=run_id,
+                        observed_at=observed_at,
+                        stories=stories,
+                        proposed=proposed,
+                    )
+                )
+            # Committed before returning: the next checkpoint writes candidates
+            # whose topic_ref_id points at these rows.
+            await session.commit()
+        return {
+            key: ResolvedTopic(
+                id=topic_id,
+                first_seen_at=first_seen[key],
+                observations=by_topic.get(topic_id, []),
+            )
+            for key, topic_id in target.items()
+        }
+
+    async def recent_runs(self, since: datetime, *, exclude_run: str) -> list[str]:
+        async with self._factory() as session:
+            rows = await session.execute(
+                select(
+                    ResearchTopicObservation.research_run_id,
+                    func.max(ResearchTopicObservation.observed_at).label("at"),
+                )
+                .where(
+                    ResearchTopicObservation.observed_at >= since,
+                    ResearchTopicObservation.research_run_id != exclude_run,
+                )
+                .group_by(ResearchTopicObservation.research_run_id)
+                .order_by(func.max(ResearchTopicObservation.observed_at).desc())
+            )
+            return [run_id for run_id, _ in rows]
+
+
+class PostgresFeedStore:
+    """``trends/sources/rss.py::FeedStateStore`` over ``research_feed_state``."""
+
+    def __init__(self, factory: async_sessionmaker[AsyncSession]) -> None:
+        self._factory = factory
+
+    async def load(self, urls: list[str]) -> dict[str, FeedState]:
+        if not urls:
+            return {}
+        async with self._factory() as session:
+            rows = await session.execute(
+                select(ResearchFeedState).where(ResearchFeedState.feed_url.in_(urls))
+            )
+            return {
+                row.feed_url: FeedState(
+                    feed_url=row.feed_url,
+                    etag=row.etag,
+                    last_modified=row.last_modified,
+                    last_fetched_at=row.last_fetched_at,
+                    last_success_at=row.last_success_at,
+                    last_status=row.last_status,
+                    last_error=row.last_error,
+                    consecutive_failures=row.consecutive_failures,
+                    items=row.items or [],
+                )
+                for row in rows.scalars()
+            }
+
+    async def save(self, state: FeedState) -> None:
+        values = state.model_dump(mode="json")
+        values["items"] = values["items"] or None
+        for key in ("last_fetched_at", "last_success_at"):
+            values[key] = getattr(state, key)
+        async with self._factory() as session:
+            statement = insert(ResearchFeedState).values(values)
+            await session.execute(
+                statement.on_conflict_do_update(
+                    index_elements=["feed_url"],
+                    set_={key: statement.excluded[key] for key in values if key != "feed_url"},
+                )
+            )
+            await session.commit()
+
+
+async def prune_history(
+    factory: async_sessionmaker[AsyncSession], retention: timedelta
+) -> tuple[int, int]:
+    """Delete observations older than ``retention``, then topics nothing refers to.
+
+    A topic survives while it has an observation, or a candidate row still
+    points at it, or it was seen within the retention window.
+    """
+    cutoff = datetime.now(UTC) - retention
+    async with factory() as session:
+        observations = await session.execute(
+            delete(ResearchTopicObservation).where(
+                ResearchTopicObservation.observed_at < cutoff
+            )
+        )
+        topics = await session.execute(
+            delete(ResearchTopic).where(
+                and_(
+                    ResearchTopic.last_seen_at < cutoff,
+                    ~exists().where(ResearchTopicObservation.topic_id == ResearchTopic.id),
+                    ~exists().where(ResearchCandidate.topic_ref_id == ResearchTopic.id),
+                )
+            )
+        )
+        await session.commit()
+    return (
+        int(getattr(observations, "rowcount", 0) or 0),
+        int(getattr(topics, "rowcount", 0) or 0),
+    )
+
+
+def build_result(run: ResearchRun, candidates: list[ResearchCandidate]) -> TrendSearchResult:
+    """The trend agent's output for a run, with each topic's current status.
+
+    The frozen trend output (``summary.trend``) says what the trend phase
+    measured; the candidate rows say what happened to each topic since — the
+    evidence gate's outcome, a reviewer's decision. A topic appears when the
+    trend agent shortlisted it or it ended up selected or promoted.
+    """
+    frozen = (run.summary or {}).get("trend")
+    window_end = run.started_at or run.created_at
+    if frozen is None:
+        return TrendSearchResult(
+            run_id=run.id,
+            label=run.label,
+            status=_result_status(run, trend_done=False),
+            started_at=run.started_at,
+            completed_at=run.finished_at,
+            collection_window=CollectionWindow(
+                start=window_end - timedelta(days=run.config.get("trend_window_days", 7)),
+                end=window_end,
+            ),
+            errors=[run.error["message"]] if run.error and run.error.get("message") else [],
+            notes=list(run.notes or []),
+            counts=(run.summary or {}).get("counts") or {},
+        )
+    result = TrendSearchResult.model_validate(frozen)
+    rows = {candidate.id: candidate for candidate in candidates}
+    topics = []
+    for topic in result.topics:
+        row = rows.get(topic.candidate_id)
+        if row is not None:
+            topic.status = row.status.value
+            topic.downstream = _downstream(row)
+        if topic.trend_shortlisted or topic.status in ("selected", "promoted"):
+            topics.append(topic)
+    result.topics = topics
+    result.status = _result_status(run, trend_done=True)
+    result.completed_at = run.finished_at or result.completed_at
+    if run.error and run.error.get("message"):
+        result.errors = [*result.errors, run.error["message"]]
+    return result
+
+
+def _downstream(row: ResearchCandidate) -> Downstream:
+    """The evidence check's outcome for one topic, as a status — never a score."""
+    if row.status in (
+        ResearchCandidateStatus.SELECTED,
+        ResearchCandidateStatus.PROMOTED,
+        ResearchCandidateStatus.DISMISSED,
+    ) or (row.status is ResearchCandidateStatus.SHORTLISTED and row.evidence_status):
+        return Downstream(evidence_gate="passed")
+    if row.status is ResearchCandidateStatus.DISCARDED and (
+        row.evidence_status or (row.discard_reason or "").startswith(
+            ("evidence", "no literature", "scientific evidence", "the article pipeline")
+        )
+    ):
+        return Downstream(evidence_gate="failed", reason=row.discard_reason)
+    return Downstream()
+
+
+def _result_status(run: ResearchRun, *, trend_done: bool) -> ResultStatus:
+    if run.status is ResearchRunStatus.FAILED:
+        return "partial" if trend_done else "failed"
+    statuses: dict[ResearchRunStatus, ResultStatus] = {
+        ResearchRunStatus.QUEUED: "queued",
+        ResearchRunStatus.RUNNING: "running",
+        ResearchRunStatus.COMPLETED: "completed",
+    }
+    return statuses[run.status]
 
 
 async def recent_history(

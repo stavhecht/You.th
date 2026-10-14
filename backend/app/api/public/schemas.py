@@ -12,9 +12,11 @@ reviewer identity.
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.api.schemas_base import CamelModel, EmailAddress
 from app.domain.enums import ContactKind, StudyType, Subject, Verdict
@@ -80,8 +82,13 @@ class FeedPageOut(CamelModel):
     items: list[FeedCardOut]
     #: Opaque cursor. Null when there are no further pages. Cursor-based rather
     #: than offset-based because the feed is append-ish and offsets skip or
-    #: repeat items when something publishes mid-scroll.
+    #: repeat items when something publishes mid-scroll. A search's cursor is
+    #: opaque too, and is not interchangeable with the feed's.
     next_cursor: str | None = None
+    #: Null for the feed. For a search, ``text`` when the articles matched the
+    #: words, ``similar`` when nothing did and these are titles spelled like
+    #: the query — which the page must say, because they can be wrong.
+    match: Literal["text", "similar"] | None = None
 
 
 class ArticleOut(CamelModel):
@@ -123,15 +130,34 @@ class ArticleOut(CamelModel):
 # `typ` claim so it cannot be presented to /api/console at all.
 
 
+#: Each class a reader's new password must contain, with the words the 422
+#: names it by. The join form restates these (`frontend/src/routes/join.tsx`);
+#: the two lists must change together, or the form passes a password the
+#: server refuses.
+PASSWORD_RULES: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("a lowercase letter", re.compile(r"[a-z]")),
+    ("a capital letter", re.compile(r"[A-Z]")),
+    ("a number", re.compile(r"[0-9]")),
+    ("a special character", re.compile(r"[^A-Za-z0-9]")),
+)
+
+
 class SignupRequest(CamelModel):
     email: EmailAddress
-    #: Floor only. A ceiling belongs here too once a password policy exists;
-    #: what must not appear is a *low* ceiling, which is the classic tell that
-    #: something downstream is storing the plaintext.
-    password: str = Field(min_length=10, max_length=200)
+    #: A ceiling is fine; what must not appear is a *low* ceiling, which is the
+    #: classic tell that something downstream is storing the plaintext.
+    password: str = Field(min_length=8, max_length=200)
     display_name: str = Field(min_length=1, max_length=80)
     interests: list[Subject] = Field(default_factory=list)
     newsletter: bool = False
+
+    @field_validator("password")
+    @classmethod
+    def _password_policy(cls, value: str) -> str:
+        missing = [name for name, rule in PASSWORD_RULES if not rule.search(value)]
+        if missing:
+            raise ValueError(f"password needs {', '.join(missing)}")
+        return value
 
 
 class ReaderLoginRequest(CamelModel):
@@ -169,6 +195,18 @@ class UpdateReaderRequest(CamelModel):
     display_name: str | None = Field(default=None, min_length=1, max_length=80)
     interests: list[Subject] | None = None
     newsletter: bool | None = None
+
+
+class DeleteAccountRequest(CamelModel):
+    """The reader's current password, re-entered to confirm an erasure.
+
+    A bearer token alone is not enough to destroy an account: it sits in
+    ``localStorage`` for thirty days, and anything that reads it — a shared
+    computer, a stolen laptop — should not be able to erase someone's data
+    with it.
+    """
+
+    password: str = Field(min_length=1, max_length=200)
 
 
 class FolderOut(CamelModel):

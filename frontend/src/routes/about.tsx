@@ -21,8 +21,6 @@ import { Link } from "react-router-dom";
 import {
   ABOUT_CALLOUT,
   ABOUT_LEAD,
-  ABOUT_LOGO,
-  ABOUT_LOGO_WRAP,
   ABOUT_PAGE,
   ABOUT_RULE,
   ABOUT_RULE_BODY,
@@ -44,16 +42,6 @@ export function AboutRoute() {
       <Link to="/" className={PAGE_BACK_LINK}>
         ← Feed
       </Link>
-
-      <div className={ABOUT_LOGO_WRAP}>
-        <img
-          src="/media/you.th-logo.png"
-          alt="You.th"
-          width={939}
-          height={270}
-          className={ABOUT_LOGO}
-        />
-      </div>
 
       <h1 className={ABOUT_TITLE}>Real research, made readable.</h1>
       <div className={ABOUT_RULE} />

@@ -49,7 +49,17 @@ export const HEADER_RIGHT = "flex flex-none items-center justify-end gap-3";
 
 /** The wordmark. `youth-mark` is what inverts it on the dark theme. */
 export const WORDMARK = "block leading-none";
-export const WORDMARK_IMAGE = "youth-mark block h-auto w-[132px] max-w-full sm:w-[168px]";
+/**
+ * As tall as the bar: the full 68px `h-header` from `sm` up. The PNG is
+ * cropped to the mark with a 2px margin, so that margin is all the breathing
+ * room there is — any taller and the bar grows. Sized by height because height
+ * is the constraint.
+ *
+ * 52px on a phone (~149px wide), not 68: the outer grid columns share what the
+ * mark leaves over, and the right one holds the avatar and theme toggle (~71px)
+ * — a full-height mark (~195px) would push them into it on a 375px screen.
+ */
+export const WORDMARK_IMAGE = "youth-mark block h-[52px] w-auto max-w-none sm:h-header";
 
 /** The hamburger — three rules, drawn rather than iconified. */
 export const MENU_BUTTON =

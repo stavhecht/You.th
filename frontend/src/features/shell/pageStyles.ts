@@ -32,7 +32,7 @@ export const PAGE_STANDFIRST =
 
 export const ABOUT_PAGE = "mx-auto max-w-[720px] px-gutter pb-20 pt-[34px]";
 export const ABOUT_LOGO_WRAP = "mb-[26px] text-center leading-none";
-export const ABOUT_LOGO = "youth-mark mx-auto h-auto w-[300px] max-w-full";
+export const ABOUT_LOGO = "youth-mark mx-auto h-auto w-[101px] max-w-full";
 
 /**
  * The one centred display heading in the product.
@@ -49,7 +49,7 @@ export const ABOUT_LEAD =
 
 /** The medical disclaimer, given a panel so it cannot be skimmed past. */
 export const ABOUT_CALLOUT =
-  "mb-11 rounded-panel bg-surface-2 px-[26px] py-[22px] font-body text-[15px] font-bold leading-[1.6] text-ink";
+  "mb-11 rounded-panel bg-surface-2 px-[26px] py-[22px] text-pretty text-center font-body text-[15px] font-bold leading-[1.6] text-ink";
 
 export const ABOUT_RULES =
   "grid grid-cols-1 gap-x-8 gap-y-6 border-t border-rule-soft pt-5 sm:grid-cols-3";

@@ -46,8 +46,8 @@ export function ReviewHeader() {
           <img
             src="/media/you.th-logo.png"
             alt="You.th"
-            width={939}
-            height={270}
+            width={315}
+            height={110}
             className={REVIEW_BRAND_LOGO}
           />
         </Link>

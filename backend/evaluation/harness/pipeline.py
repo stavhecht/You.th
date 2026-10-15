@@ -634,7 +634,11 @@ def build_stages(
         ),
         FullTextStage(EuropePMCFullText(europe_pmc), embedder, settings.full_text_max_papers),
         AppraiseStage(appraisal, two_call=settings.appraisal_mode == "two_call"),
-        SynthesizeStage(synthesis, relevance_filter=settings.synthesis_relevance_filter),
+        SynthesizeStage(
+            synthesis,
+            relevance_filter=settings.synthesis_relevance_filter,
+            reader_edit=settings.synthesis_reader_edit,
+        ),
         ValidateStage(MemorySession(store)),  # type: ignore[arg-type]
     ]
     if stop_after is not None:

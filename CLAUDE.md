@@ -618,6 +618,54 @@ never wrong. `llama3.3:70b` (~40 GB) is not reachable here at all. If a bigger m
 drop `retrieval_top_k` to 10 and `SYNTHESIS_NUM_CTX` to 24_576 **together** — never one alone —
 or move to the hosted path, which needs the workspace header fix in the config traps below.
 
+**Articles are written for everyday readers in two steps: a prompt section, then a reader
+edit** (2026-10-15/16, measured on the foam rolling article). The synthesis prompt's "Writing
+for everyday readers" section alone took statistical shorthand ("SMD 0.74, 95% CI…") from 11
+to 0, but left 15 of 19 sentences opening "A 2022 meta-analysis found" and dorsiflexion,
+triceps surae and "chronic" unexplained: under seventy rules a local model grounds first and
+writes plainly second. So SYNTHESIZE then runs the **reader edit**
+(`pipeline/steps/reader_edit.py`, prompt `prompts/reader_edit.py`, `SYNTHESIS_READER_EDIT`,
+on by default): one `edit_for_readers` call per paragraph (summary, beats, each paragraph of
+each section), the article so far shown as context. Measured on the reference article: study-led
+sentences 19 → 0, shorthand 11 → 0, 617 → 686 words, still 0 unsourced numbers. ~4–5 minutes
+on llama-server (7–14 small calls). What to know:
+
+- **A paragraph at a time, never the whole article.** Asked to edit the whole article under
+  the synthesis prompt ("ceilings, not targets", "never pad"), Bonsai cut it from 588 words to
+  204 and dropped a section. A paragraph cannot lose a section, and a refused one costs only itself.
+  The paragraph goes in as numbered sentences and comes back as `sentences`: asked for a
+  paragraph, the model reworded the first sentence and copied the rest.
+- **It can never fail an article.** `paragraph_rejection` keeps the draft's paragraph when the
+  edit changed its handles, added a number (even one the source has), moved a number beside a
+  source without it, added a size or certainty word (`STRENGTH_WORDS`: it called an effect size
+  of 0.53 "moderate", which neither draft nor source did), broke the sentence limit, cut more
+  than 15% of the words, or left a stray square bracket. `article_rejection` checks the
+  assembled whole, and VALIDATE then checks it as any draft.
+- **One retry per paragraph, with the reason.** Refused: again from the draft, told why. Kept
+  but still study-led or carrying shorthand (`leftovers`): again from the edit, told which
+  sentences. The plainer kept edit wins (`score`); a worse one never replaces a better one.
+- **"Explain once" is enforced in code** (`drop_repeated_explanations`): told, the model still
+  explained "meta-analysis" atop every paragraph. It never drops a phrase holding a digit, so
+  effect sizes stay. The summary is edited but not counted as explaining anything, since it is
+  read apart from the body. The headline is not edited.
+- **The guards cannot see a change of meaning.** One probe turned "interventions shorter than
+  four weeks" into "shorter sessions" (the prompt now says a programme is not a session), and
+  the edit reads a stated cause as the authors' interpretation ("found … due to" → "the authors
+  think"), which the prompt asks for. The reviewer reading every article is the backstop.
+- VALIDATE warns (`statistical_shorthand`, `evidence/readability.py`) on notation left in an
+  article; a warning, never a failure or a revision, since the article is still correct.
+- The eval records and replays it as tool `llm_reader_edit`, keyed by prompt, grammar and input.
+- **End to end through the worker (2026-10-16)** the edit kept 8 of 8 paragraphs and took
+  study-led sentences from 36 to 0 on a 1,318-word draft (+4% words, synthesis then ~19 min
+  of a 32-minute run). The article still failed validation, on a misattributed year that the
+  revision did not fix, which is Bonsai's known `unsourced_number` rate. Whether that first
+  draft or the edit made the error is not recorded, so the guard was tightened from counting
+  flagged numbers to comparing (number, source) pairs, which an edit can no longer add to.
+
+The number check learned two things on the way, both false positives that discarded a correct
+plainer draft: compound numbers ("Twenty-six trials" reads as 26) and a hyphenated word before
+the count noun ("26 high-quality trials" is a count of sources).
+
 **Article body is TipTap JSON, not markdown.** The model emits plain text with `[S1]` markers;
 `services/tiptap.py::body_text_to_doc()` parses them into typed citation nodes at assembly.
 Parse failure is a validation failure. **`CITATION_MARKER_PATTERN` in `domain/contracts.py` is

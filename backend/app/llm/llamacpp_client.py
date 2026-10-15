@@ -56,6 +56,8 @@ from app.domain.contracts import (
     DirectionOutput,
     ExtractionInput,
     ExtractionOutput,
+    ReaderEditInput,
+    ReaderEditOutput,
     RelevanceOutput,
     SynthesisInput,
     SynthesisOutput,
@@ -67,6 +69,8 @@ from app.llm.ollama_client import (
     EXTRACTION_MAX_TOKENS,
     EXTRACTION_TEMPERATURE,
     MAX_ATTEMPTS,
+    READER_EDIT_MAX_TOKENS,
+    READER_EDIT_TEMPERATURE,
     SYNTHESIS_MAX_TOKENS,
     SYNTHESIS_TEMPERATURE,
     _flat_schema,
@@ -84,6 +88,10 @@ from app.llm.prompts.appraisal import (
 from app.llm.prompts.extraction import (
     EXTRACTION_SYSTEM_PROMPT,
     build_extraction_user_prompt,
+)
+from app.llm.prompts.reader_edit import (
+    READER_EDIT_SYSTEM_PROMPT,
+    build_reader_edit_user_prompt,
 )
 from app.llm.prompts.synthesis import (
     SYNTHESIS_SYSTEM_PROMPT,
@@ -314,6 +322,21 @@ class LlamaCppSynthesisClient:
             len(payload.sources),
         )
         return LLMResult(output=parsed, usage=result.usage, model=result.model)
+
+    async def edit_for_readers(self, payload: ReaderEditInput) -> LLMResult[ReaderEditOutput]:
+        """Reword one paragraph for everyday readers; see ``prompts/reader_edit.py``.
+
+        Raises:
+            LLMError: as ``LlamaCppChat.chat``.
+        """
+        return await self._chat.chat(
+            call="reader_edit",
+            system=READER_EDIT_SYSTEM_PROMPT,
+            user=build_reader_edit_user_prompt(payload),
+            output_format=ReaderEditOutput,
+            max_tokens=READER_EDIT_MAX_TOKENS,
+            temperature=READER_EDIT_TEMPERATURE,
+        )
 
 
 class LlamaCppAppraisalClient:

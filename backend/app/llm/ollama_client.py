@@ -51,6 +51,8 @@ from app.domain.contracts import (
     DirectionOutput,
     ExtractionInput,
     ExtractionOutput,
+    ReaderEditInput,
+    ReaderEditOutput,
     RelevanceOutput,
     SynthesisInput,
     SynthesisOutput,
@@ -67,6 +69,10 @@ from app.llm.prompts.appraisal import (
 from app.llm.prompts.extraction import (
     EXTRACTION_SYSTEM_PROMPT,
     build_extraction_user_prompt,
+)
+from app.llm.prompts.reader_edit import (
+    READER_EDIT_SYSTEM_PROMPT,
+    build_reader_edit_user_prompt,
 )
 from app.llm.prompts.synthesis import (
     SYNTHESIS_SYSTEM_PROMPT,
@@ -99,6 +105,8 @@ SYNTHESIS_NUM_CTX = 32_768
 #: here would drop the *first* sources silently, and the stage would record
 #: them as not appraised with nothing pointing at the window.
 APPRAISAL_NUM_CTX = 16_384
+#: One paragraph plus the article so far: well under 2,000 tokens.
+READER_EDIT_NUM_CTX = 8_192
 
 # Output caps. Unlike the hosted models these count visible output only —
 # there is no thinking budget folded in — so they are sized to the response.
@@ -107,6 +115,8 @@ SYNTHESIS_MAX_TOKENS = 8_000
 #: Per call: twelve items of a handle, a quoted sentence, a boolean and a label
 #: (one_call), or of a few words and a boolean / a finding and a label (two_call).
 APPRAISAL_MAX_TOKENS = 3_000
+#: One paragraph of at most eight sentences, with its explanations.
+READER_EDIT_MAX_TOKENS = 1_500
 
 # Local models accept sampling parameters (the Opus 5 restriction noted in
 # anthropic_client.py does not apply here). Extraction is mechanical, so it is
@@ -116,6 +126,8 @@ EXTRACTION_TEMPERATURE = 0.0
 SYNTHESIS_TEMPERATURE = 0.4
 #: Labelling is classification, so greedy like extraction.
 APPRAISAL_TEMPERATURE = 0.0
+#: Rewording, not writing: low, but not greedy, for the repetition reason above.
+READER_EDIT_TEMPERATURE = 0.2
 
 #: One repair round trip. The grammar guarantees shape, so a failure here is a
 #: Pydantic *validator* failure — "beat 2 is four sentences" — which a model can
@@ -404,6 +416,24 @@ class OllamaSynthesisClient:
             len(payload.sources),
         )
         return LLMResult(output=parsed, usage=result.usage, model=result.model)
+
+    async def edit_for_readers(self, payload: ReaderEditInput) -> LLMResult[ReaderEditOutput]:
+        """Reword one paragraph for everyday readers; see ``prompts/reader_edit.py``.
+
+        Raises:
+            LLMError: as ``synthesize``.
+        """
+        return await _chat(
+            self._client,
+            call="reader_edit",
+            model=self._model,
+            system=READER_EDIT_SYSTEM_PROMPT,
+            user=build_reader_edit_user_prompt(payload),
+            output_format=ReaderEditOutput,
+            num_ctx=READER_EDIT_NUM_CTX,
+            max_tokens=READER_EDIT_MAX_TOKENS,
+            temperature=READER_EDIT_TEMPERATURE,
+        )
 
 
 class OllamaAppraisalClient:

@@ -16,6 +16,8 @@ from app.domain.contracts import (
     DirectionOutput,
     ExtractionInput,
     ExtractionOutput,
+    ReaderEditInput,
+    ReaderEditOutput,
     RelevanceOutput,
     SynthesisInput,
     SynthesisOutput,
@@ -95,6 +97,15 @@ class SynthesisClient(Protocol):
 
         Keyword-only and defaulted so that a caller which does not re-prompt is
         written the same way it always was.
+        """
+        ...
+
+    async def edit_for_readers(self, payload: ReaderEditInput) -> LLMResult[ReaderEditOutput]:
+        """Reword one paragraph of a checked draft for everyday readers.
+
+        The model only proposes. ``pipeline/steps/reader_edit.py`` decides
+        whether the rewording changed anything but the wording, and keeps the
+        original paragraph if it did.
         """
         ...
 

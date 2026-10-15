@@ -784,6 +784,53 @@ class SynthesisOutput(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Reader edit — the plain-language pass over a finished draft
+# ---------------------------------------------------------------------------
+
+
+class ReaderEditInput(BaseModel):
+    """One paragraph of a finished draft, sent to be reworded for readers.
+
+    ``earlier`` is the article so far, already edited, so a term explained
+    there is not explained again. ``max_sentences`` is the limit of the part
+    the paragraph belongs to (beat or section), which the edit must keep.
+    ``feedback`` is set on the one retry a paragraph gets: why the last edit
+    was thrown away, or what a kept edit still left to fix.
+    """
+
+    product: str
+    earlier: list[str]
+    paragraph: str
+    max_sentences: int
+    feedback: str | None = None
+
+
+class ReaderEditOutput(BaseModel):
+    """Structured-output schema for the reader edit: the paragraph's sentences,
+    reworded, in order.
+
+    Sentences rather than one string because the paragraph goes in numbered:
+    asked for a paragraph, Ternary-Bonsai reworded its first sentence and copied
+    the rest (2026-10-15). Whether the rewording changed anything but the
+    wording is decided by ``pipeline/steps/reader_edit.py``, never by the model.
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": (
+                "Every sentence of the paragraph, edited for everyday readers, in order."
+            )
+        }
+    )
+
+    sentences: list[NonEmptyStr] = Field(min_length=1)
+
+    @property
+    def text(self) -> str:
+        return " ".join(sentence.strip() for sentence in self.sentences)
+
+
+# ---------------------------------------------------------------------------
 # Illustration — generated imagery
 # ---------------------------------------------------------------------------
 

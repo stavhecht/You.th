@@ -205,6 +205,11 @@ class Settings(BaseSettings):
     #: exempts ``supports``, so dropping ``off_topic`` drops the null trials.
     #: Revisit only after that guard stops producing ``off_topic`` for them.
     synthesis_relevance_filter: bool = False
+    #: The plain-language edit (``pipeline/steps/reader_edit.py``): one more
+    #: synthesis call that rewrites the draft for everyday readers, kept only if
+    #: it changed nothing but the wording. ~3 minutes on llama-server, which
+    #: reuses its cache of the source block. False skips it.
+    synthesis_reader_edit: bool = True
 
     # --- pipeline ---
     worker_poll_interval_seconds: float = 5.0

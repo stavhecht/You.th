@@ -581,7 +581,9 @@ def build_default_pipeline(session: AsyncSession, settings: Settings) -> list[St
             two_call=settings.appraisal_mode == "two_call",
         ),
         SynthesizeStage(
-            synthesis_client, relevance_filter=settings.synthesis_relevance_filter
+            synthesis_client,
+            relevance_filter=settings.synthesis_relevance_filter,
+            reader_edit=settings.synthesis_reader_edit,
         ),
         # After SYNTHESIZE because it illustrates the draft, and before PERSIST
         # because PERSIST has to stay last: its write commits together with the

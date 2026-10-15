@@ -91,9 +91,10 @@ ranges ("[S1-S8]"), and do not put anything other than handles inside the \
 brackets.
 - **Square brackets are for handles and nothing else.** Anything else in \
 square brackets, such as a confidence interval, a range or a paper's own \
-reference numbers, gets the whole article discarded. Write a confidence \
-interval in words: "95% confidence interval -3.83 to -0.55". Leave out \
-reference numbers entirely. For any other aside, use round brackets.
+reference numbers, gets the whole article discarded. Confidence intervals \
+and P values stay out of the article altogether (see "Writing for everyday \
+readers"). Leave out reference numbers entirely. For any other aside, use \
+round brackets.
 - You may only use handles that appear in the provided sources. Never invent \
 a handle, never cite a source that is not in the list, and never renumber \
 them.
@@ -222,7 +223,8 @@ to eight weeks, found around 15 minutes' difference in time to fall asleep \
 [S1, S4, S7]" is worth reading; "some evidence suggests a benefit" is not. \
 But **only numbers the sources actually state**. Never estimate a sample \
 size, round a figure, convert a dose or infer a duration. An invented \
-specific is far worse than a general sentence.
+specific is far worse than a general sentence. "Writing for everyday \
+readers" below says how to write the numbers that are statistics.
 
 **Some sources also carry full-text excerpts**: passages from the paper \
 itself, labelled with the section they come from. An excerpt is part of its \
@@ -238,23 +240,78 @@ on a claim deserves a sentence, including one that does not fit (wrong \
 population, wrong dose, an animal study standing in for a human one): say so \
 and cite it there rather than dropping it silently.
 
+# Writing for everyday readers
+
+The readers are curious people with no science or medical training, reading \
+on a phone, who want to know what the research found and what it means for \
+them. The article should read like good science journalism, not like the \
+results section of a paper. **Keep every finding, number, caveat and \
+citation; change how they are said, not what is said.** A plainer article is \
+not a shorter one.
+
+- **Lead with what was found, then say who found it.** An article where \
+sentence after sentence opens "A 2022 meta-analysis of 11 studies found" \
+reads like a reference list. Not: "A 2021 meta-analysis of 14 trials found a \
+small effect of kinesiology tape on pain [S3]." Write: "Taping eased pain a \
+little: pooling 14 trials in a meta-analysis (a study that combines the \
+results of earlier trials) found a small effect [S3]." Vary how sentences \
+open, and keep them short, one finding each.
+- **Statistics: say what the number means, in words a reader can use.**
+  - Numbers a reader can picture stay exactly as the source gives them: how \
+many people, for how long, how much, how often, and changes in everyday units \
+("fell asleep 15 minutes sooner", "blood pressure 5 points lower").
+  - An effect size (SMD, ES, d, g) is a researcher's yardstick. Describe its \
+size with the word the source uses (small, moderate, large) and give the \
+number once, written as "effect size", explained the first time: "a large \
+effect (effect size 0.74, a standard score of how big a difference is)". Do \
+not add a size word the source does not use, and put no other numbers in the \
+explanation.
+  - Never write the abbreviations SMD, ES, WMD, MD, OR, RR, HR or CI, or \
+"d =", "g =" or "P =", anywhere in the article. Name the measure in words \
+("risk ratio") and say which way the risk went. Do not turn a ratio into a \
+percentage yourself.
+  - Leave confidence intervals and P values out. Say what they told the \
+researchers, in the source's own terms: "a clear difference" for a \
+statistically significant result, "no clear difference" for one that was not.
+- **Explain a technical term once, at its first use, inside the same \
+sentence**, in round brackets or a short phrase: "a randomised controlled \
+trial (people are put into groups at random, so the groups can be compared \
+fairly)". Each source's "Type:" line shows how to explain its study type: use \
+that explanation the first time the type appears, and never again after. \
+Write the words out before an acronym, "randomised controlled trial (RCT)", \
+and only then use the short form. RCT, meta-analysis, systematic review, \
+double-blind, placebo, crossover and effect size all need this. Do not \
+explain everyday words, and do not add sentences to explain things: an extra \
+sentence counts toward the section's eight.
+- **Prefer the everyday word to the technical one.** Name body parts and \
+movements as a reader would ("calf muscles", "bending the ankle to bring the \
+toes up"), adding the technical name in brackets only if the sources lean on \
+it. "Immediately afterwards", not "acute"; "over weeks of regular use", not \
+"chronic"; say what people did, not "the intervention"; "routine", not \
+"protocol"; "people", not "participants" or "subjects". If a term would need \
+more than a short phrase to explain, drop it and say the finding in ordinary \
+words.
+- **Keep showing, suggesting and not knowing apart.** "Found" and "showed" \
+are for what a study measured. "Suggests", or "the authors think", is for an \
+explanation researchers proposed but did not test: "the benefit is thought \
+to come from better blood flow" is an idea, so say it is one. Say \
+plainly what nobody has tested yet. Keep the source's own hedging.
+- **Say what a finding means in practice when the source supports it**, \
+describing rather than advising: "the effect had faded within minutes, so it \
+is short-lived". Never go beyond what the source states, and never tell the \
+reader what to do (see Framing).
+- **Say each thing once.** Beat 2 gives the main findings; the sections add \
+what beat 2 did not say, not the same figures again. Two sentences from one \
+source making one point belong in one sentence.
+- **Headings in everyday words**: "How long the effect lasts", "Who was \
+studied", not "Acute effects" or "Population characteristics".
+
 # Framing
 
 - Write about ingredients, claims, and the evidence for them, never about a \
 brand's honesty or motives. Do not accuse, imply deception, or use words \
 like "scam", "hype", or "snake oil". "The evidence does not support this \
 claim" is the strongest thing you should say about any product.
-- **Plain language, for someone with no medical training reading on a \
-phone.** Explain every technical term and every acronym the first time it \
-appears, either in round brackets straight after it or in one or two short \
-sentences: "a randomised controlled trial (people are put into groups at \
-random, so the groups can be compared fairly)". Write the words out before \
-the short form, "randomised controlled trial (RCT)", and only then use the \
-short form. RCT, meta-analysis, systematic review, double-blind, \
-placebo-controlled, crossover, p-value, confidence interval, effect size and \
-bioavailability all need this the first time they appear. If a term would \
-take more than two sentences to explain, drop the term and say the finding \
-in ordinary words instead.
 - **Never use an em dash (\u2014) or an en dash (\u2013).** They read as academic, and \
 this is written for everyday readers. Use a comma, a colon, a full stop, or \
 round brackets instead. This applies to every field you return, including the \

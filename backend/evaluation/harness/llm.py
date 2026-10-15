@@ -32,6 +32,8 @@ from app.domain.contracts import (
     DirectionOutput,
     ExtractionInput,
     ExtractionOutput,
+    ReaderEditInput,
+    ReaderEditOutput,
     RelevanceOutput,
     SynthesisInput,
     SynthesisOutput,
@@ -51,6 +53,7 @@ from app.llm.prompts.appraisal import (
     DIRECTION_SYSTEM_PROMPT,
     RELEVANCE_SYSTEM_PROMPT,
 )
+from app.llm.prompts.reader_edit import READER_EDIT_SYSTEM_PROMPT
 from app.llm.prompts.synthesis import SYNTHESIS_SYSTEM_PROMPT
 from evaluation.harness.cassette import Cassette, stable_key
 from evaluation.harness.trace import TraceRecorder
@@ -299,6 +302,96 @@ class EvalSynthesisClient(_Recorded):
         self._note(request, result, kind, cached=False, latency=latency, started=started)
         return result
 
+    async def edit_for_readers(self, payload: ReaderEditInput) -> LLMResult[ReaderEditOutput]:
+        """The reader edit's per-paragraph calls, recorded and replayable.
+
+        Keyed by the prompt, the grammar and the whole input (the article so
+        far included), so an edit to the prompt or to an earlier paragraph
+        re-runs the call rather than replaying an answer to a different request.
+        A miss in replay mode raises, and the stage keeps that paragraph as it
+        was, as it would for any failed call.
+        """
+        request = {
+            "paragraph_words": len(payload.paragraph.split()),
+            "earlier": len(payload.earlier),
+        }
+        started = time.monotonic()
+        key = stable_key(
+            "reader_edit",
+            self._model_id,
+            READER_EDIT_SYSTEM_PROMPT,
+            _flat_schema(ReaderEditOutput),
+            payload.model_dump(mode="json"),
+        )
+        hit = self._lookup(key)
+        if hit is not None:
+            stored, latency = hit
+            result = LLMResult(
+                output=ReaderEditOutput.model_validate(stored["output"]),
+                usage=TokenUsage(**stored["usage"]),
+                model=stored["model"],
+            )
+            self._edit_note(request, result, cached=True, latency=latency, started=started)
+            return result
+        if self._mode == "replay":
+            self._recorder.record(
+                tool="llm_reader_edit",
+                operation="edit_for_readers",
+                request=request,
+                status="cassette_miss",
+            )
+            raise LLMError("cassette miss (replay mode)")
+        if self._inner is None:
+            raise LLMError("no synthesis client is configured")
+        try:
+            result = await self._inner.edit_for_readers(payload)
+        except LLMError as exc:
+            self._recorder.record(
+                tool="llm_reader_edit",
+                operation="edit_for_readers",
+                request=request,
+                status="error",
+                error=str(exc),
+                latency_ms=_ms(started),
+                live_latency_ms=_ms(started),
+                model=exc.model or self._model_id,
+                usage=_usage_dict(exc.usage),
+            )
+            raise
+        latency = _ms(started)
+        self._cassette.put(
+            "llm",
+            key,
+            {
+                "output": result.output.model_dump(mode="json"),
+                "usage": _usage_dict(result.usage),
+                "model": result.model,
+            },
+            latency,
+        )
+        self._edit_note(request, result, cached=False, latency=latency, started=started)
+        return result
+
+    def _edit_note(
+        self,
+        request: dict[str, Any],
+        result: LLMResult[ReaderEditOutput],
+        *,
+        cached: bool,
+        latency: float | None,
+        started: float,
+    ) -> None:
+        self._recorder.record(
+            tool="llm_reader_edit",
+            operation="edit_for_readers",
+            request=request,
+            cached=cached,
+            latency_ms=_ms(started),
+            live_latency_ms=latency,
+            model=result.model,
+            usage=_usage_dict(result.usage),
+        )
+
     def _note(
         self,
         request: dict[str, Any],
@@ -537,6 +630,11 @@ class ScriptedSynthesisClient:
         )
         return LLMResult(output=output, usage=TokenUsage(), model="eval/scripted")
 
+    async def edit_for_readers(self, payload: ReaderEditInput) -> LLMResult[ReaderEditOutput]:
+        """Returns the paragraph unchanged: control-flow cases test no prose."""
+        output = ReaderEditOutput(sentences=[payload.paragraph])
+        return LLMResult(output=output, usage=TokenUsage(), model="eval/scripted")
+
 
 class HallucinatingSynthesisClient:
     """The adversary: an invented handle, an invented number, an inflated verdict."""
@@ -572,6 +670,11 @@ class HallucinatingSynthesisClient:
         self._recorder.trace.drafts.append(
             {"kind": feedback_kind(feedback), "output": output.model_dump(mode="json")}
         )
+        return LLMResult(output=output, usage=TokenUsage(), model="eval/hallucinating")
+
+    async def edit_for_readers(self, payload: ReaderEditInput) -> LLMResult[ReaderEditOutput]:
+        """Unchanged: the adversary's draft must reach VALIDATE as written."""
+        output = ReaderEditOutput(sentences=[payload.paragraph])
         return LLMResult(output=output, usage=TokenUsage(), model="eval/hallucinating")
 
 

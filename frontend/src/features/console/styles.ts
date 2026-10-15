@@ -39,9 +39,9 @@ export const REVIEW_HEADER = "sticky top-0 z-40 border-b-2 border-rule bg-ground
  * product and unmistakably not the live site.
  */
 export const REVIEW_BAR =
-  "mx-auto grid h-header max-w-console grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 px-gutter";
+  "grid h-header w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 px-gutter";
 export const REVIEW_BRAND = "block justify-self-center leading-none";
-export const REVIEW_BRAND_LOGO = "youth-mark block h-auto w-[44px] sm:w-[50px]";
+export const REVIEW_BRAND_LOGO = "youth-mark block h-[44px] w-auto max-w-none sm:h-[51px]";
 
 /** Names the surface, in the left column where the public bar puts browse. */
 export const REVIEW_BRAND_TAG =

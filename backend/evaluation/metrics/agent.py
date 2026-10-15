@@ -41,7 +41,7 @@ MAX_SYNTHESIS_CALLS = 1 + 1 + MAX_REVISE_ROUNDS
 #: A run that makes more HTTP calls than this is running away, whatever the cause.
 HTTP_CALL_BUDGET = 400
 #: Model calls, as the trace names them. Everything else but embeddings is HTTP.
-LLM_TOOLS = frozenset({"llm_extraction", "llm_appraisal", "llm_synthesis"})
+LLM_TOOLS = frozenset({"llm_extraction", "llm_appraisal", "llm_synthesis", "llm_reader_edit"})
 
 
 def expected_tools(case: EvalCase, enabled: list[str]) -> set[str]:

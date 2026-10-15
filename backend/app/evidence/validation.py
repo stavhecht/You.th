@@ -32,7 +32,7 @@ from app.domain.contracts import (
 )
 from app.domain.enums import Stance, StudyType, Verdict
 from app.domain.models import Source
-from app.evidence import numbers
+from app.evidence import numbers, readability
 from app.evidence.grading import (
     AGAINST_STANCES,
     QUORUM_FOR_SUPPORTED,
@@ -517,6 +517,29 @@ def check_verdict_against_stance(
     return tally, warnings
 
 
+def check_reader_shorthand(output: SynthesisOutput) -> list[ValidationFailure]:
+    """Warning — statistical notation a general reader cannot read.
+
+    See ``evidence/readability.py``: a style problem in a correct article, so
+    it is shown to the reviewer and never fails or revises a draft.
+    """
+    terms = readability.statistical_shorthand(output)
+    if not terms:
+        return []
+    return [
+        ValidationFailure(
+            code="statistical_shorthand",
+            message=(
+                f"the article uses statistical shorthand readers cannot follow "
+                f"({'; '.join(terms[:4])}{'; …' if len(terms) > 4 else ''}): say how big the "
+                "effect was in words, write an effect size as \"effect size\", and leave out "
+                "confidence intervals and P values"
+            ),
+            detail={"terms": terms},
+        )
+    ]
+
+
 def check_body_parses(output: SynthesisOutput) -> list[ValidationFailure]:
     """Check 5 — the body can be turned into a document.
 
@@ -585,6 +608,7 @@ async def validate_draft(
     # Warnings in every round: nothing is enforced on the labels yet.
     stance_tally, stance_warnings = check_verdict_against_stance(output, resolved, payload)
     warnings.extend(stance_warnings)
+    warnings.extend(check_reader_shorthand(output))
 
     report = ValidationReport(
         passed=not failures,

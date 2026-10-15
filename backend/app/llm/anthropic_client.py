@@ -48,6 +48,8 @@ from app.domain.contracts import (
     DirectionOutput,
     ExtractionInput,
     ExtractionOutput,
+    ReaderEditInput,
+    ReaderEditOutput,
     RelevanceOutput,
     SynthesisInput,
     SynthesisOutput,
@@ -64,6 +66,10 @@ from app.llm.prompts.appraisal import (
 from app.llm.prompts.extraction import (
     EXTRACTION_SYSTEM_PROMPT,
     build_extraction_user_prompt,
+)
+from app.llm.prompts.reader_edit import (
+    READER_EDIT_SYSTEM_PROMPT,
+    build_reader_edit_user_prompt,
 )
 from app.llm.prompts.synthesis import (
     SYNTHESIS_SYSTEM_PROMPT,
@@ -98,6 +104,8 @@ EXTRACTION_MAX_TOKENS = 4_000
 SYNTHESIS_MAX_TOKENS = 16_000
 #: Twelve short labelled items; like extraction, the budget is for thinking.
 APPRAISAL_MAX_TOKENS = 8_000
+#: One paragraph; like extraction, the budget is mostly for thinking.
+READER_EDIT_MAX_TOKENS = 4_000
 
 #: Passed explicitly on both calls rather than relying on the model default,
 #: because that default is not stable across the model range: Sonnet 5 and
@@ -299,6 +307,44 @@ class AnthropicSynthesisClient:
             len(parsed.all_cited_handles()),
             len(payload.sources),
         )
+        return LLMResult(
+            output=parsed,
+            usage=_usage_from_response(response),
+            model=qualified(self._model),
+        )
+
+    async def edit_for_readers(self, payload: ReaderEditInput) -> LLMResult[ReaderEditOutput]:
+        """Reword one paragraph for everyday readers; see ``prompts/reader_edit.py``.
+
+        Raises:
+            RefusalError: the model declined.
+            LLMError: transport, rate limit, or schema failure.
+        """
+        try:
+            response = await self._client.messages.parse(
+                model=self._model,
+                max_tokens=READER_EDIT_MAX_TOKENS,
+                thinking=ADAPTIVE_THINKING,
+                system=_system_blocks(READER_EDIT_SYSTEM_PROMPT),
+                messages=[
+                    {"role": "user", "content": build_reader_edit_user_prompt(payload)}
+                ],
+                output_format=ReaderEditOutput,
+            )
+        except anthropic.APIError as exc:
+            raise LLMError(
+                f"reader_edit call failed: {exc}", retryable=_transient(exc)
+            ) from exc
+
+        _check_refusal(response, "reader_edit", self._model)
+        _check_truncation(response, "reader_edit", self._model)
+        parsed = response.parsed_output
+        if parsed is None:
+            raise LLMError(
+                "reader_edit returned no parsed output",
+                usage=_usage_from_response(response),
+                model=qualified(self._model),
+            )
         return LLMResult(
             output=parsed,
             usage=_usage_from_response(response),

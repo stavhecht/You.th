@@ -7,6 +7,7 @@ import logging
 from app.domain.contracts import (
     CITATION_RUN_RE,
     PromptSource,
+    ReaderEditInput,
     SynthesisInput,
     SynthesisOutput,
     ValidationReport,
@@ -15,6 +16,7 @@ from app.domain.contracts import (
 from app.domain.enums import Stance
 from app.llm.base import LLMError, LLMResult, SynthesisClient
 from app.pipeline.stages import PipelineContext, StageError, StageName
+from app.pipeline.steps import reader_edit
 from app.services.no_evidence import no_evidence_draft
 
 logger = logging.getLogger(__name__)
@@ -75,9 +77,16 @@ SECTIONS_EXPECTED_FROM = 6
 class SynthesizeStage:
     name = StageName.SYNTHESIZE
 
-    def __init__(self, client: SynthesisClient, *, relevance_filter: bool = False) -> None:
+    def __init__(
+        self,
+        client: SynthesisClient,
+        *,
+        relevance_filter: bool = False,
+        reader_edit: bool = False,
+    ) -> None:
         self._client = client
         self._relevance_filter = relevance_filter
+        self._reader_edit = reader_edit
 
     async def run(self, ctx: PipelineContext) -> PipelineContext:
         """Write the article, grounded strictly in the ranked abstracts.
@@ -146,6 +155,10 @@ class SynthesizeStage:
         else:
             retried = False
 
+        edit_metrics = None
+        if self._reader_edit:
+            result, edit_metrics = await self._edit_for_readers(ctx, payload, result)
+
         ctx.record_metrics(
             self.name,
             {
@@ -174,6 +187,8 @@ class SynthesizeStage:
                 "body_words": _body_words(result.output),
                 # None when the filter is off, so on/off is one query.
                 "relevance_filter": filtered,
+                # None when the edit is off; see ``reader_edit.py``.
+                "reader_edit": edit_metrics,
             },
         )
 
@@ -317,6 +332,120 @@ class SynthesizeStage:
             covered,
         )
         return retry
+
+    async def _edit_for_readers(
+        self,
+        ctx: PipelineContext,
+        payload: SynthesisInput,
+        result: LLMResult[SynthesisOutput],
+    ) -> tuple[LLMResult[SynthesisOutput], dict[str, object]]:
+        """Reword the draft for everyday readers, a paragraph at a time.
+
+        See ``reader_edit.py``. Like the coverage re-prompt, this can only
+        improve the outcome: a call that raises or a paragraph the guards refuse
+        leaves that paragraph as it was, and an assembled article that fails a
+        whole-article check leaves the draft exactly as it was. Every call's
+        tokens are recorded. A retryable failure (the model server is down or
+        broken) stops the pass rather than waiting out the same failure once
+        per paragraph. A refused paragraph is asked for once more, told why.
+        """
+        draft = result.output
+        before = reader_edit.readability(draft)
+        texts: list[str] = []
+        earlier: list[str] = []
+        refused: list[str] = []
+        retried: list[str] = []
+        # Explanations the body has given so far; the summary keeps its own.
+        explained: set[str] = set()
+        stopped = False
+        for part in reader_edit.parts(draft):
+            text = part.text
+            # The first call edits the draft's paragraph. One more is made when
+            # that edit was refused (from the draft again, told why) or kept but
+            # still leaves something to fix (from that edit, told what), and the
+            # plainer of the kept edits wins.
+            request = ReaderEditInput(
+                product=payload.product,
+                earlier=earlier,
+                paragraph=part.text,
+                max_sentences=part.max_sentences,
+            )
+            reason: str | None = None
+            for attempt in range(2):
+                if stopped:
+                    break
+                try:
+                    edit = await self._client.edit_for_readers(request)
+                except LLMError as exc:
+                    ctx.record_usage(self.name, exc.model, exc.usage)
+                    reason = reason or f"call failed: {exc}"
+                    stopped = exc.retryable
+                    break
+                ctx.record_usage(self.name, edit.model, edit.usage)
+                proposed = edit.output.text
+                if part.slot != "summary":
+                    proposed = reader_edit.drop_repeated_explanations(proposed, explained)
+                rejection = reader_edit.paragraph_rejection(part, proposed, payload.sources)
+                if rejection is None:
+                    plainer = reader_edit.score(proposed) < reader_edit.score(text)
+                    if text == part.text or plainer:
+                        text = proposed
+                    reason = None
+                elif text == part.text:
+                    reason = rejection
+                if attempt == 1:
+                    break
+                note = reader_edit.leftovers(text) if text != part.text else None
+                if text != part.text and note:
+                    retried.append(f"{part.name}: {note}")
+                    request = request.model_copy(
+                        update={
+                            "paragraph": text,
+                            "feedback": f"This is your edit so far. Still to fix: {note}. "
+                            "Change those sentences as you changed the others; keep the rest.",
+                        }
+                    )
+                elif text == part.text and reason:
+                    retried.append(f"{part.name}: {reason}")
+                    request = request.model_copy(
+                        update={
+                            "feedback": "Your last edit of this paragraph was thrown away "
+                            f"because it {reason}. Edit it again, keeping to every rule."
+                        }
+                    )
+                else:
+                    break
+            if text == part.text and reason is not None:
+                refused.append(f"{part.name}: {reason}")
+            texts.append(text)
+            if part.slot != "summary":
+                earlier.append(text)
+                explained |= reader_edit.explanations(text)
+
+        metrics: dict[str, object] = {
+            "paragraphs": len(texts),
+            "refused": refused,
+            "retried": retried,
+        }
+        edited = reader_edit.assemble(draft, texts)
+        rejected = (
+            "the edited article broke the output contract"
+            if edited is None
+            else reader_edit.article_rejection(draft, edited, payload)
+        )
+        if edited is None or rejected:
+            logger.info("reader edit %s; keeping the draft", rejected)
+            return result, {**metrics, "kept": 0, "rejected": rejected, "before": before}
+
+        kept = len(texts) - len(refused)
+        after = reader_edit.readability(edited)
+        logger.info(
+            "reader edit kept %d of %d paragraphs (%s -> %s)", kept, len(texts), before, after
+        )
+        return (
+            LLMResult(output=edited, usage=result.usage, model=result.model),
+            {**metrics, "kept": kept, "before": before, "after": after},
+        )
 
     def _no_evidence(
         self, ctx: PipelineContext, payload: SynthesisInput

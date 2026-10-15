@@ -582,8 +582,12 @@ class ArticleSection(BaseModel):
     @field_validator("body")
     @classmethod
     def _body_at_most_8_sentences(cls, value: str) -> str:
-        if count_sentences(value) > 8:
-            raise ValueError("a section must be at most 8 sentences")
+        if (count := count_sentences(value)) > 8:
+            raise ValueError(
+                f"a section must be at most 8 sentences; this one has {count}, so "
+                "merge sources that found the same thing into one sentence or "
+                "move some into another section"
+            )
         return value
 
 
@@ -638,15 +642,15 @@ class ArticleBody(BaseModel):
     @field_validator("beat_1_claim")
     @classmethod
     def _claim_at_most_four_sentences(cls, value: str) -> str:
-        if count_sentences(value) > 4:
-            raise ValueError("the claim beat must be at most 4 sentences")
+        if (count := count_sentences(value)) > 4:
+            raise ValueError(f"the claim beat must be at most 4 sentences; it has {count}")
         return value
 
     @field_validator("beat_2_evidence", "beat_3_bottom_line")
     @classmethod
     def _at_most_five_sentences(cls, value: str) -> str:
-        if count_sentences(value) > 5:
-            raise ValueError("this beat must be at most 5 sentences")
+        if (count := count_sentences(value)) > 5:
+            raise ValueError(f"this beat must be at most 5 sentences; it has {count}")
         return value
 
     def as_text(self) -> str:
@@ -731,7 +735,8 @@ class SynthesisOutput(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
             "description": (
-                "One finished article: a headline, a verdict on the claims, a "
+                "One finished article: a headline, a verdict on whether the "
+                "sources show the claims as written are true, a "
                 "two-sentence summary, the body, and the list of sources cited."
             )
         }
@@ -757,8 +762,8 @@ class SynthesisOutput(BaseModel):
     @field_validator("summary")
     @classmethod
     def _summary_at_most_2_sentences(cls, value: str) -> str:
-        if count_sentences(value) > 2:
-            raise ValueError("summary must be at most 2 sentences")
+        if (count := count_sentences(value)) > 2:
+            raise ValueError(f"summary must be at most 2 sentences; it has {count}")
         return value
 
     @field_validator("verdict_qualifier")

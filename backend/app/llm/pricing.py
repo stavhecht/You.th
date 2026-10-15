@@ -109,6 +109,7 @@ PRICES: dict[str, Price] = {
     "ollama/llama3.1:70b": Price.free(),
     "ollama/mistral:7b": Price.free(),
     "ollama/qwen2.5:14b": Price.free(),
+    "llamacpp/ternary-bonsai-2-27b": Price.free(),
 }
 
 

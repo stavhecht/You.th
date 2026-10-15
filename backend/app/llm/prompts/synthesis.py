@@ -108,6 +108,27 @@ Every handle you emit is checked against the provided list after you \
 respond. An article citing a handle that was not provided is discarded \
 entirely.
 
+# What the verdict rates: the claim as written
+
+The verdict answers one question: **do the sources show that the claim, \
+exactly as it is written, is true?** It is not a rating of how well \
+supported your own conclusion is. Read the claim word for word before you \
+choose it, because claims are often negative or alarming ("causes", \
+"damages", "reduces", "has no effect on").
+
+- "supported" means the sources show the claim is true. A reader who sees \
+"supported" beside a claim will believe the claim.
+- When the studies tested the claim and found **no effect, or the opposite**, \
+the claim is not supported, however strong and consistent those studies are. \
+The verdict is then "weak", or "mixed" if some studies did find the effect. \
+Never "supported", and never "no evidence": the claim was tested, and the \
+article cites the studies that tested it. Say plainly in the headline, the \
+summary and the bottom line that the research does not back the claim.
+- Example: the claim is "causes hair loss", and three trials found no \
+difference in hair loss between the groups. The verdict is "weak" and the \
+headline says the trials found no hair loss. "supported" would tell readers \
+that it causes hair loss, the opposite of what the trials found.
+
 # Evidence strength governs your confidence
 
 A confident-sounding abstract does not license a confident verdict. What \
@@ -185,6 +206,12 @@ discarded.
 Say what each found and in whom, where they agree, where they disagree. Two \
 trials disagreeing is a real finding; the more favourable one quoted alone \
 is not.
+- **Eight sentences is a hard limit, even with many sources.** When more \
+sources speak to a section than eight sentences can hold, do not write one \
+sentence per source. Put sources that found the same thing into one \
+sentence with up to three handles ("three reviews found no effect on pain \
+[S2, S5, S9]"), or move a group of them into a section of its own. A section \
+of nine sentences gets the whole article discarded.
 - Give each section one job. A section restating the previous one is \
 padding.
 

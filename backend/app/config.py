@@ -61,7 +61,7 @@ class Settings(BaseSettings):
     #: built: every generative call runs locally, costs nothing, and needs no
     #: key. Set LLM_PROVIDER=anthropic for real deployment — the hosted client
     #: is fully wired and nothing else changes. See llm/factory.py.
-    llm_provider: str = "ollama"          # "ollama" | "anthropic"
+    llm_provider: str = "ollama"          # "ollama" | "anthropic" | "llamacpp"
 
     # --- Ollama (local, free) ---
     ollama_base_url: str = "http://localhost:11434"
@@ -86,6 +86,23 @@ class Settings(BaseSettings):
     #: and it is often still resident from EXTRACT when APPRAISE runs.
     #: Empty means the synthesis model.
     ollama_appraisal_model: str = "llama3.1:8b"
+
+    # --- llama.cpp server (local; used when llm_provider='llamacpp') ---
+    #: For models Ollama cannot load — Ternary-Bonsai-2-27B needs PrismML's
+    #: llama.cpp fork — through `llama-server`'s OpenAI-compatible endpoint.
+    #: Extraction, appraisal and synthesis all run on it; embeddings stay on
+    #: EMBEDDING_PROVIDER. Every generative call, not just synthesis, because
+    #: on a 16 GB Mac it cannot share the GPU with an Ollama language model
+    #: (see llm/llamacpp_client.py).
+    llamacpp_base_url: str = "http://localhost:8080"
+    #: A label, not a lookup: llama-server serves the one model it was started
+    #: with. It names the model in the run record and the price table.
+    llamacpp_model: str = "ternary-bonsai-2-27b"
+    #: Sent as `reasoning_effort`. "none" turns Bonsai's thinking off (a budget
+    #: of 0 does not); "medium" is the vendor's recommended shorter setting.
+    #: Bonsai's template rejects "high" with a 500, and "low" thinks about as
+    #: long as "xhigh" (PrismML KNOWN_ISSUES, 2026-09-23).
+    llamacpp_reasoning_effort: str = "none"
 
     # --- Claude (hosted; used when llm_provider='anthropic') ---
     anthropic_api_key: str = ""

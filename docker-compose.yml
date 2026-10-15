@@ -42,6 +42,9 @@ x-backend: &backend
     # `localhost` in a container is the container. Override OLLAMA_BASE_URL in
     # your shell if Ollama lives somewhere else.
     OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+    # llama-server (LLM_PROVIDER=llamacpp) stays on the host for the same Metal
+    # reason as Ollama.
+    LLAMACPP_BASE_URL: ${LLAMACPP_BASE_URL:-http://host.docker.internal:8080}
     # No MEDIA_ROOT: image bytes are rows in `media_objects`, reached through
     # DATABASE_URL like everything else. It used to be set here, absolutely,
     # so the API and the worker resolved it to the same directory — a problem

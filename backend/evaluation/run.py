@@ -125,6 +125,12 @@ async def _evaluators(
     settings = env.settings
     judge = None
     reason = "disabled with --no-judge" if args.no_judge else None
+    if reason is None and settings.llm_provider.lower() == "llamacpp" and not args.rescore:
+        # The judge is an Ollama language model, and loading one beside
+        # llama-server breaks the server for every later case (see
+        # llm/llamacpp_client.py). Generate first, then stop llama-server and
+        # judge the saved traces with --rescore.
+        reason = "off while llama-server generates; judge with --rescore after stopping it"
     if reason is None:
         installed: set[str] | None = None
         if env.mode != "replay":

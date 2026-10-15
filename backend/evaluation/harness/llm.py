@@ -45,11 +45,13 @@ from app.llm.base import (
     SynthesisClient,
     TokenUsage,
 )
+from app.llm.ollama_client import _flat_schema
 from app.llm.prompts.appraisal import (
     APPRAISAL_SYSTEM_PROMPT,
     DIRECTION_SYSTEM_PROMPT,
     RELEVANCE_SYSTEM_PROMPT,
 )
+from app.llm.prompts.synthesis import SYNTHESIS_SYSTEM_PROMPT
 from evaluation.harness.cassette import Cassette, stable_key
 from evaluation.harness.trace import TraceRecorder
 from evaluation.schema import FaultSpec
@@ -88,7 +90,17 @@ def synthesis_key(model_id: str, payload: SynthesisInput, feedback: str | None) 
     for source in shown["sources"]:
         if source.get("shown_claims") is None:
             source.pop("shown_claims", None)
-    return stable_key("synthesize", model_id, shown, feedback or "")
+    # The system prompt and the output grammar are in the key too, as for
+    # appraisal: without them a prompt edit replayed the old prompt's drafts and
+    # an eval run said nothing about the change it was run to measure.
+    return stable_key(
+        "synthesize",
+        model_id,
+        SYNTHESIS_SYSTEM_PROMPT,
+        _flat_schema(SynthesisOutput),
+        shown,
+        feedback or "",
+    )
 
 
 def _usage_dict(usage: TokenUsage) -> dict[str, int]:

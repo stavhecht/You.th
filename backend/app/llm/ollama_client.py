@@ -186,6 +186,26 @@ def _validation_feedback(exc: ValidationError) -> str:
     return "\n".join(lines[:10])
 
 
+def repair_instruction(exc: ValidationError) -> str:
+    """The user turn that asks for a contract-breaking response to be fixed.
+
+    Shared with ``llamacpp_client.py``, so a comparison between the two local
+    backends compares models, not repair wording.
+    """
+    return (
+        "That response broke these constraints:\n"
+        f"{_validation_feedback(exc)}\n\n"
+        "Return the same content corrected to satisfy every one "
+        "of them. Change only the fields named above and leave "
+        "every other field exactly as it was. Where a field is "
+        "over a limit, shorten that field rather than rewriting "
+        "it. Do not swap in different sources or renumber the "
+        "ones you used. If a constraint above names a citation "
+        "handle, that handle is the thing to fix: write one "
+        'handle per entry ("S1", "S2"), never a range like "S1-S8".'
+    )
+
+
 async def _chat(
     client: AsyncClient,
     *,
@@ -279,21 +299,7 @@ async def _chat(
             messages = [
                 *messages[:2],
                 {"role": "assistant", "content": content},
-                {
-                    "role": "user",
-                    "content": (
-                        "That response broke these constraints:\n"
-                        f"{_validation_feedback(exc)}\n\n"
-                        "Return the same content corrected to satisfy every one "
-                        "of them. Change only the fields named above and leave "
-                        "every other field exactly as it was. Where a field is "
-                        "over a limit, shorten that field rather than rewriting "
-                        "it. Do not swap in different sources or renumber the "
-                        "ones you used. If a constraint above names a citation "
-                        "handle, that handle is the thing to fix: write one "
-                        'handle per entry ("S1", "S2"), never a range like "S1-S8".'
-                    ),
-                },
+                {"role": "user", "content": repair_instruction(exc)},
             ]
             continue
 

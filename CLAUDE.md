@@ -662,6 +662,19 @@ on llama-server (7–14 small calls). What to know:
   draft or the edit made the error is not recorded, so the guard was tightened from counting
   flagged numbers to comparing (number, source) pairs, which an edit can no longer add to.
 
+- **5-case eval against the all-Bonsai baseline (2026-10-22):** study-led sentences 56/99 →
+  11/108, shorthand 35 → 0, but validation 4/5 → 3/5. Both new failures were in the *first*
+  draft, before the edit: the model wrote "0.36 hours" as "21 minutes" and two groups of 12
+  and 11 as "23 trained men", correct arithmetic on numbers no source states. The prompt's
+  example of "changes in everyday units" was the likely nudge; it now says to keep the
+  source's unit and never do arithmetic. The edit also runs again after a revision, whose
+  sentences had come back study-led.
+  Re-run on the same 5 cases after both fixes: validation 5/5, hallucination flags 0,
+  groundedness 0.94 (baseline 0.98), study-led sentences 11/89, shorthand 0. The eval's own
+  number parser (`evaluators/text.py::numbers_in`) now reads spelled-out numbers through
+  `source_numbers`, like VALIDATE: it had flagged "29 comparisons" against a source saying
+  "Twenty-nine trial comparisons" as misattributed.
+
 The number check learned two things on the way, both false positives that discarded a correct
 plainer draft: compound numbers ("Twenty-six trials" reads as 26) and a hyphenated word before
 the count noun ("26 high-quality trials" is a count of sources).

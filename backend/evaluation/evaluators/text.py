@@ -31,6 +31,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.domain.contracts import CITATION_MARKER_RE, extract_handles
+from app.evidence.numbers import source_numbers
 
 #: Stands in for the full stop of an abbreviation while sentences are split.
 _DOT = "\u2024"
@@ -173,7 +174,17 @@ def checkable_numbers(sentence: str) -> list[str]:
 
 
 def numbers_in(text: str) -> list[float]:
-    return [_normalise_number(m.group(1)) for m in _NUMBER.finditer(_with_leading_zeros(text))]
+    """Every number in a source's text, digits and spelled-out words alike.
+
+    Spelled-out numbers are read by the pipeline's own ``source_numbers``, so
+    the eval and VALIDATE agree: a source saying "Twenty-nine trial comparisons"
+    supports "29 comparisons" in both. Without it the eval flagged that
+    sentence as misattributed while VALIDATE passed it (2026-10-22).
+    """
+    digits = [
+        _normalise_number(m.group(1)) for m in _NUMBER.finditer(_with_leading_zeros(text))
+    ]
+    return digits + [n for n in source_numbers(text) if n not in digits]
 
 
 def number_supported(raw: str, source_numbers: list[float]) -> bool:

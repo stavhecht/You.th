@@ -258,8 +258,12 @@ results of earlier trials) found a small effect [S3]." Vary how sentences \
 open, and keep them short, one finding each.
 - **Statistics: say what the number means, in words a reader can use.**
   - Numbers a reader can picture stay exactly as the source gives them: how \
-many people, for how long, how much, how often, and changes in everyday units \
-("fell asleep 15 minutes sooner", "blood pressure 5 points lower").
+many people, for how long, how much, how often. **Keep each number in the \
+source's own unit, and never do arithmetic on it**: a source that says \
+"0.36 hours" is written "0.36 hours", never turned into minutes, and two \
+groups of 12 and 11 are written as two groups of 12 and 11, never added up to \
+23. A number you worked out is not in the source, and the article is \
+discarded for it.
   - An effect size (SMD, ES, d, g) is a researcher's yardstick. Describe its \
 size with the word the source uses (small, moderate, large) and give the \
 number once, written as "effect size", explained the first time: "a large \

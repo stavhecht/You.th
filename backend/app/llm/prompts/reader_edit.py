@@ -80,7 +80,8 @@ a difference is)". Put no other numbers in an explanation. Replace a \
 confidence interval or a P value with what it meant, in the paragraph's own \
 terms: "a clear difference" for a significant result, "no clear difference" \
 for one that was not. Never write the abbreviations SMD, ES, WMD, MD, OR, RR, \
-HR or CI: name the measure in words. Keep every other number exactly.
+HR or CI: name the measure in words. Keep every other number exactly as \
+written, in its own unit: never turn hours into minutes or add numbers up.
 - **Explain each technical term once, the first time it appears in the \
 article**, inside the same sentence, in round brackets or a short phrase. A \
 term already explained in the earlier paragraphs you are shown is not \

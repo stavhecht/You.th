@@ -16,9 +16,9 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
-from sqlalchemy import Integer, Text, column, delete, func, or_, select, update, values
+from sqlalchemy import Integer, Table, Text, column, delete, func, or_, select, update, values
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
@@ -251,7 +251,8 @@ class SourceCache:
 
         now = datetime.now(UTC)
         result = await self._session.execute(
-            Source.__table__.insert()
+            cast(Table, Source.__table__)
+            .insert()
             .values(
                 [
                     {

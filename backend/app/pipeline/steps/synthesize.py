@@ -210,6 +210,12 @@ class SynthesizeStage:
         before this loop existed. And a rewrite that errors keeps the first
         draft, which then fails validation again and is stored the same way —
         a failed revision must not turn a reportable draft into a failed run.
+
+        **The reader edit runs again on the rewrite.** The revision is written
+        under the synthesis prompt, and measured 2026-10-22 its sentences came
+        back in the academic register the edit had removed (7 study-led
+        sentences on one article whose first edit had none). The edit's guards
+        are the same here, so it still cannot add a failure VALIDATE would see.
         """
         assert ctx.synthesis_input is not None and ctx.validation is not None
         assert ctx.draft is not None
@@ -249,6 +255,9 @@ class SynthesizeStage:
             },
         )
         logger.info("revised a draft that failed validation (%s)", ", ".join(codes))
+        if self._reader_edit:
+            result, edit_metrics = await self._edit_for_readers(ctx, payload, result)
+            ctx.metrics[str(self.name)]["reader_edit"] = edit_metrics
         return ctx.model_copy(update={"draft": result.output, "validation": None})
 
     async def _use_more_sources(

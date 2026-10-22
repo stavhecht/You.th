@@ -115,7 +115,7 @@ def build_pipeline_graph(
     comes first. Any other list — a single fake stage in a test, a future subset
     — compiles as the plain chain it already was.
     """
-    graph: StateGraph = StateGraph(GraphState)
+    graph: StateGraph = StateGraph(GraphState)  # pyrefly: ignore[bad-specialization]
     names = [_node_name(index) for index in range(len(stages))]
 
     for index, stage in enumerate(stages):

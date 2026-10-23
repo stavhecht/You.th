@@ -29,7 +29,7 @@ clears it would need a shell on the server to undo, and would hand anyone who
 knows a reviewer's email a kill switch on publishing (``approve()`` is the only
 path to ``published``).
 
-**Both keys are counted, whether or not the account exists.** ``routes.py``
+**Both keys are counted, whether or not the account exists.** ``api/console/auth.py``
 goes to some trouble to make unknown-email and wrong-password indistinguishable.
 Counting failures only against real accounts would undo that immediately: a 429
 on an email would confirm the email.
@@ -181,7 +181,7 @@ class InMemoryLoginThrottle:
 
         Called for an unknown email as well as a wrong password. Counting only
         real accounts would make a 429 an existence oracle and undo the timing
-        equalisation in ``routes.py``.
+        equalisation in ``api/console/auth.py``.
         """
         now = self._now()
         self._evict(now)

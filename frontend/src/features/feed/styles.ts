@@ -101,7 +101,6 @@ export const FEED_FOOTER =
 /** A small-caps label over a section. */
 export const SECTION_LABEL =
   "font-body text-label-sm font-semibold uppercase text-ink-3";
-export const SECTION_LABEL_BLOCK = `block ${SECTION_LABEL}`;
 
 /**
  * A text action drawn as an accent underline rather than a button. Used where

@@ -73,7 +73,7 @@ class SourceCheck:
     notes: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
-        return {key: value for key, value in vars(self).items()}
+        return dict(vars(self))
 
 
 def _normalise_title(title: str) -> str:

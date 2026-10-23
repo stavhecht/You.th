@@ -15,7 +15,6 @@
 
 /* ── shared page frame ──────────────────────────────────────────────────── */
 
-export const PAGE = "mx-auto max-w-prose px-gutter pb-20 pt-[34px]";
 export const WIDE_PAGE = "mx-auto max-w-page px-gutter pb-20 pt-[34px]";
 
 export const PAGE_BACK_LINK =
@@ -31,8 +30,6 @@ export const PAGE_STANDFIRST =
 /* ── about ──────────────────────────────────────────────────────────────── */
 
 export const ABOUT_PAGE = "mx-auto max-w-[720px] px-gutter pb-20 pt-[34px]";
-export const ABOUT_LOGO_WRAP = "mb-[26px] text-center leading-none";
-export const ABOUT_LOGO = "youth-mark mx-auto h-auto w-[101px] max-w-full";
 
 /**
  * The one centred display heading in the product.
@@ -156,7 +153,6 @@ export const NEW_FOLDER_INPUT =
 export const NEW_FOLDER_ACTION =
   "border-0 bg-transparent px-0 py-[7px] font-body text-label-sm font-bold uppercase tracking-[0.12em] text-accent-ink hover:text-accent";
 
-export const SAVED_GRID = "mt-2";
 export const EMPTY_SHELF = "border-t border-rule-soft py-14";
 export const EMPTY_SHELF_TITLE = "mb-2 font-heading text-[17px] font-bold text-ink";
 export const EMPTY_SHELF_BODY = "font-body text-[13.5px] text-ink-3";

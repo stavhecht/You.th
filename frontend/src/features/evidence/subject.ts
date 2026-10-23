@@ -62,18 +62,6 @@ const TEXT: Record<Subject, string> = {
   other: "text-subject-other",
 };
 
-const BORDER: Record<Subject, string> = {
-  fitness: "border-t-subject-fitness",
-  nutrition: "border-t-subject-nutrition",
-  supplements: "border-t-subject-supplements",
-  sleep_recovery: "border-t-subject-sleep-recovery",
-  lifestyle: "border-t-subject-lifestyle",
-  preventive_health: "border-t-subject-preventive-health",
-  general_health: "border-t-subject-general-health",
-  wellness: "border-t-subject-wellness",
-  other: "border-t-subject-other",
-};
-
 const BORDER_LEFT: Record<Subject, string> = {
   fitness: "border-l-subject-fitness",
   nutrition: "border-l-subject-nutrition",
@@ -86,36 +74,14 @@ const BORDER_LEFT: Record<Subject, string> = {
   other: "border-l-subject-other",
 };
 
-const BACKGROUND: Record<Subject, string> = {
-  fitness: "bg-subject-fitness",
-  nutrition: "bg-subject-nutrition",
-  supplements: "bg-subject-supplements",
-  sleep_recovery: "bg-subject-sleep-recovery",
-  lifestyle: "bg-subject-lifestyle",
-  preventive_health: "bg-subject-preventive-health",
-  general_health: "bg-subject-general-health",
-  wellness: "bg-subject-wellness",
-  other: "bg-subject-other",
-};
-
 /** Kicker text above a headline. Falls back to ink-3, never to a stand-in hue. */
 export function subjectText(subject: Subject | null | undefined): string {
   return subject ? TEXT[subject] : "text-ink-3";
 }
 
-/** The card's top rule and the article's opening rule. */
-export function subjectBorderTop(subject: Subject | null | undefined): string {
-  return subject ? BORDER[subject] : "border-t-rule";
-}
-
 /** The queue row's left rule. */
 export function subjectBorderLeft(subject: Subject | null | undefined): string {
   return subject ? BORDER_LEFT[subject] : "border-l-rule";
-}
-
-/** The dot on an inactive subject filter chip. */
-export function subjectBackground(subject: Subject | null | undefined): string {
-  return subject ? BACKGROUND[subject] : "bg-ink";
 }
 
 export function subjectLabel(subject: Subject | null | undefined): string | null {

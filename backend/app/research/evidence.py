@@ -30,6 +30,7 @@ Evidence never adds to a trend score. It is a gate and a tie-break.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -63,6 +64,8 @@ from app.retrieval.query_builder import (
     TemplateQueryStrategy,
     UnanchoredQuery,
 )
+
+logger = logging.getLogger(__name__)
 
 #: Extra evidence rounds when too few topics pass. One: the reserve is the
 #: rest of the trend ranking, and a topic that did not make the first pool
@@ -196,13 +199,15 @@ class EvidenceNodes:
         call, which is the pipeline's sharpest documented risk.
         """
         deps = self._deps
+        topic = candidate.canonical_topic
         if deps.extraction is None or deps.deep_counts is None:
             return "failed"
         try:
             extracted = (
-                await deps.extraction.extract(ExtractionInput(topic=candidate.canonical_topic))
+                await deps.extraction.extract(ExtractionInput(topic=topic))
             ).output
         except LLMError as exc:
+            logger.warning("deep research: extraction failed for %r: %s", topic, exc)
             candidate.science.failures.append(f"extraction: {exc}")
             return "failed"
 
@@ -230,6 +235,7 @@ class EvidenceNodes:
             try:
                 counts.append(await deps.deep_counts.profile_terms(terms, recent_since))
             except ProviderUnavailable as exc:
+                logger.warning("deep research: counts unavailable for %r: %s", topic, exc)
                 candidate.science.failures.append(f"deep counts: {exc}")
         if not counts:
             return "failed"
@@ -249,6 +255,7 @@ class EvidenceNodes:
                     for p in found
                 ]
             except ProviderError as exc:
+                logger.warning("deep research: top papers unavailable for %r: %s", topic, exc)
                 candidate.science.failures.append(f"top papers: {exc}")
 
         # The best-evidenced claim sizes the topic. The article's verdict is
@@ -354,6 +361,7 @@ async def _profile(
     try:
         return await provider.profile(query)
     except ProviderUnavailable as exc:
+        logger.warning("evidence profile unavailable for %r: %s", candidate.subject, exc)
         status.failures += 1
         status.detail = str(exc)
         candidate.science.failures.append(str(exc))

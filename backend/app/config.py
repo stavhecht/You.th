@@ -10,6 +10,7 @@ write — or worse, as silently degraded retrieval.
 from __future__ import annotations
 
 import json
+import logging
 from functools import lru_cache
 from typing import Annotated, Literal
 
@@ -28,6 +29,16 @@ CsvList = Annotated[list[str], NoDecode]
 
 #: Weakest to strongest. Mirrored by ``research/contracts.py::EvidenceStatus``;
 #: kept as strings here so config does not import the research package.
+logger = logging.getLogger(__name__)
+
+#: Signing keys printed in this repo: the code default and the two
+#: ``.env.example`` values. Each passes the length check, so a deployment that
+#: copied one runs on a key anyone with the source can sign reviewer tokens with.
+_DEV_JWT_SECRET = "dev-only-insecure-secret-change-me-32-chars"
+PUBLIC_JWT_SECRETS = frozenset(
+    {_DEV_JWT_SECRET, "change-me-at-least-32-characters-long-please"}
+)
+
 _EVIDENCE_STATUSES = ("none", "limited", "emerging", "moderate", "strong")
 #: Mirrored by ``research/contracts.py::SOURCE_NAMES``, for the same reason.
 _TREND_SOURCES = (
@@ -50,7 +61,7 @@ class Settings(BaseSettings):
 
     # --- auth ---
     jwt_secret: str = Field(
-        default="dev-only-insecure-secret-change-me-32-chars",
+        default=_DEV_JWT_SECRET,
         min_length=32,
         description="HS256 signing key",
     )
@@ -604,6 +615,18 @@ class Settings(BaseSettings):
                 f"{info.field_name} must be a positive multiple of 16, got {value}"
             )
         return value
+
+    @model_validator(mode="after")
+    def _warn_on_a_public_jwt_secret(self) -> Settings:
+        """Warn, not refuse: local dev runs on the default by design. The warning
+        is the only signal a real deployment would otherwise never get."""
+        if self.jwt_secret in PUBLIC_JWT_SECRETS:
+            logger.warning(
+                "JWT_SECRET is a placeholder published in this repository; anyone "
+                "with the source can sign reviewer tokens. Set a random value "
+                "(python -c 'import secrets; print(secrets.token_urlsafe(48))')."
+            )
+        return self
 
     @model_validator(mode="after")
     def _heartbeat_leaves_room_to_miss_one(self) -> Settings:

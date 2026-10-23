@@ -12,6 +12,7 @@ parameters are current best practice.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -103,12 +104,21 @@ def verify_password(plaintext: str, hashed: str) -> bool:
         return False
 
 
-def equalise_timing() -> None:
+async def check_password(plaintext: str, hashed: str) -> bool:
+    """``verify_password`` in a thread, for request handlers.
+
+    Argon2 costs ~33 ms; on the event loop that stalls every other request,
+    the public feed included, for the length of each login attempt.
+    """
+    return await asyncio.to_thread(verify_password, plaintext, hashed)
+
+
+async def equalise_timing() -> None:
     """Burn one hash verification for an unknown email.
 
     Call this on the not-found branch of login so both branches cost the same.
     """
-    verify_password("wrong", DUMMY_HASH)
+    await check_password("wrong", DUMMY_HASH)
 
 
 def create_access_token(reviewer: AuthenticatedReviewer, secret: str) -> tuple[str, int]:

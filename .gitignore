@@ -12,3 +12,9 @@ dist/
 /.claude/
 backend/tests/
 developerPrivate
+
+# Playwright (browser tests, dev only)
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
+frontend/e2e/

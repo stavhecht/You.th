@@ -92,7 +92,9 @@ services:
       # Host port is 5433, not 5432: a native Postgres (Homebrew postgresql@15)
       # binds 127.0.0.1:5432 specifically, which beats Docker's wildcard bind
       # and silently shadows this container for `localhost` connections.
-      - "5433:5432"
+      # Loopback only: the password is in this file, so a LAN-wide bind would
+      # hand the whole database, review step included, to anyone on the wifi.
+      - "127.0.0.1:5433:5432"
     volumes:
       - evidwell_pgdata:/var/lib/postgresql/data
     healthcheck:

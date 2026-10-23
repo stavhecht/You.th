@@ -21,7 +21,6 @@ Three rules every implementation follows:
 from __future__ import annotations
 
 import asyncio
-import logging
 import random
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
@@ -34,15 +33,12 @@ from app.research.categories import Category
 from app.research.providers.base import ProviderUnavailable
 from app.research.trends.contracts import (
     Capability,
-    DailySeries,
     SourceBatch,
     SourceQuery,
     SourceType,
 )
 from app.retrieval.base import ProviderError, RateLimited
 from app.retrieval.throttle import EXHAUSTED_AFTER_SECONDS, HttpClient
-
-logger = logging.getLogger(__name__)
 
 #: Server errors worth one more try. 500 is usually a bug on the far side that
 #: an identical request reproduces; these three are a gateway or an overload.
@@ -73,18 +69,6 @@ class TrendSource(Protocol):
         Raises:
             ProviderUnavailable: the source could not answer.
         """
-        ...
-
-
-class DiscoverySource(TrendSource, Protocol):
-    def discovery(self, plan: DiscoveryPlan) -> list[SourceQuery]:
-        """The requests that sweep this source for a run, in order."""
-        ...
-
-
-class VolumeSource(TrendSource, Protocol):
-    async def volume(self, query: SourceQuery) -> DailySeries:
-        """Daily counts for the query between ``query.since`` and ``query.until``."""
         ...
 
 
@@ -220,7 +204,3 @@ async def fetch(http: HttpClient, url: str, what: str, **kwargs: Any) -> httpx.R
 def retries_of(http: object) -> int:
     """Transient retries a source's client made, for the run report."""
     return int(getattr(http, "retries", 0) or 0)
-
-
-def log_skip(source: str, reason: str) -> None:
-    logger.info("trend source %s skipped: %s", source, reason)

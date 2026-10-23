@@ -155,6 +155,7 @@ class _Calls:
             status.failures += 1
             status.detail = str(exc)[:300]
             failures = self._failures[name] = self._failures.get(name, 0) + 1
+            logger.warning("trend source %s unavailable (%d in a row): %s", name, failures, exc)
             if exc.permanent:
                 self.down[name] = f"stopped asking: {exc}"
             elif failures >= MAX_CONSECUTIVE_FAILURES:
@@ -378,6 +379,7 @@ class TrendSearchNodes:
                 )
                 clusters = normalize.merge_similar(clusters, vectors, config.cluster_threshold)
             except Exception as exc:  # an embedding outage costs merging, not the run
+                logger.warning("similar topics were not merged: embeddings failed: %s", exc)
                 state.provider("embeddings").status = "failed"
                 state.provider("embeddings").detail = str(exc)
                 state.notes.append(f"similar topics were not merged: embeddings failed ({exc})")
@@ -857,6 +859,7 @@ class TrendSearchNodes:
                 [c.canonical_topic for c in live] + [past.text for past in history]
             )
         except Exception as exc:
+            logger.warning("novelty was not measured: embeddings failed: %s", exc)
             state.provider("embeddings").status = "failed"
             state.provider("embeddings").detail = str(exc)
             state.notes.append(f"novelty was not measured: embeddings failed ({exc})")
@@ -906,6 +909,7 @@ class TrendSearchNodes:
                         if similarity >= state.config.duplicate_threshold:
                             keys[candidate.topic_id] = topic.topic_key
             except Exception as exc:  # identity falls back to exact keys
+                logger.warning("topic matching by meaning skipped: %s", exc)
                 state.notes.append(f"topic matching by meaning skipped: {exc}")
         refs = {
             keys[c.topic_id]: TopicRef(

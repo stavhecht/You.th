@@ -18,6 +18,7 @@ the public sees, and a reader is the public.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Sequence
 from typing import Any
@@ -74,7 +75,8 @@ class ReaderService:
         """
         reader = Reader(
             email=email.strip().lower(),
-            password_hash=hash_password(password),
+            # ~33 ms of Argon2; on the loop it would stall every other request.
+            password_hash=await asyncio.to_thread(hash_password, password),
             display_name=display_name.strip(),
             interests=list(interests),
             newsletter=newsletter,

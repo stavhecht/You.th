@@ -47,7 +47,6 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -256,12 +255,6 @@ async def load_image(
     if row is None or row.extension != extension:
         return None
     return row
-
-
-async def media_digests(session: AsyncSession) -> set[str]:
-    """Every digest currently in the store. Used by the import script."""
-    result = await session.execute(select(MediaObject.digest))
-    return set(result.scalars())
 
 
 def image_node(src: str, alt: str) -> dict[str, Any]:

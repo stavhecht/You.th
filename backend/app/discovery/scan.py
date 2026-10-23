@@ -29,6 +29,7 @@ loses nothing.
 
 from __future__ import annotations
 
+import logging
 from collections import defaultdict
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
@@ -60,6 +61,8 @@ from app.retrieval.factory import (
     USER_AGENT,
     throttled_client,
 )
+
+logger = logging.getLogger(__name__)
 
 #: A line of live output. Called during the scan; never load-bearing.
 Progress = Callable[[str], None]
@@ -485,4 +488,13 @@ async def run_scan(
         )
         await session.commit()
 
+    # The scan's only trace in the log stream: the scheduler logs that it started,
+    # and a zero here is what tells a quiet fortnight from a broken harvester.
+    logger.info(
+        "trend scan finished: %d records, %d proposed, %d expired, %d observations pruned",
+        report.records_seen,
+        report.candidates_proposed,
+        report.candidates_expired,
+        report.observations_pruned,
+    )
     return report

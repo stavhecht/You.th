@@ -126,12 +126,6 @@ export async function createFolder(name: string): Promise<Folder> {
   });
 }
 
-export async function deleteFolder(folderId: string): Promise<void> {
-  return apiFetch<void>(`/readers/folders/${encodeURIComponent(folderId)}`, {
-    method: "DELETE",
-  });
-}
-
 /** The shelf and its folder tabs, in one request. */
 export async function fetchSaved(folderId?: string | null): Promise<SavedPage> {
   return apiFetch<SavedPage>(`/readers/saved${qs({ folderId })}`);

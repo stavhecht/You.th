@@ -69,6 +69,7 @@ async def check(report: Path) -> Path:
             fallback=topic,
             ingredients=" ".join(extraction["ingredients"]),
             seed=seed,
+            outcome=" ".join(extraction["target_claims"]),
         )
         row = {"case": case, "headline": draft["headline"], "prompt": prompt, "seed": seed}
         started = time.monotonic()

@@ -48,13 +48,14 @@ from app.pipeline.steps.retrieve import RetrieveStage
 from app.pipeline.steps.synthesize import SynthesizeStage
 from app.retrieval.cache import SourceCache
 from app.retrieval.factory import (
+    build_doi_client,
     build_europe_pmc_client,
     build_http_client,
     build_providers,
     build_pubmed_client,
 )
 from app.retrieval.full_text import EuropePMCFullText
-from app.retrieval.identifiers import EuropePMCIdentifiers
+from app.retrieval.identifiers import DoiRegistry, EuropePMCIdentifiers
 from app.retrieval.query_builder import TemplateQueryStrategy
 from app.retrieval.rerank import RerankConfig, SemanticReranker
 from app.retrieval.retractions import PubMedRetractionSource
@@ -565,6 +566,7 @@ def build_default_pipeline(session: AsyncSession, settings: Settings) -> list[St
             retraction_screen=PubMedRetractionSource(
                 build_pubmed_client(settings, http), settings.pubmed_api_key or None
             ),
+            doi_registry=DoiRegistry(build_doi_client(settings, http)),
         ),
         RankStage(reranker, rerank_config),
         # After RANK so it reads only papers that already made the cut, and

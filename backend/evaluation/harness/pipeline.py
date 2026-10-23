@@ -67,13 +67,14 @@ from app.pipeline.steps.retrieve import RetrieveStage
 from app.pipeline.steps.synthesize import SynthesizeStage
 from app.retrieval.base import ScholarlyProvider, SearchQuery
 from app.retrieval.factory import (
+    build_doi_client,
     build_europe_pmc_client,
     build_http_client,
     build_providers,
     build_pubmed_client,
 )
 from app.retrieval.full_text import EuropePMCFullText
-from app.retrieval.identifiers import EuropePMCIdentifiers
+from app.retrieval.identifiers import DoiRegistry, EuropePMCIdentifiers
 from app.retrieval.query_builder import TemplateQueryStrategy, UnanchoredQuery
 from app.retrieval.rerank import RerankConfig
 from app.retrieval.retractions import PubMedRetractionSource
@@ -627,6 +628,7 @@ def build_stages(
                 build_pubmed_client(settings, http),  # type: ignore[arg-type]
                 settings.pubmed_api_key or None,
             ),
+            doi_registry=DoiRegistry(build_doi_client(settings, http)),  # type: ignore[arg-type]
         ),
         RankStage(
             MemoryReranker(store, embedder, faults.component("vector_store")),  # type: ignore[arg-type]

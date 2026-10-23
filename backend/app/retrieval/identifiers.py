@@ -18,14 +18,20 @@ leaves the paper exactly as it was.
 
 from __future__ import annotations
 
+import asyncio
+import logging
 from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any, Protocol
+from urllib.parse import quote
 
 import httpx
 
 from app.retrieval.base import ProviderError, RateLimited
 from app.retrieval.throttle import HttpClient
+
+logger = logging.getLogger(__name__)
+DOI_HANDLES = "https://doi.org/api/handles"
 
 EUROPE_PMC_REST = "https://www.ebi.ac.uk/europepmc/webservices/rest"
 
@@ -46,6 +52,36 @@ class PmidResolver(Protocol):
     async def pmids_for_dois(self, dois: list[str]) -> dict[str, str]:
         """Lower-cased DOI -> PMID, for every DOI that has exactly one PMID."""
         ...
+
+
+class DoiRegistry:
+    """Asks doi.org whether a DOI was ever registered.
+
+    OpenAlex indexes journals that print DOIs they never registered. Measured
+    2026-10-23: a gut-health article cited a "systematic review" whose DOI
+    doi.org and Crossref both answer 404, the only one of 38 cited sources no
+    registry knew. A PMID-bearing paper is real by construction, so only
+    DOI-only ones are asked: a handful per run.
+    """
+
+    def __init__(self, http: HttpClient) -> None:
+        self._http = http
+
+    async def unregistered(self, dois: Iterable[str]) -> set[str]:
+        """The DOIs doi.org says do not exist. One it could not answer for is
+        left out: unknown is never "unregistered"."""
+
+        async def missing(doi: str) -> bool:
+            try:
+                response = await self._http.get(f"{DOI_HANDLES}/{quote(doi, safe='/')}")
+            except (httpx.HTTPError, RateLimited) as exc:
+                logger.warning("doi.org could not be asked about %s: %s", doi, exc)
+                return False
+            return response.status_code == 404
+
+        wanted = sorted(set(dois))
+        answers = await asyncio.gather(*(missing(doi) for doi in wanted))
+        return {doi for doi, gone in zip(wanted, answers, strict=True) if gone}
 
 
 class EuropePMCIdentifiers:

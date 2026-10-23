@@ -173,9 +173,15 @@ def _normalise(phrase: str) -> str:
     return " ".join(phrase.lower().split())
 
 
-def paragraph_rejection(part: Part, edited: str, sources: list[PromptSource]) -> str | None:
-    """Why ``edited`` must not replace ``part.text``, or None to keep it."""
-    if extract_handles(edited) != extract_handles(part.text):
+def paragraph_rejection(
+    part: Part, edited: str, sources: list[PromptSource], *, same_handles: bool = True
+) -> str | None:
+    """Why ``edited`` must not replace ``part.text``, or None to keep it.
+
+    ``same_handles=False`` is for a repair, whose own check decides which
+    citations may change.
+    """
+    if same_handles and extract_handles(edited) != extract_handles(part.text):
         return (
             "changed which sources it cites: keep every citation marker exactly as in the "
             "draft, and add none to a paragraph that has none"
@@ -206,6 +212,38 @@ def paragraph_rejection(part: Part, edited: str, sources: list[PromptSource]) ->
     if after < before * MIN_LENGTH_RATIO:
         return f"shortened it from {before} to {after} words"
     return None
+
+
+def repair_rejection(
+    part: Part, edited: str, sources: list[PromptSource], named: set[str], failed: set[str]
+) -> str | None:
+    """Why a repair of ``part`` cannot be kept, or None to keep it.
+
+    ``named`` holds the handles the failures pointed at (the ones cited and the
+    ones holding the number): a fix may move a citation among those and touch
+    no other. ``failed`` holds the numbers that failed: none may stay in a
+    sentence that cites nothing, since the number check reads only cited
+    sentences and dropping the marker would pass it. Then every edit guard,
+    and no number left beside a source that does not contain it.
+    """
+    if changed := (extract_handles(edited) ^ extract_handles(part.text)) - named:
+        return (
+            f"changed citations the problem did not name ({', '.join(sorted(changed))}): "
+            "keep every other citation marker exactly as it is"
+        )
+    for sentence in numbers.sentences(edited):
+        if extract_handles(sentence):
+            continue
+        kept = numbers.source_numbers(sentence)
+        if left := sorted(raw for raw in failed if numbers.is_present(raw, kept)):
+            return (
+                f"kept {', '.join(left)} in a sentence that cites nothing: remove the "
+                "number, or cite the source that contains it"
+            )
+    if left := _unsourced([edited], sources):
+        number, handles = sorted(left)[0]
+        return f"still gives {number} beside {', '.join(handles)}, which does not contain it"
+    return paragraph_rejection(part, edited, sources, same_handles=False)
 
 
 def assemble(draft: SynthesisOutput, texts: list[str]) -> SynthesisOutput | None:

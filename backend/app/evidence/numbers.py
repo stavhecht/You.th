@@ -141,6 +141,14 @@ def unsupported(
     return unsupported_in(blocks, sources)
 
 
+def plain_sentence(sentence: str) -> str:
+    """A sentence as the number check reports it: markers out, spacing squeezed.
+
+    ``SynthesizeStage._repair`` finds a failure's paragraph by this form.
+    """
+    return " ".join(CITATION_MARKER_RE.sub("", sentence).split())
+
+
 def unsupported_in(
     blocks: list[str], sources: list[PromptSource]
 ) -> list[tuple[str, list[str], list[str], list[str]]]:
@@ -169,5 +177,5 @@ def unsupported_in(
                 ),
                 key=lambda h: int(h[1:]),
             )
-            problems.append((" ".join(plain.split()), handles, missing, elsewhere))
+            problems.append((plain_sentence(sentence), handles, missing, elsewhere))
     return problems

@@ -44,7 +44,8 @@ from app.research.contracts import (
     ResearchParams,
     ResearchState,
 )
-from app.research.graph import ResearchAgent, ResearchDeps
+from app.research.evidence import EvidenceDeps
+from app.research.graph import ResearchAgent
 from app.research.normalize import QueryCluster
 from app.research.providers.base import ProviderUnavailable, RelatedQueries, RelatedQuery
 from app.research.providers.news import (
@@ -57,7 +58,13 @@ from app.research.providers.scientific import (
     PubMedEvidenceProvider,
 )
 from app.research.providers.web_search import SimpleWebSearchProvider
-from app.research.triage import TriageOutput, TriageTopic
+from app.research.trends.graph import TrendDeps
+from app.research.trends.sources.adapters import (
+    GoogleTrendsSource,
+    NewsSearchSource,
+    WebSearchSource,
+)
+from app.research.triage import Examples, TriageOutput, TriageTopic
 from app.retrieval.providers import EuropePMCProvider
 from app.retrieval.pubmed import PubMedProvider
 from app.retrieval.throttle import RateLimiter, ThrottledClient
@@ -78,6 +85,20 @@ TOPICS = [
     ("sauna recovery", "sauna", "recovery", 60),
     ("miracle mushroom gummies", "miracle mushroom", "", 1),
 ]
+
+
+#: Headlines from different outlets. The trend agent counts a topic only when
+#: two or more independent outlets carry it, and folds headlines that differ in
+#: little but a number into one story, so one outlet with "<q> news 1..6"
+#: proposed nothing.
+_HEADLINES = (
+    "Why {q} is suddenly everywhere",
+    "Researchers take a closer look at {q}",
+    "{q}: what the experts say",
+    "Readers keep asking about {q}",
+    "The rise of {q} this autumn",
+    "Is {q} worth the hype?",
+)
 
 
 async def _no_sleep(_: float) -> None:
@@ -169,12 +190,12 @@ class ScriptedHttp:
                 "totalResults": 6,
                 "articles": [
                     {
-                        "title": f"{q} story {i}",
-                        "url": f"https://newsapi.example/{i}",
-                        "source": {"name": "Example News"},
+                        "title": headline.format(q=q),
+                        "url": f"https://outlet{i}.example/{i}",
+                        "source": {"name": f"Outlet {i}"},
                         "publishedAt": "2026-09-28T09:00:00Z",
                     }
-                    for i in range(6)
+                    for i, headline in enumerate(_HEADLINES)
                 ],
             }
         return {}
@@ -210,12 +231,12 @@ class _FakeDDGS:
             raise RuntimeError("ddgs: news timed out (scripted)")
         return [
             {
-                "title": f"{query} news {i}",
-                "url": f"https://news.example/{i}",
-                "source": "Example",
+                "title": headline.format(q=query),
+                "url": f"https://news{i}.example/{i}",
+                "source": f"Paper {i}",
                 "date": "2026-09-28T10:00:00+00:00",
             }
-            for i in range(6)
+            for i, headline in enumerate(_HEADLINES)
         ]
 
 
@@ -244,7 +265,9 @@ class _Triage:
         self._down = down
         self._by_query = {q: (subject, outcome) for q, subject, outcome, _ in TOPICS}
 
-    async def triage(self, clusters: list[QueryCluster]) -> TriageOutput:
+    async def triage(
+        self, clusters: list[QueryCluster], examples: Examples | None = None
+    ) -> TriageOutput:
         if self._down:
             raise LLMError("research triage call failed: model unavailable (scripted)")
         topics = []
@@ -381,26 +404,16 @@ SCENARIOS: dict[str, Scenario] = {
 def _fabrication_checks(state: ResearchState) -> list[dict[str, Any]]:
     """A signal that could not be measured must be absent, never zero."""
     checks = []
-    for provider, component, attribute in (
-        ("web_search", "source_quality", "web"),
-        ("news", "news_momentum", "news"),
-    ):
+    for provider in ("web", "news"):
         status = state.provider_status.get(provider)
         if status is None or status.status != "failed":
             continue
-        live = state.live()
-        carried = [c.canonical_topic for c in live if getattr(c, attribute) is not None]
-        scored = [c.canonical_topic for c in live if component in c.scores.components]
-        listed = [c.canonical_topic for c in live if component in c.scores.unavailable]
+        carried = [c.canonical_topic for c in state.live() if getattr(c, provider) is not None]
         checks.append(
             {
-                "name": f"no_fabricated_{attribute}_signal",
-                "passed": not carried and not scored,
-                "detail": (
-                    f"{provider} failed: {len(carried)} candidates carry a {attribute} signal, "
-                    f"{len(scored)} were scored on {component}, {len(listed)} list it as "
-                    "unavailable"
-                ),
+                "name": f"no_fabricated_{provider}_signal",
+                "passed": not carried,
+                "detail": f"{provider} failed: {len(carried)} candidates carry its signal",
             }
         )
     if state.failed and state.failed.startswith("scientific_evidence_unavailable"):
@@ -445,23 +458,40 @@ async def run_scenario(case_id: str, scenario_name: str) -> Trace:
     async def history(_: datetime) -> list[PastTopic]:
         return []
 
-    deps = ResearchDeps(
-        trends=_Trends(down=scenario.trends_down),
-        web=SimpleWebSearchProvider(
-            client_factory=lambda: ddgs, retries=1, retry_wait=0, sleep=_no_sleep
+    config = ResearchConfig.resolve(
+        settings,
+        ResearchParams(
+            categories=[Category.SUPPLEMENTS],
+            enabled_sources=["google_trends", "news", "web"],
         ),
-        news=news,
-        science=pubmed,
-        cross_check=EuropePMCEvidenceProvider(EuropePMCProvider(throttled("europe_pmc"))),
-        deep_counts=pubmed,
-        papers=None,
-        extraction=_Extraction(),
+    )
+    web = SimpleWebSearchProvider(
+        client_factory=lambda: ddgs, retries=1, retry_wait=0, sleep=_no_sleep
+    )
+    trend = TrendDeps(
+        sources=[
+            GoogleTrendsSource(
+                _Trends(down=scenario.trends_down),
+                window_days=config.trend_window_days,
+                now=lambda: NOW,
+            ),
+            NewsSearchSource(news, now=lambda: NOW),
+            WebSearchSource(web, now=lambda: NOW),
+        ],
+        unavailable={},
         triage=_Triage(down=scenario.triage_down),
         embedder=_Embedder(down=scenario.embeddings_down),
         history=history,
         now=lambda: NOW,
     )
-    config = ResearchConfig.resolve(settings, ResearchParams(categories=[Category.SUPPLEMENTS]))
+    evidence = EvidenceDeps(
+        science=pubmed,
+        cross_check=EuropePMCEvidenceProvider(EuropePMCProvider(throttled("europe_pmc"))),
+        deep_counts=pubmed,
+        papers=None,
+        extraction=_Extraction(),
+        now=lambda: NOW,
+    )
     state = ResearchState(
         run_id="00000000-0000-0000-0000-00000000e7a1",
         label=f"eval_{scenario_name}",
@@ -470,7 +500,7 @@ async def run_scenario(case_id: str, scenario_name: str) -> Trace:
         today=TODAY,
     )
     try:
-        final = await ResearchAgent(deps).run(state)
+        final = await ResearchAgent(trend, evidence=evidence).run(state)
     except Exception as exc:  # the graph records node failures; anything here escaped it
         recorder.trace.error = {"type": type(exc).__name__, "message": str(exc)}
         return recorder.finish(Outcome.CRASHED)

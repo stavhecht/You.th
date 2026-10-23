@@ -281,6 +281,7 @@ async def regenerate_illustration(
             topic=article.topic,
             subject=article.subject,
             ingredients=" ".join(article.ingredients or ()),
+            outcome=" ".join(article.target_claims or ()),
             lead_size=(settings.image_lead_width, settings.image_lead_height),
             cover_size=(settings.image_cover_width, settings.image_cover_height),
             session=session,

@@ -59,6 +59,10 @@ sentence limit you are given.
 apart. "Found" is for what was measured; "suggests" or "the authors think" is \
 for an idea that was not tested. Keep every hedge.
 - Blank lines between paragraphs stay where they are.
+- One exception to these rules: a note after the paragraph may say that a \
+number is not in the source it cites. Then that note wins: remove that number \
+(rewrite its sentence without it), or cite the source the note says contains \
+it. Never leave the number in place, and never drop the citation instead.
 
 # What to change
 

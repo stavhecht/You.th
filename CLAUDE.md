@@ -69,6 +69,10 @@ mypy app                                 # NOT clean — see below
 python -m evaluation.run                 # exits 1 when a critical metric misses its threshold
 python -m evaluation.run --suite retrieval --limit 20   # stops after RANK, no synthesis
 python -m evaluation.run --test basic_002 --save-baseline
+python -m evaluation.trend_check [run_id]   # a research run's links, freshness, wellness;
+                                         # writes datasets/trends.jsonl for --suite trends
+python -m evaluation.image_check evaluation/reports/<run>   # one FLUX render per article
+                                         # (spends, even with IMAGE_PROVIDER=none)
 
 # frontend, from frontend/
 npm run dev            # :5173, public site at /, review desk at /review
@@ -481,6 +485,13 @@ NCBI's ID converter. They are in journals MEDLINE does not index, so there is no
 A cached DOI-only row picks up its PMID the next time a run retrieves it (the cache's
 `COALESCE`).
 
+**A DOI-only paper doi.org has never registered is dropped** (`RetrieveStage._screen_unregistered`,
+`identifiers.py::DoiRegistry`, after the retraction screen). OpenAlex indexes journals that print
+DOIs they never registered: a gut-health article cited a "systematic review" whose DOI doi.org and
+Crossref both 404. Only DOI-only papers are asked (0–26 per run measured), a refinement round
+skips DOIs that already passed, and an unanswered DOI is kept. The eval's recordings gained
+doi.org answers on 2026-10-23; a replay of older recordings would skip cases on the miss.
+
 `RetrieveStage` is the only stage that writes to the cache; it carries each candidate's row id
 forward as a `CachedCandidate` on `ctx.candidates`, so **`RankStage` takes no `SourceCache` and
 reads only**. Don't reintroduce a lookup there — it was a full re-upsert of the candidate set
@@ -701,6 +712,21 @@ on llama-server (7–14 small calls). What to know:
 The number check learned two things on the way, both false positives that discarded a correct
 plainer draft: compound numbers ("Twenty-six trials" reads as 26) and a hyphenated word before
 the count noun ("26 high-quality trials" is a count of sources).
+
+**A draft failing only on `unsourced_number` is repaired in place, not rewritten**
+(`SynthesizeStage._repair`, 2026-10-23). Told to fix one sentence and copy the rest, the
+whole-article revision cut a 12-source draft to 5 sources and a 15-source one to 4. The failure
+names its sentence (with markers stripped: `numbers.plain_sentence` is the one form both sides
+use), so only the paragraphs holding it go back, through the reader edit's call with the failure
+as feedback. `repair_rejection` keeps a fix only if it moves no citation but the ones the failure
+named, leaves no failed number in a sentence that cites nothing (the number check reads only
+cited sentences, so dropping the marker would pass it), leaves no number beside a source without
+it, and passes the reader edit's guards. A refused fix is tried once more with the neighbouring
+paragraphs shown; after that the whole-article revision runs as before (`repair_failed` says
+why). The reader-edit prompt says a repair note wins over "every number stays". Measured on six
+trend articles: two repaired and passed (one sentence sat in two paragraphs; both are repaired
+now), two still failed because Bonsai kept a number no source contains ("1.97 million", a 2025
+for a 2026 paper) — a correct rejection.
 
 **Article body is TipTap JSON, not markdown.** The model emits plain text with `[S1]` markers;
 `services/tiptap.py::body_text_to_doc()` parses them into typed citation nodes at assembly.
@@ -989,6 +1015,15 @@ The noun also moved to the head of the sentence (`Still life of Ashwagandha KSM-
 trailing `, suggesting <noun>` — arriving after three concrete object nouns that had already
 specified the frame, it was doing almost nothing. The default-motif path passes no head noun,
 because that scene already names it.
+
+**A product that names no motif gets a scene for what the article is about**
+(`_OUTCOME_SCENES`, 2026-10-23): ten areas (gut, back, heart, brain and mood, sleep, skin,
+joints, longevity, weight and blood sugar, immunity), each `_MOTIF_RADIX` object-only variants,
+picked by hint words in `product`, then in the claims (`build_prompt(outcome=...)`), never the
+topic. Only the scene's own words reach the prompt, never the claim, and no head noun is used,
+since "cancer survivorship care" at the head invites a clinical picture. Before it, "Back pain"
+fell through to "objects associated with back pain" and FLUX drew pharmacy bottles with garbled
+labels. A product motif still wins (a magnesium article keeps its jar).
 
 **Tonal range comes from `_SURFACES` and `_LIGHTS`, never from hue.** Surfaces vary material
 *and value* (pale paper through dark oiled wood); lights run from even overcast through hard
@@ -1286,6 +1321,11 @@ DESIGN.md §4b has the design. What to know when editing:
      `normalize._NOT_A_TOPIC`): "running shoes" ranked second.
   A topic triage filed under an unrequested category is kept under its **seed's** category
   when that one was requested (narrowed to supplements, triage filed creatine under nutrition).
+- **A topic bundling two subjects keeps only its own queries** (`triage._accepted`, 2026-10-23):
+  Bonsai filed "zone 2 running" under "fish oil" and "Alzheimer's drug trials" under
+  "diabetes". Groups sharing no word with the subject go back unclaimed (and are re-asked),
+  and the topic is renamed "<subject> for <outcome>". Several claims about one subject all name
+  it and stay together; a topic none of whose groups names its subject (a synonym) is kept.
 - **Google Trends' rising lists carry spam** (measured 2026-09-30: "learn golang", "online
   banking review" at +7,000% under "fitness"). The defences, in order: `normalize.is_on_topic`
   and the shopping words; triage in batches of 25 that cannot make a topic out of more than 6

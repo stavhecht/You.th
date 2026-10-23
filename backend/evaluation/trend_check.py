@@ -9,7 +9,9 @@ Search Agent hands a reviewer. Three questions per topic:
 * **Real** — every supporting source's URL is fetched. ``verified`` means it
   answered 2xx and the page names the topic's subject (or carries the
   headline we stored); ``blocked`` is a 401/403/429/451 (the page exists, a
-  bot wall stopped us); ``dead`` is a 404/410 or a host that did not resolve.
+  bot wall stopped us); ``unreadable`` answered 2xx but its text is built in
+  the browser (MSN, YouTube, search redirects), so it is reachable and
+  unjudged; ``dead`` is a 404/410 or a host that did not resolve.
   A topic is *corroborated* when two or more distinct publishers verify.
 * **Fresh** — the source's date falls inside the run's collection window
   (two days' slack either side for time zones and feed lag).
@@ -51,6 +53,10 @@ _UA = (
     "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 )
 _BLOCKED = {401, 403, 429, 451}
+#: Measured 2026-10-23: MSN and Yahoo's redirects serve 0-1 words; YouTube
+#: serves the same 621 words of boilerplate for every video.
+_MIN_READABLE_WORDS = 50
+_SCRIPT_RENDERED = ("youtube.com", "youtu.be")
 _STRIP = re.compile(r"<(script|style)\b.*?</\1>|<[^>]+>", re.S | re.I)
 _WORD = re.compile(r"[a-z0-9]{4,}")
 
@@ -78,8 +84,8 @@ def page_text(html: str) -> str:
     return " ".join(_STRIP.sub(" ", html).split()).lower()
 
 
-def judge_page(status: int | None, text: str, subject: str, title: str) -> str:
-    """verified | unconfirmed | blocked | dead | error, from one fetch."""
+def judge_page(status: int | None, text: str, subject: str, title: str, url: str = "") -> str:
+    """verified | unconfirmed | unreadable | blocked | dead | error, from one fetch."""
     if status is None:
         return "dead"
     if status in _BLOCKED:
@@ -88,6 +94,9 @@ def judge_page(status: int | None, text: str, subject: str, title: str) -> str:
         return "dead"
     if not 200 <= status < 300:
         return "error"
+    host = urlparse(url).hostname or ""
+    if len(text.split()) < _MIN_READABLE_WORDS or host.endswith(_SCRIPT_RENDERED):
+        return "unreadable"
     on_page = words(text)
     subject_words = words(subject)
     title_words = words(title)
@@ -173,7 +182,9 @@ async def check(run_id: str | None) -> Path:
                     "source": source.source_name,
                     "http": status,
                     "final_url": final,
-                    "page": judge_page(status, text, topic.subject, source.title),
+                    "page": judge_page(
+                        status, text, topic.subject, source.title, final or source.url
+                    ),
                     "fresh": fresh(source, window.start, window.end),
                 }
             )

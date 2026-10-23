@@ -138,6 +138,7 @@ class IllustrateStage:
                     # imagery/prompt.py.
                     subject=None,
                     ingredients=" ".join(ctx.extraction.ingredients),
+                    outcome=" ".join(ctx.extraction.target_claims),
                     lead_size=self._config.lead_size,
                     cover_size=self._config.cover_size,
                     session=self._session,

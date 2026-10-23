@@ -215,7 +215,10 @@ def decisions(trace: dict[str, Any]) -> list[dict[str, Any]]:
     if validations:
         first_report = validations[0]
         codes = {f["code"] for f in first_report.get("failures") or []}
-        revised = any(d["kind"] == "revision" for d in trace.get("drafts") or [])
+        # A targeted repair (``SynthesizeStage._repair``) revises without a synthesis call.
+        synthesize = (trace.get("stage_metrics") or {}).get("synthesize") or {}
+        repaired = bool(synthesize.get("repair"))
+        revised = repaired or any(d["kind"] == "revision" for d in trace.get("drafts") or [])
         if not first_report.get("passed") and codes and codes <= REVISABLE_FAILURES:
             rule(
                 "revise_fixable_failures",

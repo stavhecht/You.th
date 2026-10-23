@@ -14,6 +14,7 @@ from app.domain.contracts import (
     extract_handles,
 )
 from app.domain.enums import Stance
+from app.evidence.numbers import plain_sentence, sentences
 from app.llm.base import LLMError, LLMResult, SynthesisClient
 from app.pipeline.stages import PipelineContext, StageError, StageName
 from app.pipeline.steps import reader_edit
@@ -221,6 +222,9 @@ class SynthesizeStage:
         assert ctx.draft is not None
         payload = ctx.synthesis_input
         codes = sorted({failure.code for failure in ctx.validation.failures})
+        repair = await self._repair(ctx, payload)
+        if isinstance(repair, PipelineContext):
+            return repair
         try:
             result = await self._client.synthesize(
                 payload, feedback=revision_feedback(ctx.validation, ctx.draft)
@@ -235,6 +239,7 @@ class SynthesizeStage:
                 {
                     "revision": True,
                     "revision_failed": str(exc),
+                    "repair_failed": repair,
                     "failures_fed_back": codes,
                     "verdict": str(ctx.draft.verdict),
                 },
@@ -246,6 +251,7 @@ class SynthesizeStage:
             self.name,
             {
                 "revision": True,
+                "repair_failed": repair,
                 "failures_fed_back": codes,
                 "verdict": str(result.output.verdict),
                 "sources_in_prompt": len(payload.sources),
@@ -259,6 +265,127 @@ class SynthesizeStage:
             result, edit_metrics = await self._edit_for_readers(ctx, payload, result)
             ctx.metrics[str(self.name)]["reader_edit"] = edit_metrics
         return ctx.model_copy(update={"draft": result.output, "validation": None})
+
+    async def _repair(
+        self, ctx: PipelineContext, payload: SynthesisInput
+    ) -> PipelineContext | str | None:
+        """Fix only the paragraphs whose numbers failed; every other one stays.
+
+        Measured 2026-10-23: told to fix one sentence and copy the rest, the
+        whole-article revision cut a 12-source draft to 5 sources and a
+        15-source one to 4. An ``unsourced_number`` failure names its sentence,
+        so only that paragraph goes back, through the reader edit's call with
+        the failure as feedback and its guards (handles unchanged, no new
+        number, at most 15% shorter), plus one more: no number left beside a
+        source without it. A refused fix is tried once more with the
+        neighbouring paragraphs shown, the overlap a chunk gets.
+
+        Returns the repaired context; ``None`` when the failures are not all
+        located numbers (the whole-article revision handles those); or why the
+        repair failed, and the whole-article revision runs after all.
+        """
+        assert ctx.validation is not None and ctx.draft is not None
+        failures = ctx.validation.failures
+        if not failures or any(f.code != "unsourced_number" for f in failures):
+            return None
+        draft = ctx.draft
+        located = reader_edit.parts(draft)
+        texts = [part.text for part in located]
+        notes: dict[int, list[str]] = {}
+        named: dict[int, set[str]] = {}
+        failed: dict[int, set[str]] = {}
+        for failure in failures:
+            sentence = str(failure.detail.get("sentence", ""))
+            # Every paragraph holding it: measured 2026-10-23, one sentence sat
+            # in two paragraphs, and fixing the first left the article failing.
+            indices = [
+                i
+                for i, part in enumerate(located)
+                if sentence in {plain_sentence(s) for s in sentences(part.text)}
+            ]
+            if not indices:
+                return "a failing sentence was not found in the draft"
+            for index in indices:
+                if failure.message not in notes.setdefault(index, []):
+                    notes[index].append(failure.message)
+                named.setdefault(index, set()).update(
+                    str(handle)
+                    for key in ("handles", "found_in")
+                    for handle in failure.detail.get(key) or ()  # type: ignore[attr-defined]
+                )
+                failed.setdefault(index, set()).update(
+                    str(raw) for raw in failure.detail.get("numbers") or ()  # type: ignore[attr-defined]
+                )
+
+        calls = 0
+        for index, messages in notes.items():
+            part = located[index]
+            fix = (
+                "This paragraph failed the citation check:\n"
+                + "\n".join(f"- {message}" for message in messages)
+                + "\nFix exactly that, and keep every other sentence as it is."
+            )
+            request = ReaderEditInput(
+                product=payload.product,
+                earlier=[],
+                paragraph=part.text,
+                max_sentences=part.max_sentences,
+                feedback=fix,
+            )
+            reason = ""
+            for _ in range(2):
+                calls += 1
+                try:
+                    edit = await self._client.edit_for_readers(request)
+                except LLMError as exc:
+                    ctx.record_usage(self.name, exc.model, exc.usage)
+                    return f"{part.name}: call failed: {exc}"
+                ctx.record_usage(self.name, edit.model, edit.usage)
+                reason = (
+                    reader_edit.repair_rejection(
+                        part, edit.output.text, payload.sources, named[index], failed[index]
+                    )
+                    or ""
+                )
+                if not reason:
+                    texts[index] = edit.output.text
+                    break
+                following = texts[index + 1] if index + 1 < len(texts) else ""
+                request = request.model_copy(
+                    update={
+                        "earlier": texts[max(index - 1, 0) : index],
+                        "feedback": f"{fix}\nYour last fix was thrown away because it "
+                        f"{reason}."
+                        + (
+                            f"\n\nThe paragraph after it, for context only:\n\n{following}"
+                            if following
+                            else ""
+                        ),
+                    }
+                )
+            if reason:
+                return f"{part.name}: {reason}"
+
+        edited = reader_edit.assemble(draft, texts)
+        if edited is None:
+            return "the repaired article broke the output contract"
+        if rejected := reader_edit.article_rejection(draft, edited, payload):
+            return f"the repaired article {rejected}"
+        ctx.record_metrics(
+            self.name,
+            {
+                "revision": True,
+                "repair": {"paragraphs": len(notes), "calls": calls},
+                "failures_fed_back": ["unsourced_number"],
+                "verdict": str(edited.verdict),
+                "sources_in_prompt": len(payload.sources),
+                "handles_cited": len(edited.body.cited_handles()),
+                "handles_covered": len(_covered_handles(edited, payload.handle_set)),
+                "body_words": _body_words(edited),
+            },
+        )
+        logger.info("repaired %d paragraph(s) in place (%d calls)", len(notes), calls)
+        return ctx.model_copy(update={"draft": edited, "validation": None})
 
     async def _use_more_sources(
         self,

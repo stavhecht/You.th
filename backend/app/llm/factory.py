@@ -73,7 +73,7 @@ def build_generative_clients(
         )
 
     if name == "llamacpp":
-        chat = _llamacpp_chat(settings)
+        chat = llamacpp_chat(settings)
         logger.info(
             "generative provider: llama-server at %s (%s, reasoning=%s)",
             settings.llamacpp_base_url,
@@ -135,7 +135,7 @@ def build_appraisal_client(settings: Settings) -> AppraisalClient:
 
     if name == "llamacpp":
         logger.info("appraisal: llama-server (%s)", settings.llamacpp_model)
-        return LlamaCppAppraisalClient(_llamacpp_chat(settings))
+        return LlamaCppAppraisalClient(llamacpp_chat(settings))
 
     raise LLMError(
         f"unknown llm_provider {settings.llm_provider!r}; "
@@ -143,7 +143,7 @@ def build_appraisal_client(settings: Settings) -> AppraisalClient:
     )
 
 
-def _llamacpp_chat(settings: Settings) -> LlamaCppChat:
+def llamacpp_chat(settings: Settings) -> LlamaCppChat:
     """The llama-server transport, which unloads Ollama's language models first.
 
     The embedding model is kept: it fits beside Bonsai, and RETRIEVE needs it.

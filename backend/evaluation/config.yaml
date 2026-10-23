@@ -58,6 +58,7 @@ suites:
   adversarial: {datasets: [adversarial]}
   failure:    {datasets: [failure_cases]}
   regression: {datasets: [regression]}
+  trends:     {datasets: [trends]}      # written by evaluation/trend_check.py
   # Metric suites. `retrieval` stops after RANK, so it never calls synthesis.
   retrieval:
     datasets: [basic, research, multi_turn, adversarial]

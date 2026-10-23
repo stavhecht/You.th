@@ -19,12 +19,13 @@ from __future__ import annotations
 import logging
 import uuid
 from collections.abc import Mapping
-from typing import Protocol
+from typing import Any, Protocol
 
 from ollama import AsyncClient
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.llm.base import LLMError
+from app.llm.base import LLMError, LLMResult
+from app.llm.llamacpp_client import LlamaCppChat
 from app.llm.ollama_client import structured_chat
 from app.research.contracts import CandidateTopic, Category
 from app.research.normalize import QueryCluster, fallback_subject, query_key
@@ -140,17 +141,8 @@ class OllamaTriageClient:
         last_error: LLMError | None = None
         for start in batches:
             try:
-                result = await structured_chat(
-                    self._client,
-                    call="research triage",
-                    model=self._model,
-                    system=TRIAGE_SYSTEM_PROMPT,
-                    user=build_triage_user_prompt(
-                        clusters[start : start + TRIAGE_BATCH], examples
-                    ),
-                    output_format=TriageOutput,
-                    num_ctx=TRIAGE_NUM_CTX,
-                    max_tokens=TRIAGE_MAX_TOKENS,
+                result = await self._ask(
+                    build_triage_user_prompt(clusters[start : start + TRIAGE_BATCH], examples)
                 )
             except LLMError as exc:
                 self.failed_batches += 1
@@ -164,6 +156,42 @@ class OllamaTriageClient:
         if last_error is not None and self.failed_batches == len(batches):
             raise last_error
         return TriageOutput(topics=topics)
+
+    async def _ask(self, user: str) -> LLMResult[Any]:
+        return await structured_chat(
+            self._client,
+            call="research triage",
+            model=self._model,
+            system=TRIAGE_SYSTEM_PROMPT,
+            user=user,
+            output_format=TriageOutput,
+            num_ctx=TRIAGE_NUM_CTX,
+            max_tokens=TRIAGE_MAX_TOKENS,
+        )
+
+
+class LlamaCppTriageClient(OllamaTriageClient):
+    """Triage on llama-server, for ``LLM_PROVIDER=llamacpp``.
+
+    Ollama's language model cannot share the GPU with llama-server, so this
+    path used to skip triage, and the raw rising queries became topics: a run
+    on 2026-10-23 selected "care" and "cognitive" and ranked "benefit" first.
+    Same batches, prompt and checks; only the transport differs.
+    """
+
+    def __init__(self, chat: LlamaCppChat) -> None:
+        super().__init__(None, chat.model)  # type: ignore[arg-type]
+        self._chat = chat
+
+    async def _ask(self, user: str) -> LLMResult[Any]:
+        return await self._chat.chat(
+            call="research triage",
+            system=TRIAGE_SYSTEM_PROMPT,
+            user=user,
+            output_format=TriageOutput,
+            max_tokens=TRIAGE_MAX_TOKENS,
+            temperature=0.0,
+        )
 
 
 def build_triage_user_prompt(

@@ -70,6 +70,7 @@ export function YouRoute() {
   const [newFolder, setNewFolder] = useState("");
   const flash = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const saved = useQuery({
     queryKey: readerKeys.savedIn(folderId),
@@ -134,7 +135,13 @@ export function YouRoute() {
           </div>
         </div>
 
-        <button onClick={logout} className={PILL_BUTTON}>
+        <button
+          onClick={() => {
+            logout();
+            navigate("/");
+          }}
+          className={PILL_BUTTON}
+        >
           Sign out
         </button>
       </div>

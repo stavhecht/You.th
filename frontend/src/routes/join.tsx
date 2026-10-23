@@ -16,6 +16,7 @@
 
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Eye, EyeOff } from "lucide-react";
 
 import { SUBJECTS, SUBJECT_LABELS } from "@/features/evidence/subject";
 import { useReader } from "@/features/reader/auth";
@@ -52,6 +53,9 @@ import {
 import { ApiError } from "@/lib/api/client";
 import type { Subject } from "@/types/api";
 
+// A small indent, so each title sits slightly inside the field's left edge.
+const INPUT_LABEL = `${FIELD_LABEL} pl-2`;
+
 const WHAT_IT_DOES = [
   {
     title: "Orders your feed",
@@ -82,12 +86,11 @@ const PASSWORD_RULES: { label: string; met: (password: string) => boolean }[] =
     { label: "A special character", met: (pw) => /[^A-Za-z0-9]/.test(pw) },
   ];
 
-export function JoinRoute() {
+export function JoinRoute({ mode }: { mode: "signup" | "login" }) {
   const { signup, login, signedIn } = useReader();
   const navigate = useNavigate();
   const flash = useToast();
 
-  const [mode, setMode] = useState<"signup" | "login">("signup");
   const [interests, setInterests] = useState<Subject[]>([]);
   // Unticked until the reader ticks it. A pre-ticked box is not consent —
   // not under Israel's anti-spam law (s.30A requires explicit consent) and not
@@ -98,6 +101,8 @@ export function JoinRoute() {
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const signingUp = mode === "signup";
   const unmet = PASSWORD_RULES.filter((rule) => !rule.met(password));
@@ -221,7 +226,7 @@ export function JoinRoute() {
             <div className={`${FORM_GRID} mb-4`}>
               {signingUp ? (
                 <label>
-                  <span className={FIELD_LABEL}>First name</span>
+                  <span className={INPUT_LABEL}>Full name</span>
                   <input
                     name="displayName"
                     required
@@ -233,7 +238,7 @@ export function JoinRoute() {
               ) : null}
 
               <label>
-                <span className={FIELD_LABEL}>Email</span>
+                <span className={INPUT_LABEL}>Email</span>
                 <input
                   name="email"
                   type="email"
@@ -245,33 +250,45 @@ export function JoinRoute() {
               </label>
 
               <label>
-                <span className={FIELD_LABEL}>Password</span>
-                <input
-                  name="password"
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  autoComplete={signingUp ? "new-password" : "current-password"}
-                  aria-describedby={signingUp ? "password-rules" : undefined}
-                  className={FIELD}
-                />
+                <span className={INPUT_LABEL}>Password</span>
+                <div className="relative">
+                  <input
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    required
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    autoComplete={signingUp ? "new-password" : "current-password"}
+                    aria-describedby={signingUp ? "password-rules" : undefined}
+                    className={`${FIELD} pr-12`}
+                  />
+                  <RevealToggle
+                    shown={showPassword}
+                    onToggle={() => setShowPassword((on) => !on)}
+                  />
+                </div>
               </label>
 
               {signingUp ? (
                 <label>
-                  <span className={FIELD_LABEL}>Confirm password</span>
-                  <input
-                    name="confirmPassword"
-                    type="password"
-                    required
-                    value={confirm}
-                    onChange={(event) => setConfirm(event.target.value)}
-                    autoComplete="new-password"
-                    aria-invalid={mismatch}
-                    aria-describedby="password-match"
-                    className={FIELD}
-                  />
+                  <span className={INPUT_LABEL}>Confirm password</span>
+                  <div className="relative">
+                    <input
+                      name="confirmPassword"
+                      type={showConfirm ? "text" : "password"}
+                      required
+                      value={confirm}
+                      onChange={(event) => setConfirm(event.target.value)}
+                      autoComplete="new-password"
+                      aria-invalid={mismatch}
+                      aria-describedby="password-match"
+                      className={`${FIELD} pr-12`}
+                    />
+                    <RevealToggle
+                      shown={showConfirm}
+                      onToggle={() => setShowConfirm((on) => !on)}
+                    />
+                  </div>
                 </label>
               ) : null}
             </div>
@@ -353,19 +370,15 @@ export function JoinRoute() {
             ) : null}
 
             <p className={FORM_NOTE}>
-              {signingUp ? "Free account. " : ""}
-              <button
-                type="button"
-                onClick={() => {
-                  setMode(signingUp ? "login" : "signup");
-                  setError(null);
-                }}
-                className="underline"
-              >
-                {signingUp
-                  ? "Already have an account? Sign in"
-                  : "Need an account? Sign up"}
-              </button>
+              {signingUp ? (
+                <>
+                  Free account. <Link to="/signin" className="underline">Already have an account? Sign in</Link>
+                </>
+              ) : (
+                <Link to="/join" className="underline">
+                  Still don&apos;t have a user? Create one
+                </Link>
+              )}
             </p>
           </form>
         </div>
@@ -384,6 +397,26 @@ export function JoinRoute() {
         </aside>
       </div>
     </main>
+  );
+}
+
+/**
+ * The eye beside a password field. A button, not a checkbox, so it reads as an
+ * action; `aria-pressed` gives a screen reader the state without a second label.
+ * It sits inside the field's `<label>`, and a click on an interactive child
+ * does not re-focus the input, so the field keeps its own focus.
+ */
+function RevealToggle({ shown, onToggle }: { shown: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-label={shown ? "Hide password" : "Show password"}
+      aria-pressed={shown}
+      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-2 text-ink-3 hover:text-ink"
+    >
+      {shown ? <Eye size={17} aria-hidden /> : <EyeOff size={17} aria-hidden />}
+    </button>
   );
 }
 

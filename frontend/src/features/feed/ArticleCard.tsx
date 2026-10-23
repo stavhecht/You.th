@@ -16,6 +16,8 @@
  * design used, and the same honest half first.
  */
 
+import { Heart } from "lucide-react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import { VERDICT_LABELS } from "@/features/evidence/labels";
@@ -65,8 +67,12 @@ export function ArticleCard({ card }: { card: FeedCard }) {
 
   const saved = isSaved(card.slug);
   const subject = subjectLabel(card.subject);
+  // Bumped on each save so the heart remounts and its pop plays again; zero on
+  // first render, so a tile that is already saved does not animate on load.
+  const [pops, setPops] = useState(0);
 
   async function onSave() {
+    if (!saved) setPops((count) => count + 1);
     flash(await toggle(card.slug));
   }
 
@@ -85,18 +91,23 @@ export function ArticleCard({ card }: { card: FeedCard }) {
         />
       ) : null}
 
-      <button
-        onClick={onSave}
-        disabled={pending}
-        aria-label={
-          signedIn
-            ? `${saved ? "Remove" : "Save"} “${card.headline}”`
-            : "Create an account to save this"
-        }
-        className={tileSaveButton(saved)}
-      >
-        {saved ? "Saved" : "Save"}
-      </button>
+      {signedIn ? (
+        <button
+          onClick={onSave}
+          disabled={pending}
+          aria-label={`${saved ? "Remove" : "Save"} “${card.headline}”`}
+          aria-pressed={saved}
+          className={tileSaveButton(saved)}
+        >
+          <Heart
+            key={pops}
+            aria-hidden
+            size={16}
+            fill={saved ? "currentColor" : "none"}
+            className={pops ? "motion-safe:animate-heart-pop" : undefined}
+          />
+        </button>
+      ) : null}
 
       {/*
         The whole tile is the link, laid under the scrim so a press anywhere on

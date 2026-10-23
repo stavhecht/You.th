@@ -159,11 +159,14 @@ export const TILE_HEADLINE =
  * `z-[4]` puts it above both the scrim and the link overlay, which is what
  * makes it pressable at all — everything below it is one big anchor.
  */
+/**
+ * A heart, not a word: red when saved. The backdrop is the same either way, so
+ * the only change is the mark, and the tile's fixed colours stay fixed on
+ * photographs (see the scrim note in ArticleCard).
+ */
 export function tileSaveButton(saved: boolean): string {
-  return `absolute right-2 top-2 z-[4] rounded-full border-0 px-[11px] py-1.5 font-body text-[9.5px] font-bold uppercase leading-none tracking-[0.1em] transition-opacity hover:opacity-90 disabled:opacity-60 ${
-    saved
-      ? "bg-[rgb(26_24_23/0.92)] text-[#fffdfa]"
-      : "bg-[rgb(255_253_250/0.92)] text-[#201e1d]"
+  return `absolute right-2 top-2 z-[4] flex size-8 items-center justify-center rounded-full border-0 bg-[rgb(255_253_250/0.92)] transition duration-150 hover:scale-110 hover:opacity-90 active:scale-90 disabled:opacity-60 ${
+    saved ? "text-[#b3261e]" : "text-[#201e1d]"
   }`;
 }
 

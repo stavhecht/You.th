@@ -86,9 +86,9 @@ export function SiteHeader() {
               <span className="hidden sm:inline">About</span>
             </NavLink>
 
-            <Link to={signedIn ? "/you" : "/join"} className={NAV_LINK_ACCENT}>
+            <Link to={signedIn ? "/you" : "/signin"} className={NAV_LINK_ACCENT}>
               <span className="hidden sm:inline">
-                {signedIn ? "Your feed" : "Join"}
+                {signedIn ? "Your feed" : "Sign in"}
               </span>
             </Link>
 

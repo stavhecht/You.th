@@ -19,6 +19,7 @@ tab so the bug is visible rather than absent.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 
 from sqlalchemy import select
@@ -29,6 +30,7 @@ from app.domain.contracts import (
     SynthesisOutput,
     ValidationFailure,
     ValidationReport,
+    extract_handles,
 )
 from app.domain.enums import Stance, StudyType, Verdict
 from app.domain.models import Source
@@ -42,6 +44,7 @@ from app.evidence.grading import (
     max_verdict_for_sources,
     strong_by_direction,
 )
+from app.evidence.overlap import lexical_support
 from app.services.tiptap import MalformedBodyError, body_text_to_doc
 
 logger = logging.getLogger(__name__)
@@ -540,6 +543,50 @@ def check_reader_shorthand(output: SynthesisOutput) -> list[ValidationFailure]:
     ]
 
 
+#: Below this share of its content words found in its cited sources, a cited
+#: sentence is flagged. Measured 2026-10-24 over 90 judged sentences: the one
+#: the judge and a reader agreed was cited to the wrong paper (creatine and
+#: muscle soreness, mp_001) scored 0.31; the lowest "supported" one 0.44.
+LOW_SOURCE_OVERLAP = 0.35
+#: A bracketed aside with no digit: the reader edit's explanation of a term,
+#: which no source states. Effect sizes in brackets are kept.
+_EXPLANATION = re.compile(r"\s*\([^()\d]{20,}\)")
+
+
+def check_sentences_share_source_words(
+    output: SynthesisOutput, payload: SynthesisInput
+) -> list[ValidationFailure]:
+    """Warning — a cited sentence that shares few words with what it cites.
+
+    The number check cannot see a finding without a number cited to the wrong
+    paper. Word overlap is a weak signal, so it only warns the reviewer.
+    """
+    by_handle = {source.handle: numbers.source_text(source) for source in payload.sources}
+    body = output.body
+    blocks = [body.beat_2_evidence, *(section.body for section in body.sections)]
+    flagged = []
+    for block in blocks:
+        for sentence in numbers.sentences(block):
+            cited = [by_handle[h] for h in extract_handles(sentence) if h in by_handle]
+            if not cited:
+                continue
+            claim = _EXPLANATION.sub("", numbers.plain_sentence(sentence))
+            if lexical_support(claim, " ".join(cited)) < LOW_SOURCE_OVERLAP:
+                flagged.append(numbers.plain_sentence(sentence))
+    if not flagged:
+        return []
+    return [
+        ValidationFailure(
+            code="low_source_overlap",
+            message=(
+                f"{len(flagged)} cited sentence(s) share few words with the sources they cite; "
+                f"check they say what the source found: “{flagged[0][:160]}”"
+            ),
+            detail={"sentences": flagged},
+        )
+    ]
+
+
 def check_body_parses(output: SynthesisOutput) -> list[ValidationFailure]:
     """Check 5 — the body can be turned into a document.
 
@@ -609,6 +656,7 @@ async def validate_draft(
     stance_tally, stance_warnings = check_verdict_against_stance(output, resolved, payload)
     warnings.extend(stance_warnings)
     warnings.extend(check_reader_shorthand(output))
+    warnings.extend(check_sentences_share_source_words(output, payload))
 
     report = ValidationReport(
         passed=not failures,

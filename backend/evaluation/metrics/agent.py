@@ -203,7 +203,11 @@ def decisions(trace: dict[str, Any]) -> list[dict[str, Any]]:
             len(offered) >= SECTIONS_EXPECTED_FROM
             and _covered(first["output"], offered) < len(offered) * MIN_CITED_FRACTION
         )
-        reprompted = any(d["kind"] == "coverage" for d in trace.get("drafts") or [])
+        # The decision log, not the drafts: a re-prompt whose draft was not kept
+        # leaves only the first draft in the trace (2026-10-24, 4 false failures).
+        reprompted = any(
+            d.get("decision") == "coverage re-prompt" for d in trace.get("decisions") or []
+        ) or any(d["kind"] == "coverage" for d in trace.get("drafts") or [])
         rule(
             "coverage_reprompt_rule",
             reprompted == thin,

@@ -59,6 +59,10 @@ suites:
   failure:    {datasets: [failure_cases]}
   regression: {datasets: [regression]}
   trends:     {datasets: [trends]}      # written by evaluation/trend_check.py
+  # The 100-entry wellness trend list, in three stages (cases in wellness_trends.jsonl).
+  wellness_pilot: {datasets: [wellness_pilot]}   # 19 cases
+  wellness_core:  {datasets: [wellness_core]}    # 50 cases, includes the pilot
+  wellness:       {datasets: [wellness_trends]}  # 107 cases, every trend
   # Metric suites. `retrieval` stops after RANK, so it never calls synthesis.
   retrieval:
     datasets: [basic, research, multi_turn, adversarial]

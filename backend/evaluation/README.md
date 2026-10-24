@@ -211,6 +211,13 @@ groundedness, hallucination and latency. Each optional field adds a check:
 * Prompt injection: `inject_documents` appends a synthetic record to one
   provider's results. Its DOI must start `10.0000/eval-`.
 
+**Wellness trends** (`wellness_trends.jsonl`, 107 cases) cover every entry of the
+100-trend list: `subcategory` is the trend's category, tags carry its number
+(`wt_001`…`wt_100`), the question's angle, and `verify` where the reference answer
+was written from general knowledge and not yet checked against a source. Run them
+in stages: `--suite wellness_pilot` (19), `wellness_core` (50), `wellness` (all).
+They are not in `all`.
+
 To scale to 500+ cases, add lines. Nothing is enumerated in code except the
 research scenarios.
 

@@ -69,6 +69,8 @@ mypy app                                 # NOT clean — see below
 python -m evaluation.run                 # exits 1 when a critical metric misses its threshold
 python -m evaluation.run --suite retrieval --limit 20   # stops after RANK, no synthesis
 python -m evaluation.run --test basic_002 --save-baseline
+python -m evaluation.run --suite wellness_pilot   # 19 of the 107 wellness-trend cases;
+                                         # then wellness_core (50), wellness (107)
 python -m evaluation.trend_check [run_id]   # a research run's links, freshness, wellness;
                                          # writes datasets/trends.jsonl for --suite trends
 python -m evaluation.image_check evaluation/reports/<run>   # one FLUX render per article
@@ -739,6 +741,15 @@ now), two still failed because Bonsai kept a number no source contains ("1.97 mi
 for a 2026 paper) — a correct rejection.
 When both tries fail, the failing sentences are dropped from the paragraph if it still cites what
 it cited (`repair.sentences_dropped`); only then does the whole-article rewrite run.
+
+**A cited sentence that shares few words with its sources is flagged, never failed**
+(`low_source_overlap`, `validation.py::check_sentences_share_source_words`, 2026-10-24). The
+number check cannot see a finding with no number cited to the wrong paper. Below
+`LOW_SOURCE_OVERLAP` (0.35) of its content words in what it cites, after dropping digit-free
+bracketed explanations, a beat-2 or section sentence goes to the reviewer as a warning.
+Measured over 90 judged sentences: the one misattributed sentence scored 0.31, the lowest
+supported one 0.44. One example set that threshold, so it stays a warning. `evidence/overlap.py`
+is the one definition of the overlap; the eval's groundedness score imports it.
 
 **Article body is TipTap JSON, not markdown.** The model emits plain text with `[S1]` markers;
 `services/tiptap.py::body_text_to_doc()` parses them into typed citation nodes at assembly.

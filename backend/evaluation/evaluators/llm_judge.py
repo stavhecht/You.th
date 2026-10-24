@@ -92,7 +92,9 @@ expected_claims: for each numbered EXPECTED CLAIM, give its index and status —
 "present" (the article states it or an equivalent), "absent", or \
 "contradicted" (the article states the opposite).
 forbidden_claims: for each numbered FORBIDDEN CLAIM, give its index and \
-asserted = true only if the article states or clearly implies it.
+asserted = true only if the article states or clearly implies it is true. An \
+article that names the claim in order to reject, refute or question it ("X does \
+not double memory") does not assert it: asserted = false.
 reasoning: at most three sentences naming the main problem, if there is one.
 
 Return only the JSON object."""

@@ -438,7 +438,8 @@ counts sources by direction, and it waits on the labels' measured accuracy. Six 
 - **The eval keys appraisal recordings by prompt too** (`harness/llm.py::_APPRAISAL_PROMPTS`), so
   a prompt edit re-runs APPRAISE instead of replaying the old prompt's answers. Synthesis
   recordings are keyed by the system prompt and the output grammar too (since 2026-10-14;
-  before that a synthesis prompt edit silently replayed the old prompt's drafts).
+  before that a synthesis prompt edit silently replayed the old prompt's drafts). Extraction
+  recordings are keyed by its prompt too since 2026-10-23, for the same reason.
 - **`items` has `min_length=1`.** llama once wrote `claim_outcome` and stopped with an empty
   list; the bound puts `minItems` in the grammar and sends an empty answer through the repair
   retry rather than leaving every source unappraised.
@@ -484,6 +485,15 @@ and measured 2026-09-29 all nine DOI-only papers in the cache had none in PubMed
 NCBI's ID converter. They are in journals MEDLINE does not index, so there is nothing to assign.
 A cached DOI-only row picks up its PMID the next time a run retrieves it (the cache's
 `COALESCE`).
+
+**Queries keep a single-outcome claim's own phrase, and the cap cuts nothing** (2026-10-23).
+`_outcome_group` adds `"sleep latency"[tiab]` beside the generic sleep vocabulary, directional
+verbs ("lowers", "increases", "causes") are stopwords, the reviews pass asks for 30 (was 15) and
+`retrieval_max_candidates_per_claim` is 65, the two passes' sum: at 50 the extra reviews cut 10
+gold papers out of the general pass. Measured on the retrieval suite: gold recall@10 48.6% →
+54.1%, precision@5 93.2% → 95.3%, nDCG@10 93.7% → 95.8%. Gold papers ranked 6–12 sit 0.002–0.03
+below other meta-analyses, so the grade and recency bonuses were left alone: tuning them to a
+two-paper gold list would fit the list, not the ranking.
 
 **A DOI-only paper doi.org has never registered is dropped** (`RetrieveStage._screen_unregistered`,
 `identifiers.py::DoiRegistry`, after the retraction screen). OpenAlex indexes journals that print
@@ -727,6 +737,8 @@ why). The reader-edit prompt says a repair note wins over "every number stays". 
 trend articles: two repaired and passed (one sentence sat in two paragraphs; both are repaired
 now), two still failed because Bonsai kept a number no source contains ("1.97 million", a 2025
 for a 2026 paper) — a correct rejection.
+When both tries fail, the failing sentences are dropped from the paragraph if it still cites what
+it cited (`repair.sentences_dropped`); only then does the whole-article rewrite run.
 
 **Article body is TipTap JSON, not markdown.** The model emits plain text with `[S1]` markers;
 `services/tiptap.py::body_text_to_doc()` parses them into typed citation nodes at assembly.

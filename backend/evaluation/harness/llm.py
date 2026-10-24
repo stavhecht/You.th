@@ -53,6 +53,7 @@ from app.llm.prompts.appraisal import (
     DIRECTION_SYSTEM_PROMPT,
     RELEVANCE_SYSTEM_PROMPT,
 )
+from app.llm.prompts.extraction import EXTRACTION_SYSTEM_PROMPT
 from app.llm.prompts.reader_edit import READER_EDIT_SYSTEM_PROMPT
 from app.llm.prompts.synthesis import SYNTHESIS_SYSTEM_PROMPT
 from evaluation.harness.cassette import Cassette, stable_key
@@ -154,7 +155,11 @@ class EvalExtractionClient(_Recorded):
                 "extraction call failed: simulated outage (eval fault)", retryable=True
             )
 
-        key = stable_key("extract", self._model_id, payload.model_dump(mode="json"))
+        # Keyed by the prompt too, like synthesis: without it an extraction-prompt
+        # edit replayed the old answers and was never measured (2026-10-23).
+        key = stable_key(
+            "extract", self._model_id, EXTRACTION_SYSTEM_PROMPT, payload.model_dump(mode="json")
+        )
         hit = self._lookup(key)
         if hit is not None:
             stored, latency = hit

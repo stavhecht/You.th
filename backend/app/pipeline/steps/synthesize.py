@@ -294,6 +294,7 @@ class SynthesizeStage:
         notes: dict[int, list[str]] = {}
         named: dict[int, set[str]] = {}
         failed: dict[int, set[str]] = {}
+        targets: dict[int, set[str]] = {}
         for failure in failures:
             sentence = str(failure.detail.get("sentence", ""))
             # Every paragraph holding it: measured 2026-10-23, one sentence sat
@@ -306,6 +307,7 @@ class SynthesizeStage:
             if not indices:
                 return "a failing sentence was not found in the draft"
             for index in indices:
+                targets.setdefault(index, set()).add(sentence)
                 if failure.message not in notes.setdefault(index, []):
                     notes[index].append(failure.message)
                 named.setdefault(index, set()).update(
@@ -317,7 +319,7 @@ class SynthesizeStage:
                     str(raw) for raw in failure.detail.get("numbers") or ()  # type: ignore[attr-defined]
                 )
 
-        calls = 0
+        calls = dropped = 0
         for index, messages in notes.items():
             part = located[index]
             fix = (
@@ -364,7 +366,18 @@ class SynthesizeStage:
                     }
                 )
             if reason:
-                return f"{part.name}: {reason}"
+                # Last resort before the whole-article rewrite: drop the failing
+                # sentences. Measured 2026-10-23, Bonsai twice kept a number no
+                # source holds ("1.97 million"), and the rewrite that followed
+                # cut a 12-source draft to 5. One unsourced sentence is the
+                # smaller loss, if the paragraph still cites what it must.
+                drop = targets[index]
+                kept = [s for s in sentences(texts[index]) if plain_sentence(s) not in drop]
+                remaining = " ".join(kept)
+                if not kept or (extract_handles(part.text) and not extract_handles(remaining)):
+                    return f"{part.name}: {reason}"
+                dropped += len(sentences(texts[index])) - len(kept)
+                texts[index] = remaining
 
         edited = reader_edit.assemble(draft, texts)
         if edited is None:
@@ -375,7 +388,11 @@ class SynthesizeStage:
             self.name,
             {
                 "revision": True,
-                "repair": {"paragraphs": len(notes), "calls": calls},
+                "repair": {
+                    "paragraphs": len(notes),
+                    "calls": calls,
+                    "sentences_dropped": dropped,
+                },
                 "failures_fed_back": ["unsourced_number"],
                 "verdict": str(edited.verdict),
                 "sources_in_prompt": len(payload.sources),

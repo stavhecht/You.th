@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.config import Settings
+from app.pipeline.steps import reader_edit
 from evaluation.config import EvalConfig
 from evaluation.evaluators.credibility import PEER_REVIEWED
 from evaluation.evaluators.llm_judge import Judge
@@ -80,6 +81,16 @@ class _Checks:
     def add(self, group: str, name: str, passed: bool | None, detail: str) -> None:
         """``passed=None`` records a check that could not be decided (n/a)."""
         self.items.append({"group": group, "name": name, "passed": passed, "detail": detail})
+
+
+def _claim_only(text: str) -> str:
+    """A statement without the reader edit's bracketed explanations.
+
+    "(a study that pools earlier trials)" defines a term for the reader; no
+    source states it, and the judge was marking such sentences "partially
+    supported". Phrases holding a digit are kept, so effect sizes still count.
+    """
+    return reader_edit.drop_repeated_explanations(text, reader_edit.explanations(text))
 
 
 def _source_text(source: dict[str, Any], excerpts: list[dict[str, Any]], words: int) -> str:
@@ -439,7 +450,7 @@ async def _score_answer(
                 "raw": stmt.raw,
                 "handles": stmt.handles,
                 "finding": stmt.is_finding,
-                "lexical_support": round(lexical_support(stmt.text, corpus), 3),
+                "lexical_support": round(lexical_support(_claim_only(stmt.text), corpus), 3),
                 "unsupported_numbers": unsupported_numbers,
                 "invented_numbers": [
                     n for n in unsupported_numbers if not number_supported(n, prompt_numbers)
@@ -470,7 +481,9 @@ async def _score_answer(
             ]
             if not sources:
                 continue
-            verdict_j = await ev.judge.check_citation(row["raw"] or row["text"], sources)
+            verdict_j = await ev.judge.check_citation(
+                _claim_only(row["raw"] or row["text"]), sources
+            )
             if verdict_j is not None:
                 row["judge"] = verdict_j.verdict
                 row["judge_explanation"] = verdict_j.explanation

@@ -84,6 +84,12 @@ _STOPWORDS = frozenset(
         "has", "have", "help", "helps", "improve", "improves", "in", "is",
         "it", "its", "of", "on", "or", "reduce", "reduces", "support",
         "supports", "that", "the", "this", "to", "with", "your",
+        # Directional verbs (2026-10-23): a claim's direction is not its topic,
+        # and "lowers blood pressure" must search the same papers as "raises".
+        "lower", "lowers", "raise", "raises", "increase", "increases",
+        "decrease", "decreases", "boost", "boosts", "prevent", "prevents",
+        "cause", "causes", "worsen", "worsens", "enhance", "enhances",
+        "promote", "promotes",
     }
 )  # fmt: skip
 
@@ -103,8 +109,10 @@ _NO_SUBJECT = frozenset({"unspecified", "none", "unknown", "n/a", "na"})
 _MAX_NAME_WORDS = 8
 
 #: Reviews are scarce, so their pass needs fewer results; the general pass
-#: carries the breadth.
-REVIEW_PASS_MAX_RESULTS = 15
+#: carries the breadth. 30, not 15, since 2026-10-23: of 77 gold papers, mostly
+#: meta-analyses, 24 never reached the pool (melatonin's 2013 meta-analysis on
+#: sleep onset was not in the top 15 reviews for "melatonin AND sleep").
+REVIEW_PASS_MAX_RESULTS = 30
 GENERAL_PASS_MAX_RESULTS = 35
 
 
@@ -261,14 +269,19 @@ def _outcome_group(claim: str) -> str:
     hints = list(
         dict.fromkeys(hint for keyword, hint in OUTCOME_HINTS.items() if keyword in lowered)
     )
-    if len(hints) > 1:
-        return f"({' OR '.join(hints)})"
-    if hints:
-        return hints[0]
-
     words = [
         word
         for word in re.findall(r"[a-z0-9\-]+", lowered)
         if word not in _STOPWORDS and len(word) > 2
     ]
+    if len(hints) == 1 and len(words) > 1:
+        # The claim's own phrase beside the hint: "reduces sleep latency" mapped
+        # to the generic sleep vocabulary, and the meta-analysis on sleep onset
+        # lost the relevance race. A one-word claim is the hint already, and a
+        # claim naming two outcomes has no one phrase.
+        hints.append(f'"{" ".join(words)}"[tiab]')
+    if len(hints) > 1:
+        return f"({' OR '.join(hints)})"
+    if hints:
+        return hints[0]
     return f"({' AND '.join(words)})" if words else ""

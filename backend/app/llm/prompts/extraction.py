@@ -49,6 +49,12 @@ question itself: "Does stretching before exercise prevent injuries?" has \
 product "stretching before exercise" and claim "prevents injuries". If the \
 question names no substance or practice ("Is it bad for you?"), set `product` \
 to "unspecified" and do not guess one.
+8. The input may be a headline linking two things: "X linked to Y", "Y risk \
+from X", "X and Y". Then `product` is the thing people do, take or are exposed \
+to, and the claim names its effect on the other: "Screen time linked to poor \
+sleep" has product "screen time" and claim "worsens sleep"; "Heart risk from \
+energy drinks" has product "energy drinks" and claim "increases heart risk". \
+Never put both things in `product`.
 
 Return only the structured object. No commentary."""
 

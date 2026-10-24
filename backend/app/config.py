@@ -180,7 +180,10 @@ class Settings(BaseSettings):
     #: to cite them survives, and the run fails as `hallucinated_handle` with
     #: nothing pointing at the real cause.
     retrieval_top_k: int = 12
-    retrieval_max_candidates_per_claim: int = 50
+    #: The sum of the query builder's two passes (30 reviews + 35 general), so
+    #: the cap cuts nothing they found. At 50 against 65, measured 2026-10-23,
+    #: the extra reviews cost 10 gold papers from the general pass.
+    retrieval_max_candidates_per_claim: int = 65
     retrieval_min_year: int | None = None
     #: How many open-access papers per article get full-text excerpts in the
     #: synthesis prompt (pipeline/steps/full_text.py). 0 turns full text off.

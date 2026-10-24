@@ -207,6 +207,11 @@ class SaveContentRequest(CamelModel):
     """Autosave payload. Debounced ~800ms from the editor."""
 
     content: dict = Field(description="TipTap document")
+    base: dict | None = Field(
+        default=None,
+        description="The edited content this edit started from (null if unedited). "
+        "When sent, the save is refused with 412 if the draft has changed since.",
+    )
 
 
 class SetSubjectRequest(CamelModel):

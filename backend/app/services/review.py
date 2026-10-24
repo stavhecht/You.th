@@ -33,11 +33,21 @@ class ReviewError(RuntimeError):
     """An illegal review transition was attempted. Surfaces as HTTP 409."""
 
 
+class EditConflict(ReviewError):
+    """The draft changed since the editor loaded it. Surfaces as HTTP 412."""
+
+
+#: ``base`` not sent: the save is unconditional, as before the check existed.
+_UNCHECKED: Any = object()
+
+
 class ReviewService:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def save_edits(self, article_id: str, content: dict, reviewer_id: str) -> None:
+    async def save_edits(
+        self, article_id: str, content: dict, reviewer_id: str, *, base: Any = _UNCHECKED
+    ) -> None:
         """Autosave the editor's content into ``edited_content``.
 
         Writes ``edited_content`` only. ``original_content`` is never touched —
@@ -58,7 +68,13 @@ class ReviewService:
         the difference between a broken `src` being noticed now and it being
         noticed by a reader.
 
+        ``base`` is the ``edited_content`` the editor last loaded or saved (None
+        for an unedited draft). The whole document is saved, so without it a
+        second reviewer's autosave from an older copy silently undid the first
+        reviewer's edits. Compared as dicts, so JSONB's key order is irrelevant.
+
         Raises:
+            EditConflict: ``edited_content`` is no longer ``base``.
             ReviewError: the article is not in ``pending_review``, or the
                 document references media this system did not store.
         """
@@ -67,6 +83,11 @@ class ReviewService:
             raise ReviewError(
                 f"cannot edit an article in state '{article.status}'; "
                 "only drafts pending review are editable"
+            )
+        if base is not _UNCHECKED and base != article.edited_content:
+            raise EditConflict(
+                "another reviewer saved this draft since you opened it; "
+                "copy your change and reload"
             )
 
         try:

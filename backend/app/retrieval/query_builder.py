@@ -42,6 +42,7 @@ MESH_HINTS: dict[str, str] = {
     "vitamin d": '"Vitamin D"',
     "zinc": "Zinc",
     "ginseng": "Panax",
+    "sunscreen": '"Sunscreening Agents"',
 }
 
 #: Claim word -> the vocabulary papers actually use. "reduces stress" searches
@@ -62,6 +63,7 @@ OUTCOME_HINTS: dict[str, str] = {
     "strength": '("muscle strength"[MeSH] OR "resistance training")',
     "weight": '("weight loss"[MeSH] OR "body composition" OR obesity)',
     "skin": '("skin aging"[MeSH] OR "skin elasticity" OR hydration)',
+    "skin cancer": '("skin neoplasms"[MeSH] OR melanoma OR "skin cancer")',
     "hair": '("hair"[MeSH] OR alopecia)',
     "joint": '("arthralgia"[MeSH] OR "joint pain" OR osteoarthritis)',
     "gut": '("gastrointestinal microbiome"[MeSH] OR "digestive health")',
@@ -99,6 +101,18 @@ _INTERROGATIVES = frozenset(
     {
         "does", "do", "is", "are", "can", "could", "should", "would", "will", "what",
         "which", "how", "why", "when", "where", "who",
+    }
+)  # fmt: skip
+
+#: How-it-is-taken words dropped from an unmapped product before it is quoted:
+#: "daily sunscreen use" as one phrase missed the Nambour trial, titled "regular
+#: sunscreen use" (2026-10-25). Never empties a name: all-usage keeps the original.
+_USAGE_WORDS = frozenset(
+    {
+        "daily", "regular", "regularly", "use", "using", "taking", "intake",
+        "supplement", "supplements", "supplementation", "topical", "at-home",
+        # Never left alone: "dietary supplements" stays whole rather than "dietary".
+        "dietary", "nutritional", "herbal",
     }
 )  # fmt: skip
 
@@ -220,7 +234,8 @@ def _subject_group(substances: list[str]) -> str:
         mapped = mapped or _mesh_within(name)
         if mapped is None and not _is_a_name(name):
             continue
-        terms.append(mapped or f'"{names[-1]}"')
+        core = " ".join(w for w in names[-1].split() if w not in _USAGE_WORDS)
+        terms.append(mapped or f'"{core or names[-1]}"')
 
     unique = list(dict.fromkeys(term for term in terms if term))
     return f"({' OR '.join(unique)})" if unique else ""
@@ -266,8 +281,14 @@ def _outcome_group(claim: str) -> str:
     """The claim's outcome in indexed vocabulary, or its keywords as a fallback."""
     lowered = claim.lower()
     # Several can match ("improves sleep and reduces stress"): OR them all.
+    matched = [keyword for keyword in OUTCOME_HINTS if keyword in lowered]
+    # Longest match wins: "skin cancer" is not the skin-aging vocabulary of "skin".
     hints = list(
-        dict.fromkeys(hint for keyword, hint in OUTCOME_HINTS.items() if keyword in lowered)
+        dict.fromkeys(
+            OUTCOME_HINTS[keyword]
+            for keyword in matched
+            if not any(keyword != other and keyword in other for other in matched)
+        )
     )
     words = [
         word

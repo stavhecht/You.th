@@ -8,7 +8,7 @@ All backend commands run from `backend/` with the venv active (`source .venv/bin
 
 ```bash
 # setup
-docker compose up -d db                  # pgvector/pgvector:pg16 on :5432
+docker compose up -d db                  # pgvector/pgvector:pg16 on :5433
 pip install -e ".[dev]"
 python -m scripts.migrate                # applies migrations via asyncpg; no psql needed
                                          # 0001_initial.sql is the only file — squashed a fifth
@@ -111,10 +111,9 @@ There is also a whole-stack container path — `docker compose up` runs db → m
   (`WATCHFILES_FORCE_POLLING`, `VITE_DEV_POLL`): Docker Desktop's bind mounts do not deliver
   inotify events on macOS, so an event-based watcher looks healthy and silently never reloads.
 
-Two declared checks do not currently pass, so don't read a failure as something you broke:
+One declared check does not currently pass, so don't read a failure as something you broke
+(the frontend has no linter; `npm run typecheck` is its check):
 
-- `npm run lint` is in [package.json](frontend/package.json) but eslint is neither installed
-  nor configured — the script fails outright. Use `npm run typecheck`.
 - `mypy` is configured `strict = true` in [pyproject.toml](backend/pyproject.toml) but reports
   ~30 pre-existing errors across 12 files (mostly untyped-dict returns from service methods
   flowing into response models, plus `voyageai` stubs). It is not in the verified set. `ruff`
@@ -496,6 +495,9 @@ gold papers out of the general pass. Measured on the retrieval suite: gold recal
 54.1%, precision@5 93.2% → 95.3%, nDCG@10 93.7% → 95.8%. Gold papers ranked 6–12 sit 0.002–0.03
 below other meta-analyses, so the grade and recency bonuses were left alone: tuning them to a
 two-paper gold list would fit the list, not the ranking.
+An unmapped product drops usage words before it is quoted (`_USAGE_WORDS`: "daily sunscreen
+use" searched as one phrase missed the trial titled "regular sunscreen use", 2026-10-25), and
+the longest matching outcome key wins ("skin cancer" no longer brings in "skin"'s aging terms).
 
 **A DOI-only paper doi.org has never registered is dropped** (`RetrieveStage._screen_unregistered`,
 `identifiers.py::DoiRegistry`, after the retraction screen). OpenAlex indexes journals that print

@@ -1,0 +1,38 @@
+<?xml version='1.0' encoding='utf-8'?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:ns1="http://xmlns.com/foaf/0.1/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xml:lang="en-US">
+  <id>tag:theconversation.com,2011:/us/health/articles</id>
+  <link rel="alternate" type="text/html" href="https://theconversation.com" />
+  <link rel="self" type="application/atom+xml" href="https://theconversation.com/us/health/articles.atom" />
+  <title>Health – The Conversation</title>
+  <updated>2026-10-12T12:19:18Z</updated>
+  <entry>
+    <id>tag:theconversation.com,2011:article/291125</id>
+    <published>2026-10-12T12:19:18Z</published>
+    <updated>2026-10-12T12:19:18Z</updated>
+    <link rel="alternate" type="text/html" href="https://theconversation.com/i-teach-doctors-how-to-interpret-test-results-and-the-labels-normal-and-abnormal-often-hide-what-matters-most-291125" />
+    <title>I teach doctors how to interpret test results – and the labels ‘normal’ and ‘abnormal’ often hide what matters most</title>
+    <summary>Labeling medical test results as ‘normal’ or ‘abnormal’ helps clinicians make quick judgments when diagnosing patients. But this binary approach to interpreting tests can lead to fatal errors.</summary>
+    <author>
+      <name>Amiran Baduashvili, Associate Professor of Medicine, University of Colorado Anschutz</name>
+      <ns1:homepage rdf:resource="https://theconversation.com/profiles/amiran-baduashvili-2452120" />
+    </author>
+    <rights>Licensed as Creative Commons – attribution, no derivatives.</rights>
+  </entry>
+  <entry>
+    <id>tag:theconversation.com,2011:article/291832</id>
+    <published>2026-10-09T12:10:00Z</published>
+    <updated>2026-10-09T12:10:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://theconversation.com/when-abortion-and-surrogacy-law-collide-contracts-cant-answer-the-hardest-questions-291832" />
+    <title>When abortion and surrogacy law collide, contracts can’t answer the hardest questions</title>
+    <summary>A custody battle over a newborn with a heart condition raised a question courts have rarely faced: Can anyone be forced to end a pregnancy?</summary>
+    <author>
+      <name>Sonia Suter, Professor of Law, George Washington University</name>
+      <ns1:homepage rdf:resource="https://theconversation.com/profiles/sonia-suter-1303960" />
+    </author>
+    <author>
+      <name>Naomi Cahn, Professor of Law, University of Virginia</name>
+      <ns1:homepage rdf:resource="https://theconversation.com/profiles/naomi-cahn-713411" />
+    </author>
+    <rights>Licensed as Creative Commons – attribution, no derivatives.</rights>
+  </entry>
+  </feed>

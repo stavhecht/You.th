@@ -95,8 +95,10 @@ def _claim_only(text: str) -> str:
 
 def _source_text(source: dict[str, Any], excerpts: list[dict[str, Any]], words: int) -> str:
     abstract = " ".join(str(source.get("abstract") or "").split()[:words])
+    # Whole excerpts: the model saw every word of each chunk (CHUNK_WORDS, 300), and a
+    # 200-word cut flagged numbers late in a chunk as misattributed (wt_087, 2026-10-25).
     extra = " ".join(
-        f"({e.get('section') or 'excerpt'}) {' '.join(str(e.get('text') or '').split()[:200])}"
+        f"({e.get('section') or 'excerpt'}) {' '.join(str(e.get('text') or '').split())}"
         for e in excerpts
     )
     return f"{abstract}\n{extra}".strip()

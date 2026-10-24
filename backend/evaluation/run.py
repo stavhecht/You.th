@@ -383,6 +383,13 @@ async def _run(args: argparse.Namespace) -> int:
     # Resolved, so a relative --rescore/--resume path still sits under backend/
     # when the report records where it was written.
     run_dir = run_dir.resolve()
+    if args.rescore:
+        # Narrowed before cases.jsonl is opened for writing: a selection with no
+        # saved trace used to empty the report, and then crash writing it.
+        cases = [c for c in cases if (run_dir / "traces" / f"{c.id}.json").exists()]
+        if not cases:
+            print(f"no saved traces in {run_dir} for the selected cases", file=sys.stderr)
+            return 2
     (run_dir / "traces").mkdir(parents=True, exist_ok=True)
 
     env = await EvalEnvironment.create(config, mode)
@@ -398,15 +405,26 @@ async def _run(args: argparse.Namespace) -> int:
         if env.unavailable:
             print(f"unavailable: {env.unavailable}")
 
+        # A partial rescore (--test) keeps the other cases' earlier results, so the
+        # report still covers the whole run.
         results: list[dict[str, Any]] = []
+        scored_before = run_dir / "cases.jsonl"
+        if args.rescore and scored_before.exists():
+            chosen = {c.id for c in cases}
+            known = {c.id for group in datasets.values() for c in group}
+            results = [
+                r
+                for r in map(json.loads, scored_before.read_text().splitlines())
+                if r["id"] not in chosen and r["id"] in known
+            ]
         with (run_dir / "cases.jsonl").open("w") as stream:
+            for kept in results:
+                stream.write(json.dumps(kept, default=str) + "\n")
             for index, case in enumerate(cases, start=1):
                 trace_path = run_dir / "traces" / f"{case.id}.json"
                 clock = datetime.now(UTC)
                 if (args.rescore or args.resume) and trace_path.exists():
                     trace = Trace.model_validate_json(trace_path.read_text())
-                elif args.rescore:
-                    continue
                 else:
                     trace = await _execute(case, env, stop_after)
                     trace_path.write_text(trace.model_dump_json(indent=1))
@@ -422,7 +440,7 @@ async def _run(args: argparse.Namespace) -> int:
             metrics = {n: m for n, m in metrics.items() if m["group"] in suite.groups}
         executed = [r for r in results if r["status"] == "executed"]
         counts = {
-            "selected": len(cases),
+            "selected": len(results),
             "executed": len(executed),
             "skipped": len(results) - len(executed),
             "passed": sum(1 for r in executed if r["passed"]),
@@ -499,7 +517,9 @@ async def _run(args: argparse.Namespace) -> int:
             "thresholds": {name: t.model_dump() for name, t in config.thresholds.items()},
             "performance": agg.performance_breakdown(results),
             "regression": regression,
-            "capability_gaps": _capability_gaps(results, {c.id: c for c in cases}),
+            "capability_gaps": _capability_gaps(
+                results, {c.id: c for group in datasets.values() for c in group}
+            ),
             "provider_outages": _provider_outages(results, config),
             "notes": env.notes,
             "skipped": [

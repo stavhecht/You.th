@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?><rss xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:atom="http://www.w3.org/2005/Atom" version="2.0" xmlns:media="http://search.yahoo.com/mrss/">
+    <channel>
+        <title><![CDATA[BBC News]]></title>
+        <description><![CDATA[BBC News - Health]]></description>
+        <link>https://www.bbc.co.uk/news/health</link>
+        <image>
+            <url>https://news.bbcimg.co.uk/nol/shared/img/bbc_news_120x60.gif</url>
+            <title>BBC News</title>
+            <link>https://www.bbc.co.uk/news/health</link>
+        </image>
+        <generator>RSS for Node</generator>
+        <lastBuildDate>Mon, 12 Oct 2026 18:45:03 GMT</lastBuildDate>
+        <atom:link href="https://feeds.bbci.co.uk/news/health/rss.xml" rel="self" type="application/rss+xml"/>
+        <copyright><![CDATA[Copyright: (C) British Broadcasting Corporation, see https://www.bbc.co.uk/usingthebbc/terms-of-use/#15metadataandrssfeeds for terms and conditions of reuse.]]></copyright>
+        <language><![CDATA[en-gb]]></language>
+        <ttl>15</ttl>
+        <item>
+            <title><![CDATA[Childhood cancer symptoms can be easily missed - here's what to look out for]]></title>
+            <description><![CDATA[Although rare, cancer is the leading cause of death from disease among children under 15 in the UK.]]></description>
+            <link>https://www.bbc.co.uk/news/articles/cwm237z77dgyo?at_medium=RSS&amp;at_campaign=rss</link>
+            <guid isPermaLink="false">https://www.bbc.co.uk/news/articles/cwm237z77dgyo#0</guid>
+            <pubDate>Sun, 11 Oct 2026 23:03:45 GMT</pubDate>
+            <media:thumbnail width="240" height="135" url="https://ichef.bbci.co.uk/ace/standard/240/cpsprodpb/c63c/live/d8be8750-c604-11f1-9a39-31b474234113.jpg"/>
+        </item>
+        <item>
+            <title><![CDATA[Autism, ADHD and mental health review: What you need to know]]></title>
+            <description><![CDATA[It contains big lessons for the NHS, welfare, education and employment policies. What are the key takeaways?]]></description>
+            <link>https://www.bbc.co.uk/news/articles/crn8wyl4n42yo?at_medium=RSS&amp;at_campaign=rss</link>
+            <guid isPermaLink="false">https://www.bbc.co.uk/news/articles/crn8wyl4n42yo#0</guid>
+            <pubDate>Fri, 09 Oct 2026 12:16:11 GMT</pubDate>
+            <media:thumbnail width="240" height="135" url="https://ichef.bbci.co.uk/ace/standard/240/cpsprodpb/4041/live/d819d250-c3d4-11f1-95ba-dba767ffba7e.png"/>
+        </item>
+        <item>
+            <title><![CDATA[From the workplace to pop culture - why how we view women's anger is changing]]></title>
+            <description><![CDATA[Studies suggest women are getting angrier, but are they just more open about it?]]></description>
+            <link>https://www.bbc.co.uk/news/articles/cmg47lx1pqlko?at_medium=RSS&amp;at_campaign=rss</link>
+            <guid isPermaLink="false">https://www.bbc.co.uk/news/articles/cmg47lx1pqlko#0</guid>
+            <pubDate>Fri, 09 Oct 2026 11:40:22 GMT</pubDate>
+            <media:thumbnail width="240" height="135" url="https://ichef.bbci.co.uk/ace/standard/240/cpsprodpb/9481/live/3d1c2fb0-c30b-11f1-8f04-85217d686658.jpg"/>
+        </item>
+</channel></rss>

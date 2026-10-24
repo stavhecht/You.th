@@ -34,7 +34,7 @@ from app.domain.enums import (
 from app.imagery.base import ImageError
 from app.imagery.factory import build_image_client
 from app.services.illustration import BOTH_FRAMES, fresh_seed, generate_illustration
-from app.services.review import ReviewError, ReviewService
+from app.services.review import EditConflict, ReviewError, ReviewService
 
 logger = logging.getLogger(__name__)
 
@@ -92,8 +92,13 @@ async def save_content(
     ``edited_content`` only; ``original_content`` is immutable and the DB
     trigger enforces that independently of this handler.
     """
+    conditional = {"base": payload.base} if "base" in payload.model_fields_set else {}
     try:
-        await ReviewService(session).save_edits(article_id, payload.content, reviewer.id)
+        await ReviewService(session).save_edits(
+            article_id, payload.content, reviewer.id, **conditional
+        )
+    except EditConflict as exc:
+        raise HTTPException(status.HTTP_412_PRECONDITION_FAILED, detail=str(exc)) from exc
     except ReviewError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 

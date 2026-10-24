@@ -93,10 +93,16 @@ export async function fetchArticleDetail(id: string): Promise<ArticleDetail> {
  *
  * STUB.
  */
-export async function saveContent(id: string, content: TipTapDoc): Promise<void> {
+export async function saveContent(
+  id: string,
+  content: TipTapDoc,
+  base: TipTapDoc | null,
+): Promise<void> {
+  // `base` is what this editor last loaded or saved; the server answers 412 when
+  // another reviewer has saved over it since.
   return apiFetch<void>(`/console/articles/${id}/content`, {
     method: "PATCH",
-    body: JSON.stringify({ content }),
+    body: JSON.stringify({ content, base }),
   });
 }
 

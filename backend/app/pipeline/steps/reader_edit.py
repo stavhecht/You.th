@@ -55,7 +55,11 @@ from app.domain.contracts import (
 )
 from app.evidence import numbers
 from app.evidence.readability import shorthand_in, statistical_shorthand
-from app.evidence.validation import check_beats_are_cited, check_body_parses
+from app.evidence.validation import (
+    check_beats_are_cited,
+    check_body_parses,
+    misattributed_sentences,
+)
 
 #: An edit may shorten a paragraph by this much, for the confidence intervals and
 #: P values it is asked to take out, and no more.
@@ -243,6 +247,14 @@ def repair_rejection(
     if left := _unsourced([edited], sources):
         number, handles = sorted(left)[0]
         return f"still gives {number} beside {', '.join(handles)}, which does not contain it"
+    # The final round only warns on this, so a repair is the last place it can be refused.
+    if wrong := misattributed_sentences([edited], sources):
+        detail = wrong[0].detail
+        return (
+            f"cites {', '.join(detail['handles'])} for “{detail['sentence']}”, but that "
+            f"finding is worded like {', '.join(detail['found_in'])}: "
+            "cite the source that reports it"
+        )
     return paragraph_rejection(part, edited, sources, same_handles=False)
 
 

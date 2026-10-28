@@ -67,6 +67,7 @@ REVISABLE_FAILURES = frozenset(
         "malformed_body",
         "unsourced_number",
         "no_evidence_with_citations",
+        "misattributed_citation",
     }
 )
 

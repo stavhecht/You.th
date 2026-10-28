@@ -18,11 +18,11 @@
     },
     "adv_018": {
       "outcome": "answered",
-      "passed": true
+      "passed": false
     },
     "adv_021": {
       "outcome": "answered",
-      "passed": false
+      "passed": true
     },
     "basic_002": {
       "outcome": "answered",
@@ -34,7 +34,7 @@
     },
     "basic_007": {
       "outcome": "answered",
-      "passed": true
+      "passed": false
     },
     "basic_016": {
       "outcome": "answered",
@@ -86,7 +86,7 @@
     },
     "noans_004": {
       "outcome": "no_evidence",
-      "passed": false
+      "passed": true
     }
   },
   "cases": {
@@ -105,7 +105,7 @@
     "selected": 22,
     "skipped": 0
   },
-  "created_at": "2026-10-24T21:01:35+00:00",
+  "created_at": "2026-10-26T08:12:40+00:00",
   "environment": {
     "appraisal_mode": "one_call",
     "appraisal_model": "ternary-bonsai-2-27b@reasoning-none",
@@ -123,7 +123,7 @@
     "retrieval_top_k": 12,
     "synthesis_model": "ternary-bonsai-2-27b@reasoning-none"
   },
-  "git": "b463f84+dirty",
+  "git": "79eb4ab+dirty",
   "metrics": {
     "agent_loop_rate": {
       "n": 22,
@@ -135,11 +135,11 @@
     },
     "answer_correctness": {
       "n": 15,
-      "value": 0.8
+      "value": 0.8666666666666667
     },
     "answer_correctness_judge": {
       "n": 15,
-      "value": 0.9
+      "value": 0.9333333333333333
     },
     "answer_relevance": {
       "n": 15,
@@ -150,16 +150,16 @@
       "value": 1.0
     },
     "citation_completeness": {
-      "n": 237,
-      "value": 0.9620253164556962
+      "n": 254,
+      "value": 0.9566929133858267
     },
     "citation_correctness": {
       "n": 83,
-      "value": 0.7168674698795181
+      "value": 0.9216867469879518
     },
     "citation_correctness_lexical_proxy": {
       "n": 14,
-      "value": 0.9824634223450655
+      "value": 0.9866612670046683
     },
     "citation_existence_rate": {
       "n": 11,
@@ -167,15 +167,15 @@
     },
     "citation_precision": {
       "n": 14,
-      "value": 0.9921259842519685
+      "value": 0.9927536231884058
     },
     "citation_quality": {
       "n": 14,
-      "value": 0.9433645124716553
+      "value": 0.9622534013605443
     },
     "citation_recall": {
       "n": 14,
-      "value": 0.7694727891156462
+      "value": 0.8103741496598639
     },
     "context_carryover_rate": {
       "n": 1,
@@ -215,7 +215,7 @@
     },
     "groundedness": {
       "n": 14,
-      "value": 0.9195809557244649
+      "value": 0.9671652938075243
     },
     "hallucination_after_tool_failure_rate": {
       "n": 6,
@@ -235,19 +235,19 @@
     },
     "irrelevant_in_top_k_per_case": {
       "n": 15,
-      "value": 0.9333333333333333
+      "value": 0.8666666666666667
     },
     "latency_mean_s": {
       "n": 20,
-      "value": 804.9677742520987
+      "value": 207.24366771870046
     },
     "latency_median_s": {
       "n": 20,
-      "value": 941.4850129999977
+      "value": 4.04664904200763
     },
     "latency_p95_s": {
       "n": 20,
-      "value": 1294.8330941660097
+      "value": 1131.5677550000112
     },
     "latency_p99_s": {
       "n": 20,
@@ -271,30 +271,30 @@
     },
     "rank_ndcg_at_10": {
       "n": 14,
-      "value": 0.9424669850214953
+      "value": 0.9606927361858894
     },
     "rank_precision_at_10": {
       "n": 14,
-      "value": 0.9071428571428571
+      "value": 0.9285714285714286
     },
     "rank_precision_at_5": {
       "n": 14,
-      "value": 0.9357142857142857
+      "value": 0.9785714285714285
     },
     "rank_recall_cap_at_10": {
       "n": 14,
-      "value": 0.9071428571428571
+      "value": 0.9285714285714286
     },
     "rank_recall_cap_at_5": {
       "n": 14,
-      "value": 0.9357142857142857
+      "value": 0.9785714285714285
     },
     "recency_cited_fraction": {
       "n": 1,
       "value": 1.0
     },
     "retracted_citation_rate": {
-      "n": 127,
+      "n": 138,
       "value": 0.0
     },
     "retrieval_recall_at_1": {
@@ -318,7 +318,7 @@
       "value": 1.0
     },
     "source_existence_rate": {
-      "n": 127,
+      "n": 138,
       "value": 1.0
     },
     "source_stance_accuracy": {
@@ -330,7 +330,7 @@
       "value": 0.9230769230769231
     },
     "source_title_match_rate": {
-      "n": 127,
+      "n": 138,
       "value": 1.0
     },
     "stance_coverage": {
@@ -339,7 +339,7 @@
     },
     "stance_disagreement_rate": {
       "n": 15,
-      "value": 0.13333333333333333
+      "value": 0.2
     },
     "successful_termination_rate": {
       "n": 22,
@@ -347,7 +347,7 @@
     },
     "tool_call_count": {
       "n": 20,
-      "value": 41.9
+      "value": 42.4
     },
     "tool_selection_accuracy": {
       "n": 20,
@@ -355,7 +355,7 @@
     },
     "uncertainty_appropriate_rate": {
       "n": 15,
-      "value": 1.0
+      "value": 0.8
     },
     "unnecessary_tool_calls_per_case": {
       "n": 20,
@@ -363,7 +363,7 @@
     },
     "unsupported_citation_rate": {
       "n": 83,
-      "value": 0.060240963855421686
+      "value": 0.012048192771084338
     },
     "validation_pass_rate": {
       "n": 15,

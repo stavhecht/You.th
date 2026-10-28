@@ -53,7 +53,7 @@ from app.llm.prompts.appraisal import (
     DIRECTION_SYSTEM_PROMPT,
     RELEVANCE_SYSTEM_PROMPT,
 )
-from app.llm.prompts.extraction import EXTRACTION_SYSTEM_PROMPT
+from app.llm.prompts.extraction import EXTRACTION_SYSTEM_PROMPT, safety_note
 from app.llm.prompts.reader_edit import READER_EDIT_SYSTEM_PROMPT
 from app.llm.prompts.synthesis import SYNTHESIS_SYSTEM_PROMPT
 from evaluation.harness.cassette import Cassette, stable_key
@@ -157,8 +157,14 @@ class EvalExtractionClient(_Recorded):
 
         # Keyed by the prompt too, like synthesis: without it an extraction-prompt
         # edit replayed the old answers and was never measured (2026-10-23).
+        # The safety note joins the key only where it applies, so other questions replay.
+        note = safety_note(payload.topic)
         key = stable_key(
-            "extract", self._model_id, EXTRACTION_SYSTEM_PROMPT, payload.model_dump(mode="json")
+            "extract",
+            self._model_id,
+            EXTRACTION_SYSTEM_PROMPT,
+            payload.model_dump(mode="json"),
+            *((note,) if note else ()),
         )
         hit = self._lookup(key)
         if hit is not None:
@@ -228,9 +234,21 @@ class EvalExtractionClient(_Recorded):
 
 
 class EvalSynthesisClient(_Recorded):
+    """Synthesis, recorded and replayable, failed calls included.
+
+    A draft that broke the contract is a property of one sample, so the stage asks
+    the identical request again. Before 2026-10-28 only the success was recorded,
+    so a replay answered the first call with it and took a different path from the
+    live run. Now the nth identical request in a case has its own slot (the first
+    keeps the plain key, so older recordings replay as before), and a permanent
+    failure is stored there with the answer the stage may fit. Outages are not
+    stored: a replay would fail forever on one.
+    """
+
     def __init__(self, inner: SynthesisClient | None, *args: Any) -> None:
         super().__init__(*args)
         self._inner = inner
+        self._asked: dict[str, int] = {}
 
     async def synthesize(
         self, payload: SynthesisInput, *, feedback: str | None = None
@@ -258,7 +276,31 @@ class EvalSynthesisClient(_Recorded):
             )
 
         key = synthesis_key(self._model_id, payload, feedback)
+        nth = self._asked.get(key, 0)
+        self._asked[key] = nth + 1
+        if nth:
+            key = f"{key}#{nth}"
         hit = self._lookup(key)
+        if hit is not None and "error" in hit[0]:
+            stored, latency = hit
+            self._recorder.record(
+                tool="llm_synthesis",
+                operation="synthesize",
+                request=request,
+                status="error",
+                error=stored["error"],
+                cached=True,
+                latency_ms=_ms(started),
+                live_latency_ms=latency,
+                model=stored["model"],
+                usage=stored["usage"],
+            )
+            raise LLMError(
+                stored["error"],
+                usage=TokenUsage(**stored["usage"]),
+                model=stored["model"],
+                content=stored["content"],
+            )
         if hit is not None:
             stored, latency = hit
             result = LLMResult(
@@ -292,6 +334,18 @@ class EvalSynthesisClient(_Recorded):
                 model=exc.model or self._model_id,
                 usage=_usage_dict(exc.usage),
             )
+            if not exc.retryable:
+                self._cassette.put(
+                    "llm",
+                    key,
+                    {
+                        "error": str(exc),
+                        "content": exc.content,
+                        "usage": _usage_dict(exc.usage),
+                        "model": exc.model or self._model_id,
+                    },
+                    _ms(started),
+                )
             raise
         latency = _ms(started)
         self._cassette.put(

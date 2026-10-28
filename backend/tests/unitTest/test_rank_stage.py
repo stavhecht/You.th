@@ -407,3 +407,30 @@ async def test_an_embedding_or_database_outage_is_retryable(error: str) -> None:
     with pytest.raises(StageError) as exc_info:
         await stage.run(_ctx({"reduces stress": [_candidate("a")]}))
     assert exc_info.value.retryable is True
+
+
+async def test_a_broad_question_keeps_its_best_studied_claims() -> None:
+    """wt_023b, 2026-10-25: six side-effect claims overflowed the prompt and the
+    thinnest capped the verdict. The cut must narrow the claim list too, since
+    VALIDATE seeds a quorum for every claim in it."""
+    reviews = [_candidate(f"src-r{i}", StudyType.META_ANALYSIS) for i in range(3)]
+    weak = [_candidate(f"src-w{i}", StudyType.OBSERVATIONAL) for i in range(5)]
+    ctx = _ctx(
+        {
+            "causes nausea": reviews,
+            "causes pancreatitis": reviews[:2],
+            "causes hair loss": weak,  # many sources, none strong
+            "causes gallbladder disease": reviews[:2] + weak[:1],
+            "causes kidney injury": reviews,
+            "causes injection site reactions": weak[:1],
+        }
+    )
+
+    result = await _stage(_ScoredReranker()).run(ctx)
+
+    kept = ["causes nausea", "causes pancreatitis", "causes gallbladder disease",
+            "causes kidney injury"]
+    assert list(result.ranked) == kept  # extraction's order, not the ranking's
+    assert result.extraction is not None and result.extraction.target_claims == kept
+    assert list(result.candidates) == kept
+    assert result.thin_claims == []

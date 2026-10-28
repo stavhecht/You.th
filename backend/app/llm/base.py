@@ -152,6 +152,9 @@ class LLMError(RuntimeError):
     to ``StageError`` so the worker requeues the run. Everything else — a
     missing model, output that broke the contract twice, a refusal — stays
     permanent, since a retry sends the identical request.
+
+    ``content`` is the model's last answer when that answer broke the output
+    contract, so SYNTHESIZE can fit an overflow instead of paying for a new draft.
     """
 
     def __init__(
@@ -161,11 +164,13 @@ class LLMError(RuntimeError):
         usage: TokenUsage | None = None,
         model: str = "",
         retryable: bool = False,
+        content: str = "",
     ) -> None:
         super().__init__(message)
         self.usage = usage or TokenUsage()
         self.model = model
         self.retryable = retryable
+        self.content = content
 
 
 class RefusalError(LLMError):

@@ -262,6 +262,7 @@ class LlamaCppChat:
             f"({last_error})",
             usage=usage,
             model=model_id,
+            content=content,
         )
 
 

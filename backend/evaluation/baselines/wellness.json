@@ -1,0 +1,716 @@
+{
+  "case_status": {
+    "wt_001": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_002": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_002b": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_003": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_004": {
+      "outcome": "answered",
+      "passed": true
+    },
+    "wt_005": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_006": {
+      "outcome": "no_evidence",
+      "passed": true
+    },
+    "wt_007": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_007b": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_008": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_009": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_010": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_011": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_012": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_013": {
+      "outcome": "no_evidence",
+      "passed": true
+    },
+    "wt_014": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_015": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_016": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_017": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_018": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_019": {
+      "outcome": "failed_permanent",
+      "passed": false
+    },
+    "wt_020": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_021": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_022": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_022b": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_023": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_023b": {
+      "outcome": "answered",
+      "passed": true
+    },
+    "wt_024": {
+      "outcome": "answered",
+      "passed": true
+    },
+    "wt_025": {
+      "outcome": "no_evidence",
+      "passed": true
+    },
+    "wt_026": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_027": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_028": {
+      "outcome": "answered",
+      "passed": true
+    },
+    "wt_029": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_029b": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_030": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_030b": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_030c": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_031": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_032": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_033": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_034": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_035": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_036": {
+      "outcome": "answered",
+      "passed": true
+    },
+    "wt_037": {
+      "outcome": "answered",
+      "passed": true
+    },
+    "wt_038": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_039": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_040": {
+      "outcome": "answered",
+      "passed": true
+    },
+    "wt_041": {
+      "outcome": "answered",
+      "passed": true
+    },
+    "wt_042": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_043": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_044": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_045": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_046": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_047": {
+      "outcome": "answered",
+      "passed": true
+    },
+    "wt_048": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_049": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_050": {
+      "outcome": "answered",
+      "passed": true
+    },
+    "wt_051": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_052": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_053": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_054": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_055": {
+      "outcome": "answered",
+      "passed": true
+    },
+    "wt_056": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_057": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_058": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_059": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_060": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_061": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_062": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_063": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_064": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_065": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_066": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_067": {
+      "outcome": "answered",
+      "passed": true
+    },
+    "wt_068": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_069": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_070": {
+      "outcome": "failed_retryable",
+      "passed": false
+    },
+    "wt_071": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_072": {
+      "outcome": "answered_unvalidated",
+      "passed": false
+    },
+    "wt_073": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_074": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_075": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_076": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_077": {
+      "outcome": "no_evidence",
+      "passed": false
+    },
+    "wt_078": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_079": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_080": {
+      "outcome": "answered",
+      "passed": true
+    },
+    "wt_081": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_082": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_083": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_084": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_085": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_086": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_087": {
+      "outcome": "answered",
+      "passed": true
+    },
+    "wt_088": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_089": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_090": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_091": {
+      "outcome": "no_evidence",
+      "passed": false
+    },
+    "wt_092": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_093": {
+      "outcome": "no_evidence",
+      "passed": false
+    },
+    "wt_094": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_095": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_096": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_097": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_098": {
+      "outcome": "answered",
+      "passed": true
+    },
+    "wt_099": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "wt_100": {
+      "outcome": "answered",
+      "passed": false
+    }
+  },
+  "cases": {
+    "executed": 107,
+    "failed": 89,
+    "outcomes": {
+      "answered": 98,
+      "answered_unvalidated": 1,
+      "failed_permanent": 1,
+      "failed_retryable": 1,
+      "no_evidence": 6
+    },
+    "passed": 18,
+    "selected": 107,
+    "skipped": 0
+  },
+  "created_at": "2026-10-28T15:51:55+00:00",
+  "environment": {
+    "appraisal_mode": "one_call",
+    "appraisal_model": "ternary-bonsai-2-27b@reasoning-none",
+    "embedding_model": "ollama/mxbai-embed-large",
+    "enabled_providers": [
+      "pubmed",
+      "openalex",
+      "europe_pmc"
+    ],
+    "extraction_model": "ternary-bonsai-2-27b@reasoning-none",
+    "full_text_max_papers": 6,
+    "llm_provider": "llamacpp",
+    "mode": "cached",
+    "retrieval_min_year": null,
+    "retrieval_top_k": 12,
+    "synthesis_model": "ternary-bonsai-2-27b@reasoning-none"
+  },
+  "git": "79eb4ab+dirty",
+  "metrics": {
+    "agent_loop_rate": {
+      "n": 107,
+      "value": 0.0
+    },
+    "answer_completeness": {
+      "n": 105,
+      "value": 0.9452380952380952
+    },
+    "answer_correctness": {
+      "n": 105,
+      "value": 0.5904761904761905
+    },
+    "answer_correctness_judge": {
+      "n": 105,
+      "value": 0.9047619047619048
+    },
+    "answer_relevance": {
+      "n": 105,
+      "value": 0.9714285714285714
+    },
+    "behavior_accuracy": {
+      "n": 107,
+      "value": 0.9719626168224299
+    },
+    "citation_completeness": {
+      "n": 1408,
+      "value": 0.9637784090909091
+    },
+    "citation_correctness": {
+      "n": 539,
+      "value": 0.8673469387755102
+    },
+    "citation_correctness_lexical_proxy": {
+      "n": 100,
+      "value": 0.9823353244243791
+    },
+    "citation_existence_rate": {
+      "n": 51,
+      "value": 1.0
+    },
+    "citation_precision": {
+      "n": 100,
+      "value": 0.9207100591715977
+    },
+    "citation_quality": {
+      "n": 100,
+      "value": 0.7760653943278943
+    },
+    "citation_recall": {
+      "n": 98,
+      "value": 0.650430231304858
+    },
+    "context_carryover_rate": {
+      "n": 0,
+      "value": null
+    },
+    "decision_accuracy": {
+      "n": 418,
+      "value": 0.9880382775119617
+    },
+    "draft_hallucination_rate": {
+      "n": 105,
+      "value": 0.05714285714285714
+    },
+    "duplicate_rate": {
+      "n": 106,
+      "value": 0.007854688267059401
+    },
+    "empty_retrieval_rate": {
+      "n": 52,
+      "value": 0.0
+    },
+    "expected_claims_present_rate": {
+      "n": 216,
+      "value": 0.6064814814814815
+    },
+    "failure_recovery_rate": {
+      "n": 0,
+      "value": null
+    },
+    "fallback_success_rate": {
+      "n": 0,
+      "value": null
+    },
+    "forbidden_claim_rate": {
+      "n": 105,
+      "value": 0.0
+    },
+    "groundedness": {
+      "n": 100,
+      "value": 0.9466748337879062
+    },
+    "hallucination_after_tool_failure_rate": {
+      "n": 0,
+      "value": null
+    },
+    "hallucination_rate": {
+      "n": 104,
+      "value": 0.04807692307692308
+    },
+    "infinite_loop_rate": {
+      "n": 0,
+      "value": null
+    },
+    "invented_number_rate": {
+      "n": 105,
+      "value": 0.009523809523809525
+    },
+    "irrelevant_in_top_k_per_case": {
+      "n": 106,
+      "value": 2.509433962264151
+    },
+    "latency_mean_s": {
+      "n": 107,
+      "value": 738.7044064498019
+    },
+    "latency_median_s": {
+      "n": 107,
+      "value": 661.1227286669891
+    },
+    "latency_p95_s": {
+      "n": 107,
+      "value": 2012.1076859159803
+    },
+    "latency_p99_s": {
+      "n": 107,
+      "value": 2707.261112459004
+    },
+    "misattributed_number_rate": {
+      "n": 105,
+      "value": 0.009523809523809525
+    },
+    "no_answer_correct_rate": {
+      "n": 20,
+      "value": 1.0
+    },
+    "query_understanding_accuracy": {
+      "n": 107,
+      "value": 0.9906542056074766
+    },
+    "rank_mrr": {
+      "n": 99,
+      "value": 0.9299943883277216
+    },
+    "rank_ndcg_at_10": {
+      "n": 102,
+      "value": 0.8587407775169357
+    },
+    "rank_precision_at_10": {
+      "n": 99,
+      "value": 0.7602693602693602
+    },
+    "rank_precision_at_5": {
+      "n": 99,
+      "value": 0.8136363636363636
+    },
+    "rank_recall_cap_at_10": {
+      "n": 99,
+      "value": 0.8272045855379189
+    },
+    "rank_recall_cap_at_5": {
+      "n": 99,
+      "value": 0.844107744107744
+    },
+    "recency_cited_fraction": {
+      "n": 0,
+      "value": null
+    },
+    "retracted_citation_rate": {
+      "n": 845,
+      "value": 0.0
+    },
+    "retrieval_recall_at_1": {
+      "n": 24,
+      "value": 0.25
+    },
+    "retrieval_recall_at_10": {
+      "n": 24,
+      "value": 0.3958333333333333
+    },
+    "retrieval_recall_at_3": {
+      "n": 24,
+      "value": 0.3333333333333333
+    },
+    "retrieval_recall_at_5": {
+      "n": 24,
+      "value": 0.3958333333333333
+    },
+    "retry_classification_accuracy": {
+      "n": 0,
+      "value": null
+    },
+    "source_existence_rate": {
+      "n": 845,
+      "value": 1.0
+    },
+    "source_stance_accuracy": {
+      "n": 0,
+      "value": null
+    },
+    "source_stance_direction_accuracy": {
+      "n": 0,
+      "value": null
+    },
+    "source_title_match_rate": {
+      "n": 845,
+      "value": 1.0
+    },
+    "stance_coverage": {
+      "n": 2037,
+      "value": 1.0
+    },
+    "stance_disagreement_rate": {
+      "n": 101,
+      "value": 0.25742574257425743
+    },
+    "successful_termination_rate": {
+      "n": 107,
+      "value": 1.0
+    },
+    "tool_call_count": {
+      "n": 107,
+      "value": 60.88785046728972
+    },
+    "tool_selection_accuracy": {
+      "n": 107,
+      "value": 1.0
+    },
+    "uncertainty_appropriate_rate": {
+      "n": 105,
+      "value": 0.5333333333333333
+    },
+    "unnecessary_tool_calls_per_case": {
+      "n": 107,
+      "value": 0.21495327102803738
+    },
+    "unsupported_citation_rate": {
+      "n": 539,
+      "value": 0.03153988868274583
+    },
+    "validation_pass_rate": {
+      "n": 105,
+      "value": 0.9904761904761905
+    },
+    "verdict_accuracy": {
+      "n": 105,
+      "value": 0.7619047619047619
+    }
+  },
+  "suite": "wellness"
+}

@@ -196,6 +196,23 @@ def test_usage_words_are_dropped_from_an_unmapped_product_before_quoting() -> No
     assert _terms("improves health", "oral microbiome").startswith('("oral microbiome")')
 
 
+def test_a_product_naming_examples_searches_the_category_and_each_example() -> None:
+    """2026-10-25: "smart rings like the oura ring" as one phrase found 2 papers."""
+    terms = _terms("measures sleep accurately", "smart rings like the Oura Ring")
+    assert terms.startswith('("smart rings" OR "oura ring")')
+    assert _terms("improves sleep", "GLP-1 drugs such as semaglutide").startswith(
+        '("glp-1 drugs" OR "semaglutide")'
+    )
+
+
+def test_menstrual_cycle_training_searches_indexed_terms_not_the_phrase() -> None:
+    """2026-10-25: the quoted practice phrase found nothing; these reach the
+    phase-and-performance meta-analysis (PMID 32661839)."""
+    terms = _terms("improves fitness results", "syncing workouts to the menstrual cycle")
+    assert terms.startswith('("Menstrual Cycle")')
+    assert "athletic performance" in terms and "fitness AND results" not in terms
+
+
 def test_sunscreen_maps_to_its_mesh_term_and_skin_cancer_to_its_own_vocabulary() -> None:
     terms = _terms("prevents skin cancer", "daily sunscreen use")
     assert terms.startswith('("Sunscreening Agents")')
@@ -203,3 +220,17 @@ def test_sunscreen_maps_to_its_mesh_term_and_skin_cancer_to_its_own_vocabulary()
     # The shorter "skin" key inside "skin cancer" must not add skin-aging papers.
     assert "skin aging" not in terms
     assert "skin aging" in _terms("reduces skin aging", "retinol")
+
+
+def test_a_harm_claim_also_searches_the_substances_safety_record() -> None:
+    """2026-10-26: each side effect searched alone missed the safety reviews."""
+    terms = _terms("increases kidney injury risk", "creatine")
+    assert '"adverse effects"[sh]' in terms and "kidney" in terms
+    assert "adverse effects" not in _terms("improves memory", "creatine")
+
+
+def test_an_outcome_word_inside_another_word_does_not_match() -> None:
+    """"distress" searched anxiety papers through the "stress" hint."""
+    assert "cortisol" not in _terms("causes gastrointestinal distress", "ashwagandha")
+    assert "cortisol" in _terms("reduces stress", "ashwagandha")
+    assert "osteoarthritis" in _terms("relieves sore joints", "glucosamine")

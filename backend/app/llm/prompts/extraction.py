@@ -12,6 +12,8 @@ boundary; the per-topic block is volatile and goes after it.
 
 from __future__ import annotations
 
+import re
+
 from app.domain.contracts import ExtractionInput
 
 EXTRACTION_SYSTEM_PROMPT = """\
@@ -59,9 +61,38 @@ Never put both things in `product`.
 Return only the structured object. No commentary."""
 
 
+#: A broad safety question. Matched on the question, never added to the system
+#: prompt, so every other question's prompt (and eval recording) is unchanged.
+#: "lower the risk of heart disease" is a benefit question and must not match.
+_SAFETY_QUESTION = re.compile(
+    r"\bside[- ]effects?\b|\badverse (?:effects?|events?|reactions?)\b|\brisky\b"
+    r"|\brisks of\b|\bdangers? of\b|\bsafety of\b|\b(?:is|are)\b[^?.]{0,60}\bsafe\b",
+    re.IGNORECASE,
+)
+#: Effects named once, by kind: side_effects 2026-10-26 spent all four claim slots
+#: on magnesium's gut (distress, diarrhea, nausea, vomiting; loose stools and cramps
+#: were cut). Done here because no measure in code tells a duplicate from a neighbour:
+#: mxbai scores diarrhea/loose stools 0.79, and kidney/liver injury 0.79 too.
+SAFETY_NOTE = (
+    "This question asks about safety or side effects. Make each kind of effect its own "
+    "claim, and name it once: symptoms of one kind are one claim (\"causes digestive "
+    "upset\", not separate claims for nausea, diarrhea and cramps). List first the effects "
+    "with the most research behind them, whether that research found harm or found none, "
+    "and include any serious harm studied, such as to the liver, kidneys, heart or blood, "
+    "or an interaction with medicines, even if it is rare."
+)
+
+
+def safety_note(topic: str) -> str | None:
+    """The side-effect instruction for a safety question, else None."""
+    return SAFETY_NOTE if _SAFETY_QUESTION.search(topic) else None
+
+
 def build_extraction_user_prompt(payload: ExtractionInput) -> str:
     """Render the volatile, per-topic half of the extraction prompt."""
     parts = [f"Product or trend: {payload.topic}"]
+    if note := safety_note(payload.topic):
+        parts.append(note)
     if payload.blurb:
         parts.append(
             "Marketing description:\n"

@@ -24,7 +24,11 @@ judge:
   # allow_same_model_as_generator is set.
   enabled: true
   provider: ollama
-  model: llama3.1:8b
+  # qwen2.5:14b over llama3.1:8b, measured 2026-10-26 on the regression and pilot
+  # runs: citation correctness 92% vs 73% and 86% vs 58%, no false hallucination
+  # flags (llama had one), both real misses still flagged. ~2.5x slower; 10 GB at
+  # 100% GPU at 8K, spilling 9% to CPU at 16K. Fallback: llama3.1:8b.
+  model: qwen2.5:14b-instruct
   allow_same_model_as_generator: false
   num_ctx: 8192
   # Cited statements checked per article. Each is one judge call.
@@ -63,6 +67,11 @@ suites:
   wellness_pilot: {datasets: [wellness_pilot]}   # 19 cases
   wellness_core:  {datasets: [wellness_core]}    # 50 cases, includes the pilot
   wellness:       {datasets: [wellness_trends]}  # 107 cases, every trend
+  side_effects:   {datasets: [side_effects]}     # 6 broad side-effect questions
+  wellness_retrieval:                            # every wellness case, stopping after RANK
+    datasets: [wellness_trends, side_effects]
+    stop_after: rank
+    groups: [query, agent, retrieval, performance]
   # Metric suites. `retrieval` stops after RANK, so it never calls synthesis.
   retrieval:
     datasets: [basic, research, multi_turn, adversarial]

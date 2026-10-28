@@ -325,6 +325,7 @@ async def _chat(
         f"({last_error})",
         usage=usage,
         model=qualified(model),
+        content=content,
     )
 
 

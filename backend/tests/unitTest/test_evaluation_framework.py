@@ -395,3 +395,92 @@ def test_a_number_late_in_a_full_text_excerpt_counts_as_in_the_source() -> None:
 
     excerpt = {"section": "Results", "text": "word " * 250 + "a 73% reduction"}
     assert "73%" in _source_text({"abstract": "short"}, [excerpt], 10_000)
+
+
+def test_the_judge_window_grows_to_hold_the_whole_prompt() -> None:
+    """2026-10-25: a 12-source citation check overflowed 8K and Ollama dropped its
+    front half, statement included."""
+    from evaluation.evaluators.llm_judge import _context_for
+
+    assert _context_for("s", "short", 8192, 600) == 8192
+    assert _context_for("s", "x" * 30_000, 8192, 600) == 16384
+    # Past the ceiling the judge declines rather than answering on part of it.
+    assert _context_for("s", "x" * 120_000, 8192, 600) is None
+
+
+def test_silence_cannot_contradict_a_sources_did_not_test_statement() -> None:
+    from evaluation.scoring import _ABSENCE
+
+    assert _ABSENCE.search("None of the twelve sources tested spirulina for hair loss.")
+    assert _ABSENCE.search("The trials did not measure sleep.")
+    assert not _ABSENCE.search("Creatine improved memory in older adults.")
+
+
+def test_a_forbidden_claim_needs_its_wording_in_the_article() -> None:
+    """wt_021, 2026-10-25: "asserted" for a kidney claim in an article never naming kidneys."""
+    from evaluation.scoring import FORBIDDEN_WORDING_FLOOR, _best_wording
+
+    article = ["Creatine improved memory in older adults.", "Effects on recovery were small."]
+    claim = "Creatine damages the kidneys in healthy adults"
+    assert _best_wording(claim, article) < FORBIDDEN_WORDING_FLOOR
+    assert _best_wording(claim, ["Creatine damages the kidneys of healthy adults."]) == 1.0
+
+
+def test_only_a_safety_question_gets_the_side_effect_note() -> None:
+    """The note sits in the per-question half of the prompt, so every other
+    question's prompt, and its eval recording, stays byte-for-byte the same."""
+    from app.domain.contracts import ExtractionInput
+    from app.llm.prompts.extraction import build_extraction_user_prompt, safety_note
+
+    assert safety_note("What are the side effects and risks of GLP-1 drugs?")
+    assert safety_note("Is one meal a day (OMAD) safe?")
+    assert safety_note("Do ice baths improve mood, and are they risky?")
+    assert not safety_note("Do plant-based diets lower the risk of heart disease?")
+    assert not safety_note("Does creatine improve memory?")
+    plain = ExtractionInput(topic="Does creatine improve memory?")
+    assert build_extraction_user_prompt(plain).count("\n\n") == 1
+
+
+async def test_a_failed_synthesis_call_replays_as_it_happened(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """2026-10-28, wt_072 and wt_009: a contract failure then a fresh draft, live. Only
+    the draft was recorded, so the replay answered the first call with it and took a
+    different path. The nth identical request now has its own slot, failures included."""
+    from app.domain.contracts import ArticleBody, SynthesisInput, SynthesisOutput
+    from app.llm.base import LLMError, LLMResult, TokenUsage
+    from evaluation.harness.cassette import Cassette
+    from evaluation.harness.llm import EvalSynthesisClient
+    from evaluation.harness.trace import TraceRecorder
+
+    draft = SynthesisOutput(
+        headline="Caffeine and endurance",
+        verdict=Verdict.WEAK,
+        summary="One small trial.",
+        body=ArticleBody(beat_1_claim="Said to help.", beat_2_evidence="It helped [S1].",
+                         beat_3_bottom_line="Small."),
+    )  # fmt: skip
+    payload = SynthesisInput(product="Caffeine", target_claims=["helps"], sources=[])
+
+    class _Live:
+        calls = 0
+
+        async def synthesize(self, payload, *, feedback=None):  # type: ignore[no-untyped-def]
+            self.calls += 1
+            if self.calls == 1:
+                raise LLMError("still failed validation", content='{"headline": "x"}')
+            return LLMResult(output=draft, usage=TokenUsage(), model="m")
+
+    async def two_calls(inner: object, mode: str) -> list[str]:
+        recorder = TraceRecorder.start("c", "q", mode, {})
+        client = EvalSynthesisClient(inner, "m", cassette, mode, recorder, None)  # type: ignore[arg-type]
+        seen = []
+        for _ in range(2):
+            try:
+                seen.append((await client.synthesize(payload)).output.headline)
+            except LLMError as exc:
+                seen.append(f"error:{exc.content}")
+        return seen
+
+    cassette = Cassette(tmp_path / "c.sqlite")
+    expected = ['error:{"headline": "x"}', "Caffeine and endurance"]
+    assert await two_calls(_Live(), "cached") == expected
+    assert await two_calls(None, "replay") == expected

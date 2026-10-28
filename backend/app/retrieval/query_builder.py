@@ -43,6 +43,7 @@ MESH_HINTS: dict[str, str] = {
     "zinc": "Zinc",
     "ginseng": "Panax",
     "sunscreen": '"Sunscreening Agents"',
+    "menstrual cycle": '"Menstrual Cycle"',
 }
 
 #: Claim word -> the vocabulary papers actually use. "reduces stress" searches
@@ -78,6 +79,9 @@ OUTCOME_HINTS: dict[str, str] = {
     "bone": '("bone density"[MeSH] OR osteoporosis OR "bone health")',
     "recovery": '("muscle soreness" OR "exercise recovery" OR "delayed onset")',
     "endurance": '("physical endurance"[MeSH] OR "aerobic capacity" OR VO2)',
+    "fitness": (
+        '("physical fitness"[MeSH] OR "athletic performance"[MeSH] OR "exercise performance")'
+    ),
 }
 
 _STOPWORDS = frozenset(
@@ -128,6 +132,16 @@ _MAX_NAME_WORDS = 8
 #: sleep onset was not in the top 15 reviews for "melatonin AND sleep").
 REVIEW_PASS_MAX_RESULTS = 30
 GENERAL_PASS_MAX_RESULTS = 35
+
+
+#: A claim about harm. Its own effect alone ("creatine AND kidney AND injury")
+#: missed the reviews of a substance's whole safety record, the best sources for
+#: "what are the side effects of X?": with these, creatine's ISSN safety position
+#: stand and its misconceptions review reached the top 35 (2026-10-26).
+_HARM = re.compile(r"\b(?:causes?|damages?|harms?|injur\w*|toxic\w*|adverse|side effects?)\b")
+_SAFETY_TERMS = (
+    '("adverse effects"[sh] OR safety[tiab] OR "side effects"[tiab] OR "adverse events"[tiab])'
+)
 
 
 class UnanchoredQuery(RuntimeError):
@@ -220,7 +234,9 @@ def _review_and_general(claim: str, terms: str, min_year: int | None) -> list[Se
 def _subject_group(substances: list[str]) -> str:
     """OR the substances together, mapping known ones to MeSH terms."""
     terms: list[str] = []
-    for substance in substances:
+    # "smart rings like the oura ring" -> both, each quoted: as one phrase it matched nothing.
+    examples = (re.split(r"\s+(?:like|such as|including)\s+(?:the\s+)?", s) for s in substances)
+    for substance in (part for parts in examples for part in parts):
         name = substance.strip().lower()
         if not name:
             continue
@@ -281,7 +297,9 @@ def _outcome_group(claim: str) -> str:
     """The claim's outcome in indexed vocabulary, or its keywords as a fallback."""
     lowered = claim.lower()
     # Several can match ("improves sleep and reduces stress"): OR them all.
-    matched = [keyword for keyword in OUTCOME_HINTS if keyword in lowered]
+    # At a word start: "stress" inside "gastrointestinal distress" searched anxiety
+    # papers (2026-10-26); plurals ("joints") still match.
+    matched = [kw for kw in OUTCOME_HINTS if re.search(rf"\b{re.escape(kw)}", lowered)]
     # Longest match wins: "skin cancer" is not the skin-aging vocabulary of "skin".
     hints = list(
         dict.fromkeys(
@@ -302,7 +320,11 @@ def _outcome_group(claim: str) -> str:
         # claim naming two outcomes has no one phrase.
         hints.append(f'"{" ".join(words)}"[tiab]')
     if len(hints) > 1:
-        return f"({' OR '.join(hints)})"
-    if hints:
-        return hints[0]
-    return f"({' AND '.join(words)})" if words else ""
+        group = f"({' OR '.join(hints)})"
+    elif hints:
+        group = hints[0]
+    else:
+        group = f"({' AND '.join(words)})" if words else ""
+    if group and _HARM.search(lowered):
+        return f"({group} OR {_SAFETY_TERMS})"
+    return group

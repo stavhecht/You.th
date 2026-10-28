@@ -26,6 +26,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.contracts import (
+    PromptSource,
     SynthesisInput,
     SynthesisOutput,
     ValidationFailure,
@@ -44,7 +45,7 @@ from app.evidence.grading import (
     max_verdict_for_sources,
     strong_by_direction,
 )
-from app.evidence.overlap import lexical_support
+from app.evidence.overlap import content_terms, lexical_support
 from app.services.tiptap import MalformedBodyError, body_text_to_doc
 
 logger = logging.getLogger(__name__)
@@ -587,6 +588,75 @@ def check_sentences_share_source_words(
     ]
 
 
+#: A cited sentence is called misattributed when its own sources share under
+#: ``LOW_SOURCE_OVERLAP`` of its words and another provided source shares at least
+#: this much, and this much more. Measured 2026-10-26 over 2,592 recorded
+#: sentences: it named the right source for both confirmed misses (wt_007's S13
+#: for S12, mp_001's S2 for S14).
+MISATTRIBUTION_BETTER_SOURCE = 0.5
+MISATTRIBUTION_MARGIN = 0.2
+#: Shorter sentences ("These findings need more research") match anything.
+MISATTRIBUTION_MIN_TERMS = 6
+
+
+def check_citations_point_at_best_source(
+    output: SynthesisOutput, payload: SynthesisInput
+) -> list[ValidationFailure]:
+    """A finding cited to one source whose wording is plainly another's.
+
+    The number check is fooled when the wrong source happens to hold the
+    number: wt_007 cited a memory study (S13, "21 highlighted words") for the
+    opioid trial's 10 + 11 patients (S12). Revisable, so the in-place repair can
+    move the marker; ``validate_draft`` makes it a warning in the final round,
+    because word overlap is evidence, not proof.
+    """
+    body = output.body
+    return misattributed_sentences(
+        [body.beat_2_evidence, *(section.body for section in body.sections)], payload.sources
+    )
+
+
+def misattributed_sentences(
+    blocks: list[str], sources: list[PromptSource]
+) -> list[ValidationFailure]:
+    """``check_citations_point_at_best_source`` over any text; the repair uses it too."""
+    by_handle = {source.handle: numbers.source_text(source) for source in sources}
+    failures = []
+    for block in blocks:
+        for sentence in numbers.sentences(block):
+            handles = sorted(
+                (h for h in extract_handles(sentence) if h in by_handle), key=_handle_sort_key
+            )
+            claim = _EXPLANATION.sub("", numbers.plain_sentence(sentence))
+            if not handles or len(content_terms(claim)) < MISATTRIBUTION_MIN_TERMS:
+                continue
+            own = lexical_support(claim, " ".join(by_handle[h] for h in handles))
+            others = {
+                h: lexical_support(claim, text)
+                for h, text in by_handle.items()
+                if h not in handles
+            }
+            if own >= LOW_SOURCE_OVERLAP or not others:
+                continue
+            better = max(others, key=lambda h: others[h])
+            if others[better] < max(MISATTRIBUTION_BETTER_SOURCE, own + MISATTRIBUTION_MARGIN):
+                continue
+            plain = numbers.plain_sentence(sentence)
+            cited = ", ".join(handles)
+            failures.append(
+                ValidationFailure(
+                    code="misattributed_citation",
+                    message=(
+                        f"the sentence “{plain[:160]}” cites {cited}, but its wording matches "
+                        f"{better} ({others[better]:.0%}) far better than {cited} ({own:.0%}); "
+                        f"cite the source that reports this finding"
+                    ),
+                    detail={"sentence": plain, "handles": handles, "found_in": [better]},
+                )
+            )
+    return failures
+
+
 def check_body_parses(output: SynthesisOutput) -> list[ValidationFailure]:
     """Check 5 — the body can be turned into a document.
 
@@ -646,6 +716,9 @@ async def validate_draft(
     warnings: list[ValidationFailure] = []
     no_evidence_cited = check_no_evidence_cites_nothing(output)
     (warnings if final_round else failures).extend(no_evidence_cited)
+    (warnings if final_round else failures).extend(
+        check_citations_point_at_best_source(output, payload)
+    )
 
     grade, ceiling, verdict_failures = check_verdict_within_grade(
         output, resolved, payload
@@ -706,6 +779,7 @@ def summarise_failures(report: ValidationReport) -> str:
         "malformed_body": "unparseable body",
         "unsourced_number": "number not in its cited source",
         "no_evidence_with_citations": "no-evidence verdict citing sources",
+        "misattributed_citation": "finding cited to the wrong source",
     }
     parts = [
         f"{count} {labels.get(code, code)}{'s' if count > 1 else ''}"

@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import logging
+
+from pydantic import ValidationError
 
 from app.domain.contracts import (
     CITATION_RUN_RE,
@@ -11,11 +14,13 @@ from app.domain.contracts import (
     SynthesisInput,
     SynthesisOutput,
     ValidationReport,
+    count_sentences,
     extract_handles,
 )
 from app.domain.enums import Stance
 from app.evidence.numbers import plain_sentence, sentences
 from app.llm.base import LLMError, LLMResult, SynthesisClient
+from app.llm.prompts.synthesis import SYNTHESIS_SYSTEM_PROMPT, build_synthesis_user_prompt
 from app.pipeline.stages import PipelineContext, StageError, StageName
 from app.pipeline.steps import reader_edit
 from app.services.no_evidence import no_evidence_draft
@@ -74,6 +79,19 @@ MAX_HANDLES_PER_CITATION = 3
 #: sitting on plenty of unused evidence is worth a second ask.
 SECTIONS_EXPECTED_FROM = 6
 
+#: The generation server's window: llama-server's ``-c`` and Ollama's
+#: ``SYNTHESIS_NUM_CTX``. A prompt past it is refused outright (llama-server: 44,566
+#: tokens for GLP-1 side effects, 2026-10-25) or silently cut (Ollama).
+#: shortcut: one window for every provider; give the client its own once a hosted one runs.
+SYNTHESIS_CONTEXT_TOKENS = 32_768
+#: The draft's output budget plus a revision's draft and feedback, which reuse the payload.
+SYNTHESIS_RESERVED_TOKENS = 8_000 + 2_000
+#: Measured 4.55-4.84 on Bonsai's tokenizer (2026-10-25); lower, so the estimate runs high.
+CHARS_PER_TOKEN = 4.2
+
+#: Failures that name their sentence, so ``_repair`` can fix that paragraph alone.
+_REPAIRABLE = frozenset({"unsourced_number", "misattributed_citation"})
+
 
 class SynthesizeStage:
     name = StageName.SYNTHESIZE
@@ -120,10 +138,11 @@ class SynthesizeStage:
 
         if not payload.sources:
             return self._no_evidence(ctx, payload)
+        payload, context_fit = _fit_context(payload, _rank_positions(ctx))
 
         fresh_draft = False
         try:
-            result = await self._client.synthesize(payload)
+            result, fitted = await self._draft(payload)
         except LLMError as exc:
             # Synthesis carries the pipeline's largest token budget, so a
             # failure here is the most expensive thing that can happen and the
@@ -141,7 +160,7 @@ class SynthesizeStage:
             logger.warning("first draft broke the output contract; writing one fresh draft")
             fresh_draft = True
             try:
-                result = await self._client.synthesize(payload)
+                result, fitted = await self._draft(payload)
             except LLMError as again:
                 ctx.record_usage(self.name, again.model, again.usage)
                 raise StageError(self.name, str(again), retryable=again.retryable) from again
@@ -167,6 +186,8 @@ class SynthesizeStage:
                 "sources_in_prompt": len(payload.sources),
                 "coverage_retry": retried,
                 "fresh_draft_after_contract_failure": fresh_draft,
+                # What ``fit_to_contract`` moved or cut instead of a new draft; None if nothing.
+                "contract_fit": fitted or None,
                 "first_draft_handles_cited": first_cited,
                 # What the re-prompt gate counts: sources given a citation of
                 # their own. Kept beside ``handles_cited`` because the gap
@@ -188,6 +209,8 @@ class SynthesizeStage:
                 "body_words": _body_words(result.output),
                 # None when the filter is off, so on/off is one query.
                 "relevance_filter": filtered,
+                # None when the prompt fit; else what was cut to make it fit.
+                "context_fit": context_fit,
                 # None when the edit is off; see ``reader_edit.py``.
                 "reader_edit": edit_metrics,
             },
@@ -226,7 +249,7 @@ class SynthesizeStage:
         if isinstance(repair, PipelineContext):
             return repair
         try:
-            result = await self._client.synthesize(
+            result, _ = await self._draft(
                 payload, feedback=revision_feedback(ctx.validation, ctx.draft)
             )
         except LLMError as exc:
@@ -286,7 +309,7 @@ class SynthesizeStage:
         """
         assert ctx.validation is not None and ctx.draft is not None
         failures = ctx.validation.failures
-        if not failures or any(f.code != "unsourced_number" for f in failures):
+        if not failures or any(f.code not in _REPAIRABLE for f in failures):
             return None
         draft = ctx.draft
         located = reader_edit.parts(draft)
@@ -393,7 +416,7 @@ class SynthesizeStage:
                     "calls": calls,
                     "sentences_dropped": dropped,
                 },
-                "failures_fed_back": ["unsourced_number"],
+                "failures_fed_back": sorted({f.code for f in failures}),
                 "verdict": str(edited.verdict),
                 "sources_in_prompt": len(payload.sources),
                 "handles_cited": len(edited.body.cited_handles()),
@@ -403,6 +426,26 @@ class SynthesizeStage:
         )
         logger.info("repaired %d paragraph(s) in place (%d calls)", len(notes), calls)
         return ctx.model_copy(update={"draft": edited, "validation": None})
+
+    async def _draft(
+        self, payload: SynthesisInput, *, feedback: str | None = None
+    ) -> tuple[LLMResult[SynthesisOutput], list[str]]:
+        """One synthesis call; a draft that only overflowed a limit is fitted, not redrawn.
+
+        Measured 2026-10-28 over the week's runs: 41 synthesis calls broke the
+        contract after the client's repair turn, nearly all a section or beat 2
+        over its sentence cap or a headline over 12 words, and each cost a fresh
+        draft (~10 minutes) or the run. ``fit_to_contract`` keeps every sentence.
+        """
+        try:
+            return await self._client.synthesize(payload, feedback=feedback), []
+        except LLMError as exc:
+            fit = None if exc.retryable or not exc.content else fit_to_contract(exc.content)
+            if fit is None:
+                raise
+            output, changes = fit
+            logger.warning("draft broke the output contract; fitted (%s)", "; ".join(changes))
+            return LLMResult(output=output, usage=exc.usage, model=exc.model), changes
 
     async def _use_more_sources(
         self,
@@ -455,7 +498,7 @@ class SynthesizeStage:
         )
 
         try:
-            retry = await self._client.synthesize(
+            retry, _ = await self._draft(
                 payload, feedback=_coverage_feedback(covered, uncited, lumped)
             )
         except LLMError as exc:
@@ -691,6 +734,141 @@ class SynthesizeStage:
             target_claims=ctx.extraction.target_claims,
             sources=ordered,
         )
+
+
+_OVERFLOW_HEADING = "What other studies found"
+_HEADLINE_BREAKS = (":", " \u2014 ", " \u2013 ", " - ")  # colon, em dash, en dash, hyphen
+
+
+def _split_by_cap(text: str, cap: int) -> list[str]:
+    """``text`` cut between sentences into pieces of at most ``cap``, paragraphs kept.
+
+    Counted with ``count_sentences``, the contract's own counter, so a piece passes
+    the validator that refused the whole."""
+    pieces: list[list[list[str]]] = [[]]
+    for paragraph in (p for p in text.split("\n\n") if p.strip()):
+        pieces[-1].append([])
+        for sentence in sentences(paragraph):
+            current = pieces[-1]
+            current[-1].append(sentence)
+            if count_sentences(_render(current)) > cap and sum(map(len, current)) > 1:
+                current[-1].pop()
+                pieces.append([[sentence]])
+    return [_render(piece) for piece in pieces if _render(piece)]
+
+
+def _render(paragraphs: list[list[str]]) -> str:
+    return "\n\n".join(" ".join(p) for p in paragraphs if p)
+
+
+def fit_to_contract(content: str) -> tuple[SynthesisOutput, list[str]] | None:
+    """A draft that broke only a length limit, made to fit without losing a sentence.
+
+    An over-long section becomes two (the second "<heading>, continued"), beat 2's
+    overflow opens a section of its own, and a headline over 12 words keeps the part
+    before its colon or dash. Anything else, more than five sections, or a headline
+    with no such break returns None, and the caller draws a fresh draft as before.
+    Citations move with their sentences, so VALIDATE checks the result like any draft.
+    """
+    try:
+        data = json.loads(content)
+        body = data["body"]
+        changes: list[str] = []
+        words = data["headline"].split()
+        if len(words) > 12:
+            heads = [data["headline"].split(mark)[0].strip() for mark in _HEADLINE_BREAKS]
+            fits = [h for h in heads if 3 <= len(h.split()) <= 12]
+            if not fits:
+                return None
+            data["headline"] = max(fits, key=len)
+            changes.append(f"headline cut from {len(words)} words")
+        sections: list[dict[str, str]] = []
+        beat_2 = _split_by_cap(body["beat_2_evidence"], 5)
+        if len(beat_2) > 1:
+            body["beat_2_evidence"] = beat_2[0]
+            sections += [{"heading": _OVERFLOW_HEADING, "body": b} for b in beat_2[1:]]
+            changes.append(f"beat 2 overflow moved to {len(beat_2) - 1} section(s)")
+        for section in body.get("sections") or []:
+            parts = _split_by_cap(section["body"], 8)
+            continued = f"{section['heading']}, continued"
+            later = continued if len(continued.split()) <= 8 else section["heading"]
+            sections += [
+                {"heading": section["heading"] if i == 0 else later, "body": part}
+                for i, part in enumerate(parts)
+            ]
+            if len(parts) > 1:
+                changes.append(f"section “{section['heading']}” split in {len(parts)}")
+        body["sections"] = sections
+        if not changes:
+            return None
+        return SynthesisOutput.model_validate(data), changes
+    except (ValueError, KeyError, TypeError, AttributeError, ValidationError):
+        return None
+
+
+def _rank_positions(ctx: PipelineContext) -> dict[str, int]:
+    """Each handle's best position in any claim's ranking (0 is a claim's top source)."""
+    best: dict[str, int] = {}
+    for ranked in ctx.ranked.values():
+        for position, entry in enumerate(ranked):
+            handle = entry.citation_handle
+            best[handle] = min(position, best.get(handle, position))
+    return best
+
+
+def _prompt_tokens(payload: SynthesisInput) -> int:
+    text = SYNTHESIS_SYSTEM_PROMPT + build_synthesis_user_prompt(payload)
+    return int(len(text) / CHARS_PER_TOKEN)
+
+
+def _fit_context(
+    payload: SynthesisInput, positions: dict[str, int]
+) -> tuple[SynthesisInput, dict[str, object] | None]:
+    """Cut the lowest-ranked material until the prompt fits the window.
+
+    Excerpts go first, worst-ranked paper first: without them a paper is still
+    written from its abstract, as before FULL_TEXT existed. Then whole sources,
+    worst-ranked first, so a claim's top source is the last to go. A dropped
+    source is out of the handle set VALIDATE checks against, and PERSIST still
+    records it uncited, as for the relevance filter. Never cuts the last source.
+    """
+    budget = SYNTHESIS_CONTEXT_TOKENS - SYNTHESIS_RESERVED_TOKENS
+    before = _prompt_tokens(payload)
+    if before <= budget:
+        return payload, None
+
+    def worst_first(source: PromptSource) -> tuple[int, int]:
+        return (-positions.get(source.handle, 0), -int(source.handle[1:]))
+
+    sources = list(payload.sources)
+    excerpts_dropped: list[str] = []
+    sources_dropped: list[str] = []
+    fitted = payload
+    for source in sorted((s for s in sources if s.excerpts), key=worst_first):
+        sources[sources.index(source)] = source.model_copy(update={"excerpts": []})
+        excerpts_dropped.append(source.handle)
+        fitted = payload.model_copy(update={"sources": sources})
+        if _prompt_tokens(fitted) <= budget:
+            break
+    for source in sorted(sources, key=worst_first):
+        if _prompt_tokens(fitted) <= budget or len(sources) == 1:
+            break
+        sources.remove(source)
+        sources_dropped.append(source.handle)
+        fitted = payload.model_copy(update={"sources": sources})
+
+    after = _prompt_tokens(fitted)
+    logger.warning(
+        "synthesis prompt ~%d tokens over %d: dropped excerpts of %s, sources %s (now ~%d)",
+        before, budget, excerpts_dropped, sources_dropped, after,
+    )
+    return fitted, {
+        "estimated_tokens_before": before,
+        "estimated_tokens_after": after,
+        "budget_tokens": budget,
+        "excerpts_dropped": excerpts_dropped,
+        "sources_dropped": sources_dropped,
+    }
 
 
 def _filter_by_relevance(payload: SynthesisInput) -> tuple[SynthesisInput, dict[str, object]]:

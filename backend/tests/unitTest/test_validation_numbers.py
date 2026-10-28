@@ -207,6 +207,46 @@ async def test_a_first_draft_that_breaks_the_contract_gets_one_fresh_draft() -> 
     assert ctx.metrics["synthesize"]["fresh_draft_after_contract_failure"] is True
 
 
+async def test_a_draft_over_its_sentence_caps_is_fitted_instead_of_redrawn() -> None:
+    """2026-10-28: 41 calls in a week broke the contract after the repair turn, nearly
+    all a section or beat 2 over its cap or a long headline. Each cost a fresh draft
+    or the run (wt_019); every sentence and its citation now stays, in a new section."""
+    import json
+
+    from app.pipeline.steps.synthesize import SynthesizeStage, fit_to_contract
+
+    beat_2 = " ".join(f"Trial {i} found endurance rose [S1]." for i in range(1, 8))
+    section = " ".join(f"Study {i} found time to exhaustion rose [S1]." for i in range(1, 11))
+    raw = _draft(beat_2="x").model_dump(mode="json")
+    raw["headline"] = (
+        "Caffeine and endurance: what fourteen recent trials say about "
+        "cycling, rowing and running"
+    )
+    raw["body"]["beat_2_evidence"] = beat_2
+    raw["body"]["sections"] = [{"heading": "Longer events", "body": section}]
+
+    class _Overflowing(_Flaky):
+        async def synthesize(self, payload, *, feedback=None):  # type: ignore[no-untyped-def]
+            self.calls += 1
+            raise LLMError("still failed validation", content=json.dumps(raw))
+
+    client = _Overflowing(failures=0)
+    ctx = await SynthesizeStage(client).run(_synth_ctx())  # type: ignore[arg-type]
+    assert client.calls == 1 and ctx.draft is not None
+    body = ctx.draft.body
+    assert ctx.draft.headline == "Caffeine and endurance"
+    assert [s.heading for s in body.sections] == [
+        "What other studies found", "Longer events", "Longer events, continued"
+    ]
+    assert body.as_text().count("[S1]") == 17
+    assert len(ctx.metrics["synthesize"]["contract_fit"]) == 3
+
+    # Not a length problem, or nothing to cut a headline at: a fresh draft, as before.
+    raw["headline"] = " ".join(["word"] * 13)
+    assert fit_to_contract(json.dumps(raw)) is None
+    assert fit_to_contract("not json") is None
+
+
 async def test_a_second_contract_failure_still_fails_the_run_and_only_once() -> None:
     from app.pipeline.steps.synthesize import SynthesizeStage
 
@@ -333,3 +373,39 @@ def test_a_cited_sentence_sharing_few_words_with_its_source_is_flagged() -> None
         "low_source_overlap"
     )
     assert check_sentences_share_source_words(draft(right), payload) == []
+
+
+def test_a_finding_cited_to_its_neighbour_is_sent_back_naming_the_right_source() -> None:
+    """wt_007, 2026-10-25: the opioid trial's finding cited to a memory study, which
+    happened to hold the number ("21 highlighted words"), so no number check saw it."""
+    from app.evidence.validation import check_citations_point_at_best_source
+
+    payload = SynthesisInput(
+        product="vagus nerve stimulation",
+        target_claims=["reduces anxiety"],
+        sources=[
+            _source("S12", "Stimulation reduced distress and withdrawal in patients with "
+                    "opioid use disorder in a randomised pilot trial."),
+            _source("S13", "Patients memorized 21 highlighted words under three stimulation "
+                    "conditions in a cross-over study of verbal memory."),
+        ],
+    )
+    sentence = (
+        "A pilot trial of 21 people with opioid use disorder found reductions in distress "
+        "after stimulation"
+    )
+    failures = check_citations_point_at_best_source(_draft(f"{sentence} [S13]."), payload)
+    assert [f.code for f in failures] == ["misattributed_citation"]
+    assert failures[0].detail["found_in"] == ["S12"]
+    assert "misattributed_citation" in REVISABLE_FAILURES
+    assert check_citations_point_at_best_source(_draft(f"{sentence} [S12]."), payload) == []
+
+    # 2026-10-28, wellness run: 4 of 5 judged hallucinations were repairs that kept or
+    # introduced exactly this, which the final round only warns about.
+    from app.pipeline.steps.reader_edit import Part, repair_rejection
+
+    plain = sentence.replace("of 21 people ", "in people ")
+    part = Part("section", f"{plain} [S12].", 8, "section_0")
+    reason = repair_rejection(part, f"{plain} [S13].", payload.sources, {"S12", "S13"}, set())
+    assert reason is not None and "worded like S12" in reason
+    assert repair_rejection(part, f"{plain} [S12].", payload.sources, {"S12"}, set()) is None

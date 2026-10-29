@@ -69,8 +69,12 @@ mypy app                                 # NOT clean — see below
 python -m evaluation.run                 # exits 1 when a critical metric misses its threshold
 python -m evaluation.run --suite retrieval --limit 20   # stops after RANK, no synthesis
 python -m evaluation.run --test basic_002 --save-baseline
+                                         # (replaces the suite's whole baseline; a run over
+                                         # other cases than the baseline's is not compared:
+                                         # baseline.py::other_cases)
 python -m evaluation.run --suite wellness_pilot   # 19 of the 107 wellness-trend cases;
-                                         # then wellness_core (50), wellness (107)
+                                         # then wellness_core (50), wellness (107);
+                                         # side_effects (6 broad safety questions)
 python -m evaluation.trend_check [run_id]   # a research run's links, freshness, wellness;
                                          # writes datasets/trends.jsonl for --suite trends
 python -m evaluation.image_check evaluation/reports/<run>   # one FLUX render per article
@@ -260,6 +264,16 @@ still fails for good — the retry would send the identical request. One narrow 
 SYNTHESIZE: a *first* draft that broke the contract (a nine-word section heading) gets **one**
 fresh draft before the run fails (`fresh_draft_after_contract_failure`), because synthesis
 samples at 0.4 and one sample's overrun is not a property of the request.
+**Before that fresh draft, a draft that only overflowed a length limit is fitted**
+(`synthesize.py::fit_to_contract`, `metrics.synthesize.contract_fit`, 2026-10-28): an
+over-long section becomes two ("<heading>, continued"), beat 2's overflow opens a section of its
+own, a headline over 12 words keeps the part before its colon or dash. Every sentence keeps its
+citation and VALIDATE checks the result like any draft. The client hands over its last answer on
+`LLMError.content`. Measured over a week of eval runs: 41 synthesis calls still broke the
+contract after the client's repair turn, nearly all sentence caps and headlines, each costing a
+fresh draft (~10 min) or the run (wt_019). Anything else, or more than five sections, still
+gets the fresh draft. Every synthesis call goes through `SynthesizeStage._draft`, so revisions
+and the coverage re-prompt are fitted too.
 
 **A `running` run proves nothing; its heartbeat does.** The worker pings
 `pipeline_runs.heartbeat_at` on a timer while a run is in flight, and a periodic sweep in the
@@ -441,6 +455,23 @@ counts sources by direction, and it waits on the labels' measured accuracy. Six 
   recordings are keyed by the system prompt and the output grammar too (since 2026-10-14;
   before that a synthesis prompt edit silently replayed the old prompt's drafts). Extraction
   recordings are keyed by its prompt too since 2026-10-23, for the same reason.
+  **A failed synthesis call is recorded too** (2026-10-28): the nth identical request in a case
+  has its own slot (`key#n`; the first keeps the plain key, so older recordings replay as
+  before), and a permanent failure is stored there with the answer `fit_to_contract` may fit.
+  Before, only the success was recorded, so a replay answered the first call with it and took a
+  different path from the live run (wt_072, wt_009). Outages are never stored.
+- **The eval judge is `qwen2.5:14b-instruct`** (`evaluation/config.yaml`; fallback
+  `llama3.1:8b`). Measured 2026-10-26 on the same runs: citation correctness 92% vs 73%
+  (regression) and 86% vs 58% (pilot), no false hallucination flag where llama had one, ~2.5×
+  slower. Its window grows with the prompt (`llm_judge.py::_context_for`, up to 32K), because
+  Ollama silently keeps only ~num_ctx/2 of a longer prompt and the judge answered blind.
+  Its certainty label is the weakest part: on the 107-case run about half of its
+  "overconfident" calls were a missing topic, not overclaiming.
+- **Keep the Mac awake through a long eval** (`caffeinate -i -s`). macOS stops the monotonic
+  clock in sleep, so `case_timeout_seconds` cannot fire and durations lie: on 2026-10-27, wt_072
+  did 21 minutes of work over 9.3 hours of wall clock, and wt_070's embedding call timed out
+  across a sleep. A case far past the timeout is the sign; compare the trace's `duration_ms`
+  with `finished_at - started_at`.
 - **`items` has `min_length=1`.** llama once wrote `claim_outcome` and stopped with an empty
   list; the bound puts `minItems` in the grammar and sends an empty answer through the repair
   retry rather than leaving every source unappraised.
@@ -498,6 +529,31 @@ two-paper gold list would fit the list, not the ranking.
 An unmapped product drops usage words before it is quoted (`_USAGE_WORDS`: "daily sunscreen
 use" searched as one phrase missed the trial titled "regular sunscreen use", 2026-10-25), and
 the longest matching outcome key wins ("skin cancer" no longer brings in "skin"'s aging terms).
+Since 2026-10-26: a subject naming examples ("wearables like WHOOP", "such as", "including")
+searches each example; outcome keys match at a word start only; and a harm claim ("causes",
+"damages", "toxic", "side effects") ORs in safety vocabulary (`"adverse effects"[sh]`,
+"adverse events", "side effects"), because harm is reported in safety tables, not under the
+outcome's own name.
+
+**A broad question covers its four best-studied claims** (`rank.py::MAX_CLAIMS`,
+`best_studied`, `metrics.rank.claims_dropped`, 2026-10-25). "Side effects of GLP-1 drugs"
+extracted six; at 12 sources each the prompt overflowed and the thinnest claim capped the verdict
+at weak. The cut ranks by supported-tier sources, then sources, whichever way they point, so good
+news and bad both survive, and it narrows `ctx.candidates` and `target_claims` too: VALIDATE seeds
+a quorum per claim, so a dropped claim left in the list would still cap the verdict.
+**A serious harm goes ahead of the evidence count** (`rank.py::_serious`, 2026-10-28): a harm
+claim (`query_builder.HARM_CLAIM`) naming the liver, kidneys, heart, blood, bleeding or a medicine
+interaction is kept before any milder one. Ranked by evidence alone, se_001 (creatine) dropped
+kidney and liver injury and kept stomach upset. The cost: a question with four or more serious
+harms covers only those, so creatine's six claims (two of them arrhythmia and "blood pressure
+elevation") now drop stomach upset and water retention, its commonest effects.
+**Safety questions get one extra extraction instruction** (`extraction.py::safety_note`, only
+when the topic asks about side effects, risks or "is X safe", so other questions' recordings still
+replay): one claim per *kind* of effect ("digestive upset", not nausea, diarrhea and cramps), the
+best-studied first, harm or no harm, and serious harms included even if rare. That is a prompt
+rule because nothing in code tells a duplicate from a neighbour: mxbai scores diarrhea/loose
+stools 0.79 and kidney/liver injury 0.79 too, and papers reporting adverse events share most of
+their sources across symptoms (nausea/dizziness 0.60).
 
 **A DOI-only paper doi.org has never registered is dropped** (`RetrieveStage._screen_unregistered`,
 `identifiers.py::DoiRegistry`, after the retraction screen). OpenAlex indexes journals that print
@@ -725,7 +781,11 @@ on llama-server (7–14 small calls). What to know:
 
 The number check learned two things on the way, both false positives that discarded a correct
 plainer draft: compound numbers ("Twenty-six trials" reads as 26) and a hyphenated word before
-the count noun ("26 high-quality trials" is a count of sources).
+the count noun ("26 high-quality trials" is a count of sources). That second rule let "-week"
+count as the word, so "12-week trial" read as twelve trials and was never checked; a revision
+then wrote "12-week trial" beside four sources that never said it, one of them a single-subject
+study, and validated clean (2026-10-28, wt_079). `_COUNT_NOUN` now needs a space after the
+number, and a time unit after it ("12 week trial") is no count either. The 107-case run's nine "N-week trial" phrases were all correct, so no new failures.
 
 **A draft failing only on `unsourced_number` is repaired in place, not rewritten**
 (`SynthesizeStage._repair`, 2026-10-23). Told to fix one sentence and copy the rest, the
@@ -743,6 +803,10 @@ now), two still failed because Bonsai kept a number no source contains ("1.97 mi
 for a 2026 paper) — a correct rejection.
 When both tries fail, the failing sentences are dropped from the paragraph if it still cites what
 it cited (`repair.sentences_dropped`); only then does the whole-article rewrite run.
+**A repair is also refused when it leaves a finding cited to the wrong paper**
+(`misattributed_sentences`, 2026-10-28). The final round only *warns* on
+`misattributed_citation` (below), so the repair is the last place it can be stopped: in the
+107-case wellness run, 4 of the 5 judged hallucinations were repairs that kept or introduced one.
 
 **A cited sentence that shares few words with its sources is flagged, never failed**
 (`low_source_overlap`, `validation.py::check_sentences_share_source_words`, 2026-10-24). The
@@ -752,6 +816,15 @@ bracketed explanations, a beat-2 or section sentence goes to the reviewer as a w
 Measured over 90 judged sentences: the one misattributed sentence scored 0.31, the lowest
 supported one 0.44. One example set that threshold, so it stays a warning. `evidence/overlap.py`
 is the one definition of the overlap; the eval's groundedness score imports it.
+
+**A finding worded like another source than the one it cites fails, once**
+(`misattributed_citation`, `check_citations_point_at_best_source`, 2026-10-26). The number check
+is fooled when the wrong source happens to hold the number: wt_007 cited a memory study ("21
+highlighted words") for an opioid trial of 10 + 11 patients. A cited sentence of at least
+`MISATTRIBUTION_MIN_TERMS` content words fails when its own sources share under
+`LOW_SOURCE_OVERLAP` of its words and another source shares at least
+`MISATTRIBUTION_BETTER_SOURCE` and `MISATTRIBUTION_MARGIN` more. It is revisable and repairable
+(`_REPAIRABLE`), and a warning in the final round, because word overlap is evidence, not proof.
 
 **Article body is TipTap JSON, not markdown.** The model emits plain text with `[S1]` markers;
 `services/tiptap.py::body_text_to_doc()` parses them into typed citation nodes at assembly.
@@ -798,7 +871,10 @@ typed `article` and was cited with a `supported` verdict; that screen fails open
 (`retraction_screen_failed`); `classify_study_type`
 returns `UNKNOWN` for one already cached; `scripts/check_retractions.py` re-checks cited sources
 against PubMed + Crossref on a schedule, because retractions land *after* publication and the
-ingest screen only ever catches what was already withdrawn when we first saw it.
+ingest screen only ever catches what was already withdrawn when we first saw it. The schedule is
+a host LaunchAgent, Mondays 07:00 (`./jobs/retractions.sh install`; log
+`~/Library/Logs/evidwell/retractions.log`). Nothing ran it before 2026-10-28; the first run
+checked the 106 sources cited by published and pending articles, all clean.
 
 Two rules with teeth. **Retractions are checked *before* the publication-type map**, unlike
 every other entry in `NEGATIVE_PUBLICATION_TYPES` — a retracted trial also carries `Randomized
@@ -1545,7 +1621,13 @@ generated by a separate model call, so card and article cannot contradict each o
   leaving them mismatched. **`full_text_max_papers` draws on the same window**: six papers at
   two ~300-word excerpts is about 5,000 tokens. Measured 2026-09-29, the largest synthesis
   prompts ran ~15K input tokens, so with 8K reserved for output six still fits; raising it, or
-  top-k, eats the margin.
+  top-k, eats the margin. **Since 2026-10-25 SYNTHESIZE refuses to overflow it**
+  (`synthesize.py::_fit_context`, `metrics.synthesize.context_fit`): past
+  `SYNTHESIS_CONTEXT_TOKENS` less `SYNTHESIS_RESERVED_TOKENS` (estimated at
+  `CHARS_PER_TOKEN` 4.2; Bonsai measured 4.55-4.84) it drops excerpts, then sources, worst-ranked
+  first, never the last source, and logs what went. Measured on broad questions before the
+  4-claim cut, prompts reached ~24K tokens. `SYNTHESIS_CONTEXT_TOKENS` is a constant that must
+  match llama-server's `-c` (32768).
 - **`thinking` is passed explicitly on both Anthropic calls, and must stay that way.** Whether
   an omitted `thinking` means "think" varies across the range (Sonnet 5 / Opus 5 do, Opus 4.8 /
   4.7 do not), and the model is config — leaving it implicit lets `EXTRACTION_MODEL` silently

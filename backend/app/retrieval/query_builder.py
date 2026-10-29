@@ -138,7 +138,9 @@ GENERAL_PASS_MAX_RESULTS = 35
 #: missed the reviews of a substance's whole safety record, the best sources for
 #: "what are the side effects of X?": with these, creatine's ISSN safety position
 #: stand and its misconceptions review reached the top 35 (2026-10-26).
-_HARM = re.compile(r"\b(?:causes?|damages?|harms?|injur\w*|toxic\w*|adverse|side effects?)\b")
+HARM_CLAIM = re.compile(
+    r"\b(?:causes?|damages?|harms?|injur\w*|toxic\w*|adverse|side effects?)\b"
+)
 _SAFETY_TERMS = (
     '("adverse effects"[sh] OR safety[tiab] OR "side effects"[tiab] OR "adverse events"[tiab])'
 )
@@ -325,6 +327,6 @@ def _outcome_group(claim: str) -> str:
         group = hints[0]
     else:
         group = f"({' AND '.join(words)})" if words else ""
-    if group and _HARM.search(lowered):
+    if group and HARM_CLAIM.search(lowered):
         return f"({group} OR {_SAFETY_TERMS})"
     return group

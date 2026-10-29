@@ -329,6 +329,9 @@ def test_a_hyphenated_word_before_the_count_noun_still_counts_sources() -> None:
     assert checked_numbers("A meta-analysis of 26 high-quality trials found an effect.") == []
     assert checked_numbers("It pooled 26 well-designed randomised trials.") == []
     assert checked_numbers("Range of motion rose by 26 degrees.") == ["26"]
+    # A duration is checked, not mistaken for a count of trials.
+    assert checked_numbers("Grip improved in a 12-week trial of 22 players.") == ["12", "22"]
+    assert checked_numbers("Grip improved in a 12 week trial of 22 players.") == ["12", "22"]
 
 
 def test_a_cited_sentence_sharing_few_words_with_its_source_is_flagged() -> None:

@@ -7,6 +7,7 @@ Reads what RetrieveStage cached and writes nothing. The scoring itself is in
 from __future__ import annotations
 
 import logging
+import re
 from collections import Counter
 
 from sqlalchemy.exc import InterfaceError, OperationalError
@@ -16,6 +17,7 @@ from app.domain.enums import Verdict
 from app.evidence.grading import QUORUM_FOR_SUPPORTED, VERDICT_CEILING
 from app.llm.embeddings.base import EmbeddingError
 from app.pipeline.stages import PipelineContext, StageError, StageName
+from app.retrieval.query_builder import HARM_CLAIM
 from app.retrieval.rerank import (
     RerankConfig,
     SemanticReranker,
@@ -32,15 +34,33 @@ logger = logging.getLogger(__name__)
 #: whichever way their studies point, so good news and bad both survive.
 MAX_CLAIMS = 4
 
+#: What a harm claim names when the harm is serious: the organs and the medicine
+#: interactions the extraction prompt asks for "even if rare". Ranked by evidence
+#: alone, se_001 (creatine) dropped kidney and liver injury and kept stomach upset
+#: (2026-10-28), so these go ahead of milder effects.
+_SERIOUS_HARM = re.compile(
+    r"\b(?:liver|hepat\w*|kidneys?|renal|heart|cardi\w*|arrhythmi\w*|blood|bleed\w*|"
+    r"interact\w*)\b"
+)
+
 
 def _strong(entries: list[RankedSource]) -> int:
     return sum(1 for e in entries if VERDICT_CEILING[e.paper.study_type] is Verdict.SUPPORTED)
 
 
+def _serious(claim: str) -> bool:
+    lowered = claim.lower()
+    return bool(HARM_CLAIM.search(lowered) and _SERIOUS_HARM.search(lowered))
+
+
 def best_studied(ranked: dict[str, list[RankedSource]], limit: int = MAX_CLAIMS) -> list[str]:
-    """The ``limit`` claims with the most supported-tier sources, then the most sources."""
+    """The ``limit`` claims to cover: serious harms first, then the most supported-tier
+    sources, then the most sources."""
     order = {claim: i for i, claim in enumerate(ranked)}
-    ranking = sorted(ranked, key=lambda c: (-_strong(ranked[c]), -len(ranked[c]), order[c]))
+    ranking = sorted(
+        ranked,
+        key=lambda c: (not _serious(c), -_strong(ranked[c]), -len(ranked[c]), order[c]),
+    )
     return sorted(ranking[:limit], key=order.__getitem__)
 
 

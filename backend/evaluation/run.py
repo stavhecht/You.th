@@ -461,6 +461,8 @@ async def _run(args: argparse.Namespace) -> int:
                 "note": f"no baseline yet for suite '{args.suite}' ({base_path.name}); "
                 "save one with --save-baseline"
             }
+        elif note := baseline.other_cases(results, previous):
+            regression = {"note": note}
         else:
             changed = {
                 key: (previous["environment"].get(key), environment.get(key))

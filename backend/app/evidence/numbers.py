@@ -34,9 +34,12 @@ from app.domain.contracts import (
 )
 
 _NUMBER = re.compile(r"(?<![\w.])(\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)")
-#: A number followed, within two words, by one of these is a count of sources.
+#: A number followed, within two words, by one of these is a count of sources. The
+#: space is required and the next word is no time unit: "12-week trial" and "12 week
+#: trial" are durations, and read as a count one let a revision write "12-week" beside
+#: sources that never said it (2026-10-28, wt_079).
 _COUNT_NOUN = re.compile(
-    r"^\s*(?:[\w-]+\s){0,2}?(trials?|stud(?:y|ies)|reviews?|meta-analys[ie]s|sources|papers|"
+    r"^\s+(?!(?:week|month|day|year)s?\b)(?:[\w-]+\s){0,2}?(trials?|stud(?:y|ies)|reviews?|meta-analys[ie]s|sources|papers|"
     r"RCTs?|articles|analyses)\b",
     re.IGNORECASE,
 )

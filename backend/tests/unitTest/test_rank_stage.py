@@ -434,3 +434,26 @@ async def test_a_broad_question_keeps_its_best_studied_claims() -> None:
     assert result.extraction is not None and result.extraction.target_claims == kept
     assert list(result.candidates) == kept
     assert result.thin_claims == []
+
+
+def test_the_cut_keeps_serious_harms_ahead_of_better_studied_mild_ones() -> None:
+    """se_001, 2026-10-28: ranked by evidence alone, creatine's article dropped kidney
+    and liver injury and kept stomach upset."""
+    from app.pipeline.steps.rank import best_studied
+
+    three, one = [StudyType.META_ANALYSIS] * 3, [StudyType.META_ANALYSIS]
+    ranked = {
+        claim: _ranked(claim, types)
+        for claim, types in {
+            "causes digestive upset": three,
+            "causes water retention": three,
+            "causes muscle cramps": three,
+            "causes kidney injury": one,
+            "causes liver injury": one,
+            "improves heart health": one,  # names an organ, but is no harm
+        }.items()
+    }
+    assert best_studied(ranked) == [
+        "causes digestive upset", "causes water retention", "causes kidney injury",
+        "causes liver injury",
+    ]

@@ -73,6 +73,23 @@ def load(path: Path) -> dict[str, Any] | None:
     return data
 
 
+def other_cases(results: list[dict[str, Any]], baseline: dict[str, Any]) -> str | None:
+    """Why this run cannot be compared with the baseline, or None when it can.
+
+    Metrics over a different set of cases move with the case mix, not the code: 8
+    hand-picked hard cases read as 9 regressions against all 107 (2026-10-28). A
+    baseline saved before ``case_status`` existed cannot say, and is compared as before.
+    """
+    saved = set(baseline.get("case_status") or ())
+    ran = {row["id"] for row in results}
+    if not saved or saved == ran:
+        return None
+    return (
+        f"baseline covers different cases ({len(saved)} saved, {len(ran)} run, "
+        f"{len(saved & ran)} in both); no regression comparison"
+    )
+
+
 def compare(
     current: dict[str, dict[str, Any]], baseline: dict[str, Any], tolerance: float
 ) -> list[dict[str, Any]]:

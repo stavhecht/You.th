@@ -375,6 +375,14 @@ def test_regressions_respect_direction_and_tolerance() -> None:
     assert not rows["verdict_accuracy"]["regression"]  # within tolerance
 
 
+def test_a_run_over_other_cases_is_not_compared_with_the_baseline() -> None:
+    saved = {"case_status": {"a": {}, "b": {}, "c": {}}}
+    assert baseline.other_cases([{"id": "a"}, {"id": "b"}, {"id": "c"}], saved) is None
+    note = baseline.other_cases([{"id": "a"}], saved)
+    assert note is not None and "3 saved, 1 run, 1 in both" in note
+    assert baseline.other_cases([{"id": "a"}], {}) is None  # an old baseline cannot say
+
+
 def test_percentiles_need_enough_samples() -> None:
     assert percentile([1, 2, 3, 4], 50) == 2
     stats = summary([float(x) for x in range(10)])

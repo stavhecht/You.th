@@ -66,6 +66,8 @@ export default {
           on: "var(--ew-on-accent)", // text on an accent fill
         },
 
+        "danger-ink": "var(--ew-danger-ink)", // a failed check at text size
+
         // The only chromatic axis in the product. Subject, never verdict.
         subject: {
           fitness: "var(--ew-cat-fitness)",

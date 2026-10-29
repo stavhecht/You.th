@@ -83,6 +83,7 @@ python -m evaluation.image_check evaluation/reports/<run>   # one FLUX render pe
 # frontend, from frontend/
 npm run dev            # :5173, public site at /, review desk at /review
 npm run typecheck
+npm test               # vitest over src/ only: pure logic (console/checks.test.ts); e2e/ is Playwright's
 npm run build          # tsc -b && vite build
 npm run test:e2e       # Playwright, Chromium: the built app against its own API on
                        # :8001 + evidwell_test (reseeded by backend/tests/e2e/
@@ -968,6 +969,19 @@ rather than useful. Console → feed is the permitted direction; the reverse is 
 forbids. Every tile in the overlay is `inert` — `ArticleCard` renders a live Save button and
 links to `/a/:slug`, which 404s until publication. The button flushes autosave before opening,
 for the same reason Approve does.
+
+**The review desk's "Need to be checked" tab is derived in the browser** (`features/console/
+checks.ts`, rendered by `WhyItFailed.tsx`): the evaluation's per-case failure list, rebuilt from
+what a live draft carries — validation report, source stances, and each cited sentence beside
+its sources' abstracts (`ReviewSourceOut.abstract`, the only API addition). Retrieval precision
+and the judge's hallucination call stay eval-only: they need a gold list and a model call per
+sentence. Four things to keep: `article_sources` is one row per paper **per claim**, so checks
+count *handles*, not rows; the "Not in the cited source" hint is a word match (numbers as whole
+tokens, topic words by 5-letter stem, a stoplist for "found"/"after") — a pointer for the
+eye, never a verdict; the "fixed" ticks are session-only reviewer bookkeeping keyed by sentence
+text, so both tabs stay mounted (`hidden`) to keep them; and a new Tailwind colour token needs
+`docker compose restart web`, because Vite does not reload `tailwind.config.ts`.
+Failed-check text is `text-danger-ink` (`--ew-danger-ink`), the one red in the theme.
 
 **Two accounts, two tables, two tokens.** `users` is the reviewer roster and
 `articles.reviewed_by` is a foreign key into it, so a row there is a claim about who is

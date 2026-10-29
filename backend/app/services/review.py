@@ -434,6 +434,7 @@ class ReviewService:
                 "url": source.resolved_url,
                 "pmid": source.pmid,
                 "doi": source.doi,
+                "abstract": source.abstract,
                 "was_cited": link.was_cited,
                 "relevance_score": link.relevance_score,
                 "is_weak_evidence": is_weak_evidence(StudyType(source.study_type)),

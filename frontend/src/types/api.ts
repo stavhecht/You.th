@@ -243,6 +243,7 @@ export interface QueueItem {
 
 export interface ReviewSource extends Source {
   sourceId: string;
+  abstract: string;
   claim: string;
   citationCount: number | null;
   /** False for sources retrieved but not cited — shown greyed, not hidden. */

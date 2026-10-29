@@ -43,6 +43,7 @@ import { ArticleEditor } from "./ArticleEditor";
 import { FeedPreview } from "./FeedPreview";
 import { SubjectPicker } from "./SubjectPicker";
 import { SourcesPanel, ValidationSummary } from "./SourcesPanel";
+import { WhyItFailed } from "./WhyItFailed";
 import { SECTION_LABEL } from "./controls";
 import {
   ACTION_ERROR_ALERT,
@@ -81,6 +82,7 @@ export function ReviewDetail() {
   const [rejectReason, setRejectReason] = useState("");
   const [reasonMissing, setReasonMissing] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [sideTab, setSideTab] = useState<"evidence" | "why">("evidence");
   const previewTrigger = useRef<HTMLElement | null>(null);
 
   /**
@@ -273,15 +275,41 @@ export function ReviewDetail() {
         </section>
 
         <aside className={REVIEW_SIDEBAR}>
-          <ValidationSummary
-            report={article.validationReport}
-            grade={article.evidenceGrade}
-            verdict={article.verdict}
-            restsOnWeakEvidence={restsOnWeakEvidence}
-          />
+          <div role="tablist" className="mb-3 flex gap-4">
+            {(["evidence", "why"] as const).map((t) => (
+              <button
+                key={t}
+                role="tab"
+                aria-selected={sideTab === t}
+                onClick={() => setSideTab(t)}
+                className={`${SECTION_LABEL} ${sideTab === t ? "underline" : "opacity-60"}`}
+              >
+                {t === "evidence" ? "Evidence" : "Need to be checked"}
+              </button>
+            ))}
+          </div>
 
-          <div className={SIDEBAR_SOURCES}>
-            <SourcesPanel sources={article.sources} focusedHandle={focusedHandle} />
+          {/* Both stay mounted and one is hidden, so the reviewer's "fixed"
+              ticks survive a trip to the other tab. */}
+          <div hidden={sideTab !== "why"}>
+            <WhyItFailed
+              report={article.validationReport}
+              sources={article.sources}
+              verdict={article.verdict}
+              doc={article.editedContent ?? article.originalContent}
+            />
+          </div>
+          <div hidden={sideTab !== "evidence"}>
+            <ValidationSummary
+              report={article.validationReport}
+              grade={article.evidenceGrade}
+              verdict={article.verdict}
+              restsOnWeakEvidence={restsOnWeakEvidence}
+            />
+
+            <div className={SIDEBAR_SOURCES}>
+              <SourcesPanel sources={article.sources} focusedHandle={focusedHandle} />
+            </div>
           </div>
 
           {/* Classification sits above the decision, not inside it: it is

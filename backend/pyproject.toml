@@ -9,11 +9,11 @@ dependencies = [
     "uvicorn[standard]>=0.32",
     "pydantic>=2.9",
     "pydantic-settings>=2.6",
-    "sqlalchemy[asyncio]>=2.0.36",
+    "sqlalchemy[asyncio]>=2.0.36,<2.1",
     "asyncpg>=0.30",
     "pgvector>=0.3.6",
     "httpx>=0.28",
-    "anthropic>=0.69",
+    "anthropic>=0.69,<1",
     "ollama>=0.4",
     "voyageai>=0.3",
     # Stage sequencing only — `pipeline/graph.py`. Nothing here talks to a
@@ -30,8 +30,8 @@ dependencies = [
     # per inference provider, so the SDK is the supported path — same reason the
     # three above are here rather than hand-rolled over httpx. Pillow is what
     # `text_to_image` returns; `imagery/huggingface.py` re-encodes it to WebP.
-    "huggingface-hub>=0.35",
-    "pillow>=11.0",
+    "huggingface-hub>=0.35,<2",
+    "pillow>=11.0,<13",
     "pyjwt>=2.15",
     "argon2-cffi>=23.1",
     # Starlette parses multipart bodies through this; without it the console's
@@ -51,13 +51,6 @@ dependencies = [
 
 [project.optional-dependencies]
 openai = ["openai>=1.60"]
-dev = [
-    "pytest>=8.3",
-    "pytest-asyncio>=0.24",
-    "respx>=0.22",
-    "ruff>=0.8",
-    "mypy>=1.13",
-]
 
 [build-system]
 requires = ["setuptools>=68"]
@@ -96,7 +89,16 @@ ignore_missing_imports = true
 "*" = ["RUF002", "RUF003"]
 
 [tool.pyright]
-extraPaths = [".venv/lib/python3.14/site-packages"]
+extraPaths = [".venv/lib/python3.12/site-packages"]
 
 [tool.pyrefly]
 python-interpreter-path = ".venv/bin/python"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.13",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "respx>=0.22",
+    "ruff>=0.8",
+]

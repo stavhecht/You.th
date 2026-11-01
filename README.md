@@ -108,8 +108,8 @@ ollama pull llama3.1:8b          # both generative calls
 ollama pull mxbai-embed-large    # embeddings, 1024-d to match EMBEDDING_DIM
 
 cd backend
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
+uv sync                          # creates .venv from uv.lock (Python 3.12)
+source .venv/bin/activate        # or prefix commands with `uv run`
 
 # Applies migrations. No `psql` needed — it runs through asyncpg, which the
 # backend already depends on, and templates the vector width from

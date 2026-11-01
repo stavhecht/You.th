@@ -9,7 +9,8 @@ All backend commands run from `backend/` with the venv active (`source .venv/bin
 ```bash
 # setup
 docker compose up -d db                  # pgvector/pgvector:pg16 on :5433
-pip install -e ".[dev]"
+uv sync                                  # installs from uv.lock, dev group included; add
+                                         # deps with `uv add` / `uv add --dev`, never pip
 python -m scripts.migrate                # applies migrations via asyncpg; no psql needed
                                          # 0001_initial.sql is the only file — squashed a fifth
                                          # time on 2026-09-30, folding in source_chunks,
@@ -112,7 +113,7 @@ There is also a whole-stack container path — `docker compose up` runs db → m
   `http://host.docker.internal:11434` — verified reachable from the backend container against a
   host `ollama serve` bound to its default loopback.
 - **Source is mounted read-only over the image copy**, so an edit needs a `restart`, not a
-  rebuild — only a `pyproject.toml` change needs `--build`. Both watchers are forced to polling
+  rebuild — only a `pyproject.toml`/`uv.lock` change needs `--build`. Both watchers are forced to polling
   (`WATCHFILES_FORCE_POLLING`, `VITE_DEV_POLL`): Docker Desktop's bind mounts do not deliver
   inotify events on macOS, so an event-based watcher looks healthy and silently never reloads.
 

@@ -8,12 +8,14 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends gcc libpq-dev && \
     rm -rf /var/lib/apt/lists/*
 
-COPY pyproject.toml .
-# Install production deps into a virtual-env so we can copy the whole tree later
-# without dragging build tools into the final image.
-RUN python -m venv /opt/venv && \
-    /opt/venv/bin/pip install --no-cache-dir --upgrade pip setuptools && \
-    /opt/venv/bin/pip install --no-cache-dir .
+COPY --from=ghcr.io/astral-sh/uv:0.11 /uv /usr/local/bin/uv
+
+# Production deps only, from the lockfile, into a venv we copy whole into the
+# final image. The project itself is not installed: app/ is copied and run
+# from /app.
+ENV UV_PROJECT_ENVIRONMENT=/opt/venv UV_PYTHON_DOWNLOADS=never UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
+COPY pyproject.toml uv.lock .python-version ./
+RUN uv sync --frozen --no-dev --no-install-project
 
 COPY app/ app/
 COPY migrations/ migrations/

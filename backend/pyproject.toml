@@ -4,6 +4,8 @@ version = "0.1.0"
 description = "Evidence-checked wellness content — API and generation pipeline"
 requires-python = ">=3.12"
 
+# Caps on anthropic, huggingface-hub, sqlalchemy and pillow hold them at the
+# versions the project ran on when it moved to uv (2026-11); lift after testing.
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",

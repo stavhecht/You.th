@@ -5,11 +5,12 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, HTTPException, Path, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.schemas_base import UUID_PATTERN
 from app.config import Settings, get_settings
 from app.db import get_session_factory
 from app.domain.enums import UserRole
@@ -48,7 +49,12 @@ async def get_session() -> AsyncGenerator[AsyncSession]:
             raise
 
 
-SessionDep = Annotated[AsyncSession, Depends(get_session)]
+# scope="function": commit before the response is sent. FastAPI's default runs
+# the exit code afterwards, so a failed commit still answered 2xx.
+#: A row id in the URL. Malformed ones answer 422 before any handler runs.
+IdPath = Annotated[str, Path(pattern=UUID_PATTERN)]
+
+SessionDep = Annotated[AsyncSession, Depends(get_session, scope="function")]
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 
 #: Process-wide, because the counters *are* the state — a per-request instance
@@ -95,6 +101,19 @@ def get_contact_throttle() -> LoginThrottle:
 
 ContactThrottleDep = Annotated[LoginThrottle, Depends(get_contact_throttle)]
 
+#: And a fourth for signup, kept apart for the same reason: it hashes a password
+#: on every call, so unthrottled it is the CPU amplifier the login throttle
+#: exists to close, and sharing the reader-login budget would let a burst of
+#: signups lock readers out of their own accounts.
+_signup_throttle: LoginThrottle = InMemoryLoginThrottle()
+
+
+def get_signup_throttle() -> LoginThrottle:
+    return _signup_throttle
+
+
+SignupThrottleDep = Annotated[LoginThrottle, Depends(get_signup_throttle)]
+
 #: And a fourth counter, of a different kind, for regenerating article imagery.
 #:
 #: Not a ``LoginThrottle`` instance, because it is not counting the same thing.
@@ -111,6 +130,15 @@ def get_illustration_throttle() -> SpendThrottle:
 
 
 IllustrationThrottleDep = Annotated[SpendThrottle, Depends(get_illustration_throttle)]
+
+
+def too_many_attempts(retry_after: float, detail: str) -> HTTPException:
+    """The 429 a throttled login, signup or contact route answers with."""
+    return HTTPException(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        detail=detail,
+        headers={"Retry-After": str(max(1, int(retry_after)))},
+    )
 
 
 def client_ip(request: Request) -> str:
@@ -140,7 +168,7 @@ async def require_reviewer(
 ) -> AuthenticatedReviewer:
     """Auth gate for every console route.
 
-    Applied at the router level in ``api/console/routes.py``, not per handler —
+    Applied at the router level in each ``api/console/`` module, not per handler —
     a router-level dependency cannot be forgotten when someone adds a route.
 
     Re-loads the user rather than trusting the token's claims, so a deactivated

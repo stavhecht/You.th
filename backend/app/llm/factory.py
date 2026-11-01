@@ -7,8 +7,9 @@ providers is an env var:
 
     LLM_PROVIDER=ollama      # local, free; the current default
     LLM_PROVIDER=anthropic   # hosted Claude; what real deployment runs
+    LLM_PROVIDER=llamacpp    # local llama-server (Ternary-Bonsai-2-27B)
 
-Both paths stay live and both are exercised by the same call sites. The
+All three paths stay live and both are exercised by the same call sites. The
 Anthropic client is not commented-out code waiting to be revived — it is one
 setting away, which is the point.
 """
@@ -25,6 +26,14 @@ from app.llm.anthropic_client import (
     build_anthropic_client,
 )
 from app.llm.base import AppraisalClient, ExtractionClient, LLMError, SynthesisClient
+from app.llm.llamacpp_client import (
+    LlamaCppAppraisalClient,
+    LlamaCppChat,
+    LlamaCppExtractionClient,
+    LlamaCppSynthesisClient,
+    build_llamacpp_client,
+    ollama_unloader,
+)
 from app.llm.ollama_client import (
     OllamaAppraisalClient,
     OllamaExtractionClient,
@@ -63,6 +72,16 @@ def build_generative_clients(
             OllamaSynthesisClient(client, settings.ollama_synthesis_model),
         )
 
+    if name == "llamacpp":
+        chat = llamacpp_chat(settings)
+        logger.info(
+            "generative provider: llama-server at %s (%s, reasoning=%s)",
+            settings.llamacpp_base_url,
+            settings.llamacpp_model,
+            settings.llamacpp_reasoning_effort,
+        )
+        return LlamaCppExtractionClient(chat), LlamaCppSynthesisClient(chat)
+
     if name == "anthropic":
         if not settings.anthropic_api_key:
             raise LLMError("ANTHROPIC_API_KEY is not set (llm_provider='anthropic')")
@@ -79,7 +98,7 @@ def build_generative_clients(
 
     raise LLMError(
         f"unknown llm_provider {settings.llm_provider!r}; "
-        "expected 'ollama' or 'anthropic'"
+        "expected 'ollama', 'anthropic' or 'llamacpp'"
     )
 
 
@@ -114,7 +133,32 @@ def build_appraisal_client(settings: Settings) -> AppraisalClient:
             build_anthropic_client(settings.anthropic_api_key), model
         )
 
+    if name == "llamacpp":
+        logger.info("appraisal: llama-server (%s)", settings.llamacpp_model)
+        return LlamaCppAppraisalClient(llamacpp_chat(settings))
+
     raise LLMError(
         f"unknown llm_provider {settings.llm_provider!r}; "
-        "expected 'ollama' or 'anthropic'"
+        "expected 'ollama', 'anthropic' or 'llamacpp'"
+    )
+
+
+def llamacpp_chat(settings: Settings) -> LlamaCppChat:
+    """The llama-server transport, which unloads Ollama's language models first.
+
+    The embedding model is kept: it fits beside Bonsai, and RETRIEVE needs it.
+    """
+    embedding = (
+        frozenset({settings.ollama_embedding_model})
+        if settings.embedding_provider.lower() == "ollama"
+        else frozenset()
+    )
+    return LlamaCppChat(
+        build_llamacpp_client(settings.llamacpp_base_url),
+        settings.llamacpp_model,
+        settings.llamacpp_reasoning_effort,
+        make_room=ollama_unloader(
+            build_ollama_client(settings.ollama_base_url, settings.ollama_timeout_seconds),
+            keep=embedding,
+        ),
     )

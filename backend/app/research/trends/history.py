@@ -144,11 +144,6 @@ class InMemoryTopicStore:
             if at >= since and run != exclude_run
         ]
 
-    def observe(self, key: str, observation: Observation) -> None:
-        self.topics[key].observations.insert(0, observation)
-        if observation.run_id not in {run for run, _ in self.runs}:
-            self.runs.append((observation.run_id, observation.observed_at))
-
 
 def history_metrics(
     topic: ResolvedTopic, recent_runs: list[str], *, now: datetime

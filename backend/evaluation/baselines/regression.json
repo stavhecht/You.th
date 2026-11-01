@@ -1,0 +1,378 @@
+{
+  "case_status": {
+    "acad_001": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "acad_003": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "adv_001": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "adv_010": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "adv_018": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "adv_021": {
+      "outcome": "answered",
+      "passed": true
+    },
+    "basic_002": {
+      "outcome": "answered",
+      "passed": true
+    },
+    "basic_005": {
+      "outcome": "answered",
+      "passed": true
+    },
+    "basic_007": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "basic_016": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "conf_003": {
+      "outcome": "answered",
+      "passed": true
+    },
+    "fail_001": {
+      "outcome": "answered",
+      "passed": true
+    },
+    "fail_008": {
+      "outcome": "failed_retryable",
+      "passed": true
+    },
+    "fail_010": {
+      "outcome": "no_evidence",
+      "passed": true
+    },
+    "fail_015": {
+      "outcome": "answered_unvalidated",
+      "passed": true
+    },
+    "fail_r03": {
+      "outcome": "research_completed",
+      "passed": true
+    },
+    "fail_r07": {
+      "outcome": "research_failed",
+      "passed": true
+    },
+    "latest_001": {
+      "outcome": "answered",
+      "passed": true
+    },
+    "mp_001": {
+      "outcome": "answered",
+      "passed": false
+    },
+    "mt_001": {
+      "outcome": "refused_unanchored",
+      "passed": false
+    },
+    "noans_001": {
+      "outcome": "no_evidence",
+      "passed": true
+    },
+    "noans_004": {
+      "outcome": "no_evidence",
+      "passed": true
+    }
+  },
+  "cases": {
+    "executed": 22,
+    "failed": 9,
+    "outcomes": {
+      "answered": 14,
+      "answered_unvalidated": 1,
+      "failed_retryable": 1,
+      "no_evidence": 3,
+      "refused_unanchored": 1,
+      "research_completed": 1,
+      "research_failed": 1
+    },
+    "passed": 13,
+    "selected": 22,
+    "skipped": 0
+  },
+  "created_at": "2026-10-26T08:12:40+00:00",
+  "environment": {
+    "appraisal_mode": "one_call",
+    "appraisal_model": "ternary-bonsai-2-27b@reasoning-none",
+    "embedding_model": "ollama/mxbai-embed-large",
+    "enabled_providers": [
+      "pubmed",
+      "openalex",
+      "europe_pmc"
+    ],
+    "extraction_model": "ternary-bonsai-2-27b@reasoning-none",
+    "full_text_max_papers": 6,
+    "llm_provider": "llamacpp",
+    "mode": "cached",
+    "retrieval_min_year": null,
+    "retrieval_top_k": 12,
+    "synthesis_model": "ternary-bonsai-2-27b@reasoning-none"
+  },
+  "git": "79eb4ab+dirty",
+  "metrics": {
+    "agent_loop_rate": {
+      "n": 22,
+      "value": 0.0
+    },
+    "answer_completeness": {
+      "n": 15,
+      "value": 1.0
+    },
+    "answer_correctness": {
+      "n": 15,
+      "value": 0.8666666666666667
+    },
+    "answer_correctness_judge": {
+      "n": 15,
+      "value": 0.9333333333333333
+    },
+    "answer_relevance": {
+      "n": 15,
+      "value": 1.0
+    },
+    "behavior_accuracy": {
+      "n": 16,
+      "value": 1.0
+    },
+    "citation_completeness": {
+      "n": 254,
+      "value": 0.9566929133858267
+    },
+    "citation_correctness": {
+      "n": 83,
+      "value": 0.9216867469879518
+    },
+    "citation_correctness_lexical_proxy": {
+      "n": 14,
+      "value": 0.9866612670046683
+    },
+    "citation_existence_rate": {
+      "n": 11,
+      "value": 1.0
+    },
+    "citation_precision": {
+      "n": 14,
+      "value": 0.9927536231884058
+    },
+    "citation_quality": {
+      "n": 14,
+      "value": 0.9622534013605443
+    },
+    "citation_recall": {
+      "n": 14,
+      "value": 0.8103741496598639
+    },
+    "context_carryover_rate": {
+      "n": 1,
+      "value": 0.0
+    },
+    "decision_accuracy": {
+      "n": 73,
+      "value": 1.0
+    },
+    "draft_hallucination_rate": {
+      "n": 15,
+      "value": 0.06666666666666667
+    },
+    "duplicate_rate": {
+      "n": 15,
+      "value": 0.005208333333333333
+    },
+    "empty_retrieval_rate": {
+      "n": 11,
+      "value": 0.0
+    },
+    "expected_claims_present_rate": {
+      "n": 6,
+      "value": 1.0
+    },
+    "failure_recovery_rate": {
+      "n": 6,
+      "value": 1.0
+    },
+    "fallback_success_rate": {
+      "n": 2,
+      "value": 1.0
+    },
+    "forbidden_claim_rate": {
+      "n": 8,
+      "value": 0.0
+    },
+    "groundedness": {
+      "n": 14,
+      "value": 0.9671652938075243
+    },
+    "hallucination_after_tool_failure_rate": {
+      "n": 6,
+      "value": 0.0
+    },
+    "hallucination_rate": {
+      "n": 15,
+      "value": 0.06666666666666667
+    },
+    "infinite_loop_rate": {
+      "n": 6,
+      "value": 0.0
+    },
+    "invented_number_rate": {
+      "n": 15,
+      "value": 0.0
+    },
+    "irrelevant_in_top_k_per_case": {
+      "n": 15,
+      "value": 0.8666666666666667
+    },
+    "latency_mean_s": {
+      "n": 20,
+      "value": 207.24366771870046
+    },
+    "latency_median_s": {
+      "n": 20,
+      "value": 4.04664904200763
+    },
+    "latency_p95_s": {
+      "n": 20,
+      "value": 1131.5677550000112
+    },
+    "latency_p99_s": {
+      "n": 20,
+      "value": null
+    },
+    "misattributed_number_rate": {
+      "n": 15,
+      "value": 0.0
+    },
+    "no_answer_correct_rate": {
+      "n": 2,
+      "value": 1.0
+    },
+    "query_understanding_accuracy": {
+      "n": 15,
+      "value": 1.0
+    },
+    "rank_mrr": {
+      "n": 14,
+      "value": 0.9821428571428571
+    },
+    "rank_ndcg_at_10": {
+      "n": 14,
+      "value": 0.9606927361858894
+    },
+    "rank_precision_at_10": {
+      "n": 14,
+      "value": 0.9285714285714286
+    },
+    "rank_precision_at_5": {
+      "n": 14,
+      "value": 0.9785714285714285
+    },
+    "rank_recall_cap_at_10": {
+      "n": 14,
+      "value": 0.9285714285714286
+    },
+    "rank_recall_cap_at_5": {
+      "n": 14,
+      "value": 0.9785714285714285
+    },
+    "recency_cited_fraction": {
+      "n": 1,
+      "value": 1.0
+    },
+    "retracted_citation_rate": {
+      "n": 138,
+      "value": 0.0
+    },
+    "retrieval_recall_at_1": {
+      "n": 10,
+      "value": 0.26666666666666666
+    },
+    "retrieval_recall_at_10": {
+      "n": 10,
+      "value": 0.6333333333333333
+    },
+    "retrieval_recall_at_3": {
+      "n": 10,
+      "value": 0.5666666666666667
+    },
+    "retrieval_recall_at_5": {
+      "n": 10,
+      "value": 0.6
+    },
+    "retry_classification_accuracy": {
+      "n": 1,
+      "value": 1.0
+    },
+    "source_existence_rate": {
+      "n": 138,
+      "value": 1.0
+    },
+    "source_stance_accuracy": {
+      "n": 13,
+      "value": 0.9230769230769231
+    },
+    "source_stance_direction_accuracy": {
+      "n": 13,
+      "value": 0.9230769230769231
+    },
+    "source_title_match_rate": {
+      "n": 138,
+      "value": 1.0
+    },
+    "stance_coverage": {
+      "n": 192,
+      "value": 1.0
+    },
+    "stance_disagreement_rate": {
+      "n": 15,
+      "value": 0.2
+    },
+    "successful_termination_rate": {
+      "n": 22,
+      "value": 1.0
+    },
+    "tool_call_count": {
+      "n": 20,
+      "value": 42.4
+    },
+    "tool_selection_accuracy": {
+      "n": 20,
+      "value": 1.0
+    },
+    "uncertainty_appropriate_rate": {
+      "n": 15,
+      "value": 0.8
+    },
+    "unnecessary_tool_calls_per_case": {
+      "n": 20,
+      "value": 0.0
+    },
+    "unsupported_citation_rate": {
+      "n": 83,
+      "value": 0.012048192771084338
+    },
+    "validation_pass_rate": {
+      "n": 15,
+      "value": 1.0
+    },
+    "verdict_accuracy": {
+      "n": 15,
+      "value": 1.0
+    }
+  },
+  "suite": "regression"
+}

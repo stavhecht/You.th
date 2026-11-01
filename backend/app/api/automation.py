@@ -25,7 +25,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, status
 
 from app.api.console.research import read_result, research_run_out, start_run
 from app.api.console.schemas import AutomationResearchRequest, ResearchRunOut
-from app.api.deps import SessionDep, SettingsDep
+from app.api.deps import IdPath, SessionDep, SettingsDep
 from app.domain.models import ResearchRun
 from app.research import service
 from app.research.trends.contracts import TrendSearchResult
@@ -71,7 +71,7 @@ async def trigger_research_run(
 
 
 @router.get("/research/runs/{run_id}", response_model=ResearchRunOut)
-async def read_research_run(run_id: str, session: SessionDep) -> ResearchRunOut:
+async def read_research_run(run_id: IdPath, session: SessionDep) -> ResearchRunOut:
     """Status for n8n's polling loop, with the candidates once there are any."""
     run = await session.get(ResearchRun, run_id)
     if run is None:
@@ -80,7 +80,7 @@ async def read_research_run(run_id: str, session: SessionDep) -> ResearchRunOut:
 
 
 @router.get("/research/runs/{run_id}/result", response_model=TrendSearchResult)
-async def read_research_result(run_id: str, session: SessionDep) -> TrendSearchResult:
+async def read_research_result(run_id: IdPath, session: SessionDep) -> TrendSearchResult:
     """The Trend Search Agent's output, for n8n to forward once a run finishes.
 
     snake_case on purpose (the agent's documented output schema), unlike the

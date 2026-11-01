@@ -9,6 +9,7 @@ method that forgets it.
 from __future__ import annotations
 
 import base64
+import uuid
 from collections.abc import Sequence
 from datetime import datetime
 from typing import Any, Literal, cast
@@ -443,7 +444,7 @@ def _decode_search_cursor(cursor: str) -> tuple[SearchMatch, int]:
         raw = base64.urlsafe_b64decode(cursor.encode()).decode()
         kind, match, offset_text = raw.split("|", 2)
         offset = int(offset_text)
-    except (ValueError, UnicodeDecodeError) as exc:
+    except ValueError as exc:
         raise ValueError("malformed cursor") from exc
     if kind != "search" or match not in ("text", "similar"):
         raise ValueError("malformed cursor")
@@ -456,6 +457,7 @@ def _decode_cursor(cursor: str) -> tuple[int, datetime, str]:
     try:
         raw = base64.urlsafe_b64decode(cursor.encode()).decode()
         tier, timestamp, article_id = raw.split("|", 2)
+        uuid.UUID(article_id)  # a non-UUID would reach Postgres and 500
         return int(tier), datetime.fromisoformat(timestamp), article_id
-    except (ValueError, UnicodeDecodeError) as exc:
+    except ValueError as exc:  # binascii and Unicode errors are ValueErrors too
         raise ValueError("malformed cursor") from exc

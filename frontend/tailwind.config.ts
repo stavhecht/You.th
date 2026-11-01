@@ -66,6 +66,8 @@ export default {
           on: "var(--ew-on-accent)", // text on an accent fill
         },
 
+        "danger-ink": "var(--ew-danger-ink)", // a failed check at text size
+
         // The only chromatic axis in the product. Subject, never verdict.
         subject: {
           fitness: "var(--ew-cat-fitness)",
@@ -165,10 +167,18 @@ export default {
           from: { opacity: "0", transform: "translateY(6px)" },
           to: { opacity: "1", transform: "translateY(0)" },
         },
+        // The heart on a feed tile: swells past its size and settles, so a save
+        // reads as having happened rather than as the colour quietly changing.
+        "heart-pop": {
+          "0%": { transform: "scale(1)" },
+          "40%": { transform: "scale(1.35)" },
+          "100%": { transform: "scale(1)" },
+        },
       },
       animation: {
         "slide-in": "slide-in 0.22s ease-out",
         "fade-up": "fade-up 0.2s ease-out",
+        "heart-pop": "heart-pop 0.35s ease-out",
       },
 
       // The comp's page frame: a 1240px measure inset 28px. The feed is a grid

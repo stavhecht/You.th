@@ -13,10 +13,12 @@ system, so ``--rescore`` re-runs exactly this over saved traces.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
 from app.config import Settings
+from app.pipeline.steps import reader_edit
 from evaluation.config import EvalConfig
 from evaluation.evaluators.credibility import PEER_REVIEWED
 from evaluation.evaluators.llm_judge import Judge
@@ -29,6 +31,7 @@ from evaluation.evaluators.text import (
     lexical_support,
     number_supported,
     numbers_in,
+    split_sentences,
     statements,
 )
 from evaluation.harness.trace import SEARCH_TOOLS, Trace
@@ -49,6 +52,20 @@ CASE_COMPLETENESS = 0.85
 HALLUCINATION_LEXICAL_CEILING = 0.35
 #: Statements with no judge verdict count as grounded at this lexical support.
 GROUNDED_LEXICAL_FLOOR = 0.5
+#: A forbidden claim the judge calls asserted counts only if some article sentence
+#: carries this share of its wording. 2026-10-25: the judge said wt_021 asserted
+#: "creatine damages the kidneys" in an article never mentioning kidneys (best 0.40).
+#: shortcut: shared population words ("healthy adults") can lift an unrelated sentence
+#: past it; have the judge quote the sentence if a false flag gets through.
+FORBIDDEN_WORDING_FLOOR = 0.5
+#: "None of the twelve sources tested X": silence cannot contradict it, and its
+#: wording is absent from the sources by design (noans_004, 2026-10-25).
+_ABSENCE = re.compile(
+    r"\b(?:none of|no (?:studies|study|trials?|sources?|reviews?)\b.{0,40}\b"
+    r"(?:tested|studied|measured|examined|reported|looked)|"
+    r"(?:did|do) not (?:test|study|measure|examine|report|look))",
+    re.IGNORECASE,
+)
 
 #: Synthesis stand-ins from ``harness/llm.py``. Their drafts are fixtures.
 STAND_IN_WRITERS = frozenset({"eval/scripted", "eval/hallucinating"})
@@ -82,10 +99,22 @@ class _Checks:
         self.items.append({"group": group, "name": name, "passed": passed, "detail": detail})
 
 
+def _claim_only(text: str) -> str:
+    """A statement without the reader edit's bracketed explanations.
+
+    "(a study that pools earlier trials)" defines a term for the reader; no
+    source states it, and the judge was marking such sentences "partially
+    supported". Phrases holding a digit are kept, so effect sizes still count.
+    """
+    return reader_edit.drop_repeated_explanations(text, reader_edit.explanations(text))
+
+
 def _source_text(source: dict[str, Any], excerpts: list[dict[str, Any]], words: int) -> str:
     abstract = " ".join(str(source.get("abstract") or "").split()[:words])
+    # Whole excerpts: the model saw every word of each chunk (CHUNK_WORDS, 300), and a
+    # 200-word cut flagged numbers late in a chunk as misattributed (wt_087, 2026-10-25).
     extra = " ".join(
-        f"({e.get('section') or 'excerpt'}) {' '.join(str(e.get('text') or '').split()[:200])}"
+        f"({e.get('section') or 'excerpt'}) {' '.join(str(e.get('text') or '').split())}"
         for e in excerpts
     )
     return f"{abstract}\n{extra}".strip()
@@ -439,7 +468,7 @@ async def _score_answer(
                 "raw": stmt.raw,
                 "handles": stmt.handles,
                 "finding": stmt.is_finding,
-                "lexical_support": round(lexical_support(stmt.text, corpus), 3),
+                "lexical_support": round(lexical_support(_claim_only(stmt.text), corpus), 3),
                 "unsupported_numbers": unsupported_numbers,
                 "invented_numbers": [
                     n for n in unsupported_numbers if not number_supported(n, prompt_numbers)
@@ -470,10 +499,15 @@ async def _score_answer(
             ]
             if not sources:
                 continue
-            verdict_j = await ev.judge.check_citation(row["raw"] or row["text"], sources)
+            verdict_j = await ev.judge.check_citation(
+                _claim_only(row["raw"] or row["text"]), sources
+            )
             if verdict_j is not None:
-                row["judge"] = verdict_j.verdict
+                absence = bool(_ABSENCE.search(row["text"]))
+                silenced = absence and verdict_j.verdict == "contradicted"
+                row["judge"] = "not_supported" if silenced else verdict_j.verdict
                 row["judge_explanation"] = verdict_j.explanation
+                row["absence"] = absence
         judge_answer = await ev.judge.assess_answer(
             question=case.conversation,
             article=labelled_article(draft),
@@ -514,8 +548,14 @@ async def _score_answer(
             for i, claim in enumerate(case.expected_claims, start=1)
         ]
         asserted = {item.index: item.asserted for item in judge_answer.forbidden_claims}
+        sentences = split_sentences(text)
         forbidden_status = [
-            {"claim": claim, "asserted": asserted.get(i)}
+            {
+                "claim": claim,
+                "asserted": asserted.get(i)
+                and _best_wording(claim, sentences) >= FORBIDDEN_WORDING_FLOOR,
+                "judge_asserted": asserted.get(i),
+            }
             for i, claim in enumerate(case.forbidden_claims, start=1)
         ]
 
@@ -542,6 +582,7 @@ async def _score_answer(
         elif (
             row["judge"] == "not_supported"
             and row["lexical_support"] < HALLUCINATION_LEXICAL_CEILING
+            and not row.get("absence")
         ):
             reasons.append(
                 f"“{_short(row['text'])}” is not in {', '.join(row['handles'])} "
@@ -772,6 +813,10 @@ async def _score_answer(
             recency >= 0.5,
             f"{len(recent_cited)}/{len(with_year)} cited sources from {ev.recent_from} on",
         )
+
+
+def _best_wording(claim: str, sentences: list[str]) -> float:
+    return max((lexical_support(claim, sentence) for sentence in sentences), default=0.0)
 
 
 def _grounded(row: dict[str, Any]) -> bool:

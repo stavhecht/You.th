@@ -67,13 +67,14 @@ from app.pipeline.steps.retrieve import RetrieveStage
 from app.pipeline.steps.synthesize import SynthesizeStage
 from app.retrieval.base import ScholarlyProvider, SearchQuery
 from app.retrieval.factory import (
+    build_doi_client,
     build_europe_pmc_client,
     build_http_client,
     build_providers,
     build_pubmed_client,
 )
 from app.retrieval.full_text import EuropePMCFullText
-from app.retrieval.identifiers import EuropePMCIdentifiers
+from app.retrieval.identifiers import DoiRegistry, EuropePMCIdentifiers
 from app.retrieval.query_builder import TemplateQueryStrategy, UnanchoredQuery
 from app.retrieval.rerank import RerankConfig
 from app.retrieval.retractions import PubMedRetractionSource
@@ -176,8 +177,11 @@ class EvalEnvironment:
         Without this, Ollama being down would make every case "fail at
         EXTRACT", and the report would measure the laptop rather than the system.
         """
-        if self.settings.llm_provider.lower() != "ollama":
+        provider = self.settings.llm_provider.lower()
+        if provider == "anthropic":
             return
+        if provider == "llamacpp":
+            await self._preflight_llamacpp()
         try:
             response = await self.http.get(
                 f"{self.settings.ollama_base_url.rstrip('/')}/api/tags", timeout=5
@@ -185,21 +189,26 @@ class EvalEnvironment:
             names = {model["name"] for model in response.json().get("models", [])}
         except Exception as exc:
             reason = f"ollama is not reachable at {self.settings.ollama_base_url}: {exc}"
-            self.unavailable.setdefault("llm", reason)
+            if provider == "ollama":
+                self.unavailable.setdefault("llm", reason)
             self.unavailable.setdefault("embeddings", reason)
             return
 
         def absent(models: list[str]) -> list[str]:
             return [m for m in models if m not in names and f"{m}:latest" not in names]
 
-        wanted = [self.settings.ollama_extraction_model, self.settings.ollama_synthesis_model]
-        if self.settings.appraisal_enabled:
-            wanted.append(self._ollama_appraisal_model())
-        missing_llm = absent(wanted)
-        if missing_llm:
-            self.unavailable.setdefault(
-                "llm", f"ollama is missing model(s): {', '.join(missing_llm)}"
-            )
+        if provider == "ollama":
+            wanted = [
+                self.settings.ollama_extraction_model,
+                self.settings.ollama_synthesis_model,
+            ]
+            if self.settings.appraisal_enabled:
+                wanted.append(self._ollama_appraisal_model())
+            missing_llm = absent(wanted)
+            if missing_llm:
+                self.unavailable.setdefault(
+                    "llm", f"ollama is missing model(s): {', '.join(missing_llm)}"
+                )
         if self.settings.embedding_provider.lower() == "ollama":
             missing_emb = absent([self.settings.ollama_embedding_model])
             if missing_emb:
@@ -207,28 +216,55 @@ class EvalEnvironment:
                     "embeddings", f"ollama is missing model(s): {', '.join(missing_emb)}"
                 )
 
+    async def _preflight_llamacpp(self) -> None:
+        """A real two-token completion, not ``/health``.
+
+        Measured 2026-10-15: after running out of GPU memory, llama-server
+        answers ``/health`` with ok and every completion with ``Compute error``
+        until restarted. A health check would score a run of failed cases.
+        """
+        url = f"{self.settings.llamacpp_base_url.rstrip('/')}/v1/chat/completions"
+        try:
+            response = await self.http.post(
+                url,
+                json={
+                    "messages": [{"role": "user", "content": "Say OK."}],
+                    "max_tokens": 4,
+                    "reasoning_effort": "none",
+                    "chat_template_kwargs": {"reasoning_effort": "none"},
+                },
+                timeout=120,
+            )
+            response.raise_for_status()
+            content = response.json()["choices"][0]["message"].get("content") or ""
+            if not content.strip():
+                raise RuntimeError("empty answer (out of GPU memory? restart it)")
+        except Exception as exc:
+            self.unavailable.setdefault(
+                "llm", f"llama-server at {url} cannot answer: {exc}"
+            )
+
     def describe(self) -> dict[str, Any]:
         """The configuration a result was produced under, recorded on every trace."""
         s = self.settings
         provider = s.llm_provider.lower()
+        # The effort is part of the name so that recordings made thinking and
+        # not thinking never replay as each other.
+        llamacpp = f"{s.llamacpp_model}@reasoning-{s.llamacpp_reasoning_effort}"
+        model = {
+            "ollama": (s.ollama_extraction_model, s.ollama_synthesis_model),
+            "llamacpp": (llamacpp, llamacpp),
+        }.get(provider, (s.extraction_model, s.synthesis_model))
+        appraisal = {
+            "ollama": self._ollama_appraisal_model(),
+            "llamacpp": llamacpp,
+        }.get(provider, s.appraisal_model or s.synthesis_model)
         return {
             "llm_provider": provider,
-            "extraction_model": (
-                s.ollama_extraction_model if provider == "ollama" else s.extraction_model
-            ),
-            "synthesis_model": (
-                s.ollama_synthesis_model if provider == "ollama" else s.synthesis_model
-            ),
+            "extraction_model": model[0],
+            "synthesis_model": model[1],
             # Empty settings mean the synthesis model, as in llm/factory.py.
-            "appraisal_model": (
-                (
-                    self._ollama_appraisal_model()
-                    if provider == "ollama"
-                    else s.appraisal_model or s.synthesis_model
-                )
-                if s.appraisal_enabled
-                else None
-            ),
+            "appraisal_model": appraisal if s.appraisal_enabled else None,
             "embedding_model": self.embedder.model_id if self.embedder else None,
             "enabled_providers": list(s.enabled_providers),
             "retrieval_top_k": s.retrieval_top_k,
@@ -592,6 +628,7 @@ def build_stages(
                 build_pubmed_client(settings, http),  # type: ignore[arg-type]
                 settings.pubmed_api_key or None,
             ),
+            doi_registry=DoiRegistry(build_doi_client(settings, http)),  # type: ignore[arg-type]
         ),
         RankStage(
             MemoryReranker(store, embedder, faults.component("vector_store")),  # type: ignore[arg-type]
@@ -599,7 +636,11 @@ def build_stages(
         ),
         FullTextStage(EuropePMCFullText(europe_pmc), embedder, settings.full_text_max_papers),
         AppraiseStage(appraisal, two_call=settings.appraisal_mode == "two_call"),
-        SynthesizeStage(synthesis, relevance_filter=settings.synthesis_relevance_filter),
+        SynthesizeStage(
+            synthesis,
+            relevance_filter=settings.synthesis_relevance_filter,
+            reader_edit=settings.synthesis_reader_edit,
+        ),
         ValidateStage(MemorySession(store)),  # type: ignore[arg-type]
     ]
     if stop_after is not None:

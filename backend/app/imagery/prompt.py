@@ -284,7 +284,7 @@ _MOTIF_HINTS: tuple[tuple[Motif, tuple[str, ...]], ...] = (
         Motif.FOOD,
         ("juice", "tea", "coffee", "oil", "honey", "vinegar", "milk", "kefir",
          "yoghurt", "yogurt", "diet", "fruit", "berry", "nut", "seed", "cocoa",
-         "chocolate", "egg", "fish", "broth", "kombucha", "water"),
+         "chocolate", "egg", "fish", "broth", "kombucha", "water", "meat"),
     ),
     (
         Motif.SUPPLEMENT,
@@ -315,6 +315,123 @@ _DEFAULT_MOTIFS_UNNAMED: tuple[str, ...] = (
     "two or three ordinary unbranded objects, nothing remarkable",
     "four or five plain everyday objects, all unlabelled",
 )
+
+
+#: Scenes for what an article is *about* when its product names no motif:
+#: hint words (matched on word starts, like ``_MOTIF_HINTS``) to
+#: ``_MOTIF_RADIX`` object-only variants.
+#:
+#: Measured 2026-10-23 on six trend articles: a product like "Back pain", "Gut
+#: health" or "Living longer and cancer survivorship care" fell through to the
+#: default motif, and FLUX drew "objects associated with back pain" as a cluster
+#: of pharmacy bottles with garbled labels, and the other two as abstract beige
+#: shapes. These name everyday objects that belong to the area of the body or
+#: of life the article is about, never a remedy, a result or a measurement:
+#: the hints are matched against the claims, but only these strings, never the
+#: claim, reach the prompt. **Not a classification**, for the reason
+#: ``_MOTIF_HINTS`` gives.
+_OUTCOME_SCENES: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = (
+    (
+        ("gut", "digest", "microbio", "bowel", "stomach", "bloat", "ibs"),
+        (
+            "a jar of fermenting vegetables beside a bowl of plain yoghurt",
+            "a loaf of dark seeded bread, a cut onion and a bunch of leeks",
+            "a bowl of oats with sliced banana and a spoon",
+            "a stoneware crock, a wooden spoon and a few cloves of garlic",
+        ),
+    ),
+    (
+        ("back", "spine", "spinal", "posture", "lumbar", "neck"),
+        (
+            "a plain wooden chair beside a rolled exercise mat",
+            "a firm cushion on a low bench beside a folded blanket",
+            "a foam roller and a folded towel on the floor",
+            "a canvas backpack set down beside a pair of walking shoes",
+        ),
+    ),
+    (
+        ("heart", "cardio", "blood pressure", "cholesterol", "vascular", "artery"),
+        (
+            "a bowl of walnuts beside a pair of running shoes",
+            "a few oats, a scatter of berries and a glass of water",
+            "a cycling helmet resting beside a water bottle",
+            "a small dish of olive oil beside a cut tomato and an olive sprig",
+        ),
+    ),
+    (
+        ("brain", "cognit", "memory", "mood", "depress", "anxi", "stress", "mental"),
+        (
+            "an open notebook, a pencil and a cup of tea by a window",
+            "a half-finished jigsaw puzzle beside a mug",
+            "a stack of books, a reading lamp and a folded blanket",
+            "a houseplant on a windowsill beside a closed book",
+        ),
+    ),
+    (
+        ("sleep", "insomnia", "circadian", "nap"),
+        (
+            "a turned-down bed with a plain linen pillow",
+            "a bedside table with a glass of water and a closed book",
+            "drawn curtains and a folded quilt at the foot of a bed",
+            "a pair of slippers beside a neatly made bed",
+        ),
+    ),
+    (
+        ("skin", "wrinkle", "acne", "complexion", "hair"),
+        (
+            "a folded cotton towel and a bar of plain soap",
+            "a ceramic basin of water and a folded washcloth",
+            "a small round mirror leaning beside a folded cloth",
+            "aloe leaves cut open on a small plate",
+        ),
+    ),
+    (
+        ("joint", "knee", "arthritis", "bone", "mobility", "flexib"),
+        (
+            "a pair of walking shoes beside a rolled mat",
+            "a swimming cap and goggles on a folded towel",
+            "a bicycle leaning against a plain wall",
+            "a coiled resistance band beside a folded towel",
+        ),
+    ),
+    (
+        ("longevity", "living longer", "lifespan", "aging", "ageing", "surviv", "older"),
+        (
+            "reading glasses on an open newspaper beside a cup of tea",
+            "a garden trowel beside a tray of seedlings",
+            "a bowl of fresh vegetables just picked from a garden",
+            "a well-worn pair of walking boots by a door",
+        ),
+    ),
+    (
+        ("weight", "obes", "metabol", "diabet", "blood sugar", "glucose", "insulin"),
+        (
+            "a plate of vegetables beside a small portion of grains",
+            "a glass of water beside a bowl of salad",
+            "a pair of trainers beside a water bottle",
+            "a lunchbox packed with vegetables and grains",
+        ),
+    ),
+    (
+        ("immun", "common cold", "flu", "infection"),
+        (
+            "a mug of hot tea with lemon and honey",
+            "a bowl of citrus fruit on a table",
+            "a folded wool scarf beside a mug",
+            "a pot of soup with a ladle resting across it",
+        ),
+    ),
+)
+
+
+def outcome_scene(*texts: str) -> tuple[str, ...] | None:
+    """The first ``_OUTCOME_SCENES`` entry any of ``texts`` names, in trust order."""
+    for text in texts:
+        haystack = text.lower()
+        for hints, scenes in _OUTCOME_SCENES:
+            if any(re.search(rf"\b{re.escape(hint)}", haystack) for hint in hints):
+                return scenes
+    return None
 
 
 def _default_motif(noun: str, variant: int) -> str:
@@ -653,6 +770,7 @@ for _name, _variants in (
     *((f"_PEOPLE_MOTIFS[{k.name}]", v) for k, v in _PEOPLE_MOTIFS.items()),
     ("_DEFAULT_MOTIFS", _DEFAULT_MOTIFS),
     ("_DEFAULT_MOTIFS_UNNAMED", _DEFAULT_MOTIFS_UNNAMED),
+    *((f"_OUTCOME_SCENES[{hints[0]}]", scenes) for hints, scenes in _OUTCOME_SCENES),
 ):
     if len(_variants) != _MOTIF_RADIX:
         raise RuntimeError(
@@ -730,6 +848,7 @@ def build_prompt(
     fallback: str = "",
     ingredients: str = "",
     seed: int = 0,
+    outcome: str = "",
 ) -> tuple[str, str]:
     """The (prompt, negative_prompt) pair for one article's imagery.
 
@@ -746,6 +865,8 @@ def build_prompt(
             pipeline derives it from the run id (stable across retries);
             Regenerate rolls a fresh one. Note this seed does real work *here*
             even though the image provider ignores the one it is also sent.
+        outcome: the article's claims, read only for ``_OUTCOME_SCENES`` hint
+            words when ``product`` names no motif. Never written into the prompt.
     """
     noun = depicted_subject(product, fallback)
     variant = (seed // _MOTIF_STRIDE) % _MOTIF_RADIX
@@ -760,6 +881,10 @@ def build_prompt(
         chosen, confident = _SUBJECT_MOTIFS[subject], True
     elif (matched := infer_motif_subject(product)) is not None:
         chosen, confident = matched, True
+    elif (scenes := outcome_scene(product, outcome)) is not None:
+        # No head noun: the scene depicts the subject, and a noun like
+        # "cancer survivorship care" at the head invites a clinical picture.
+        return _OBJECTS.compose(scenes[variant], seed), _OBJECTS.negative
     else:
         chosen, confident = infer_motif_subject(fallback, ingredients), False
 

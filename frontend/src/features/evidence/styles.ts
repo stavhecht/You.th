@@ -42,9 +42,6 @@ export const MARK_WEAK_FILL = "h-[30%] w-full bg-ink";
 /** Empty, one ink step back — absence, not a fifth and worse verdict. */
 export const MARK_NO_EVIDENCE = "border-ink-3";
 
-/** Mark and wording, which no surface is allowed to show apart. */
-export const VERDICT_ROW = "flex flex-wrap items-center gap-2.5";
-
 /**
  * `no_evidence` steps back one ink everywhere it appears, so a feed full of
  * genuine gaps does not shout at the reader.
@@ -64,11 +61,6 @@ export function verdictWording(verdict: Verdict, size: MarkSize): string {
       ? "font-heading text-[22px] font-extrabold leading-none tracking-[-0.01em]"
       : "ew-verdict-label font-body";
   return `${type} ${verdictInk(verdict)}`;
-}
-
-/** The card's compact verdict wording, where size is always `card`. */
-export function cardVerdictWording(verdict: Verdict): string {
-  return `ew-verdict-label font-body ${verdictInk(verdict)}`;
 }
 
 /**

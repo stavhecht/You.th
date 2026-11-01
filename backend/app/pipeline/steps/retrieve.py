@@ -46,7 +46,7 @@ from app.pipeline.stages import PipelineContext, StageError, StageName
 from app.retrieval.base import ProviderError, RateLimited, ScholarlyProvider, SearchQuery
 from app.retrieval.cache import CachedSource, SourceCache
 from app.retrieval.dedup import merge_candidates, unique_papers
-from app.retrieval.identifiers import PmidResolver
+from app.retrieval.identifiers import DoiRegistry, PmidResolver
 from app.retrieval.query_builder import QueryStrategy, UnanchoredQuery
 from app.retrieval.retractions import PaperIdentity, RetractionSource
 
@@ -81,6 +81,7 @@ class RetrieveStage:
         max_candidates_per_claim: int = 50,
         resolver: PmidResolver | None = None,
         retraction_screen: RetractionSource | None = None,
+        doi_registry: DoiRegistry | None = None,
     ) -> None:
         self._providers = providers
         self._strategy = strategy
@@ -88,6 +89,7 @@ class RetrieveStage:
         self._max_candidates = max_candidates_per_claim
         self._resolver = resolver
         self._retraction_screen = retraction_screen
+        self._doi_registry = doi_registry
 
     async def run(self, ctx: PipelineContext) -> PipelineContext:
         if ctx.extraction is None:
@@ -129,6 +131,7 @@ class RetrieveStage:
         merged, pmid_metrics = await self._fill_pmids(merged)
         # Also before the cap, for the same reason: a refused paper frees its slot.
         merged, screen_metrics = await self._screen_retractions(merged)
+        merged, doi_metrics = await self._screen_unregistered(merged, ctx.candidates)
         candidates = {claim: papers[: self._max_candidates] for claim, papers in merged.items()}
         for claim, papers in candidates.items():
             logger.info(
@@ -174,6 +177,7 @@ class RetrieveStage:
                 "searches_shared": stats.searches_shared,
                 **pmid_metrics,
                 **screen_metrics,
+                **doi_metrics,
             },
         )
         return ctx.model_copy(update={"candidates": paired})
@@ -284,6 +288,36 @@ class RetrieveStage:
             "retraction_screen_checked": sum(1 for v in verdicts.values() if v.checked),
             "retractions_dropped_late": len(retracted),
         }
+
+    async def _screen_unregistered(
+        self,
+        merged: dict[str, list[CandidatePaper]],
+        screened: dict[str, list[CachedCandidate]],
+    ) -> tuple[dict[str, list[CandidatePaper]], dict[str, object]]:
+        """Step 7. Drop a DOI-only paper whose DOI doi.org has never heard of.
+
+        Fails open: a DOI doi.org could not answer for is kept (``DoiRegistry``).
+        ``screened`` is an earlier round's candidates, which already passed.
+        """
+        if self._doi_registry is None:
+            return merged, {}
+        passed = {
+            c.paper.doi.strip().lower() for cs in screened.values() for c in cs if c.paper.doi
+        }
+        dois = {
+            paper.doi.strip().lower()
+            for papers in merged.values()
+            for paper in papers
+            if paper.doi and not paper.pmid
+        } - passed
+        gone = await self._doi_registry.unregistered(dois) if dois else set()
+        for doi in sorted(gone):
+            logger.info("refused paper with unregistered doi=%s", doi)
+        screened = {
+            claim: [p for p in papers if not (p.doi and p.doi.strip().lower() in gone)]
+            for claim, papers in merged.items()
+        }
+        return screened, {"dois_checked": len(dois), "unregistered_dois_dropped": len(gone)}
 
     def _build_queries(
         self, compose: ComposeQueries, claim: str, extraction: ExtractionOutput

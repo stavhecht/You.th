@@ -67,7 +67,9 @@ export function App() {
               <Route path="/" element={<FeedRoute />} />
               <Route path="/a/:slug" element={<ArticleRoute />} />
               <Route path="/about" element={<AboutRoute />} />
-              <Route path="/join" element={<JoinRoute />} />
+              {/* Keyed so switching between the two never carries one form's fields into the other. */}
+              <Route path="/join" element={<JoinRoute key="join" mode="signup" />} />
+              <Route path="/signin" element={<JoinRoute key="signin" mode="login" />} />
               <Route path="/you" element={<YouRoute />} />
               <Route path="/contact" element={<ContactRoute />} />
               <Route path="/privacy" element={<PrivacyRoute />} />

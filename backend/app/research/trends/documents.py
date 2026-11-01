@@ -464,10 +464,6 @@ class StoryGrouping:
         #: Items folded into an earlier one, per layer.
         self.removed = removed
 
-    @property
-    def duplicates_removed(self) -> int:
-        return sum(self.removed.values())
-
 
 def group_stories(items: Sequence[SourceItem]) -> StoryGrouping:
     """Group document items into stories by the four layers, in order.

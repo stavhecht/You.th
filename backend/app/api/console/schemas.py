@@ -112,6 +112,9 @@ class ReviewSourceOut(CamelModel):
     url: str
     pmid: str | None
     doi: str | None
+    #: The abstract the model was shown, so a reviewer can check a cited
+    #: sentence against it without leaving the desk.
+    abstract: str = ""
     #: False for sources retrieved but not cited. Shown anyway, greyed: a
     #: reviewer needs to see what the model chose to leave out, because
     #: omission is the failure mode human review exists to catch.
@@ -207,6 +210,11 @@ class SaveContentRequest(CamelModel):
     """Autosave payload. Debounced ~800ms from the editor."""
 
     content: dict = Field(description="TipTap document")
+    base: dict | None = Field(
+        default=None,
+        description="The edited content this edit started from (null if unedited). "
+        "When sent, the save is refused with 412 if the draft has changed since.",
+    )
 
 
 class SetSubjectRequest(CamelModel):

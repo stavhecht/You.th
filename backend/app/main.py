@@ -22,8 +22,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api import automation
+from app.api.console import auth as console_auth
+from app.api.console import contact as console_contact
+from app.api.console import discovery as console_discovery
+from app.api.console import media as console_media
+from app.api.console import pipeline as console_pipeline
 from app.api.console import research as console_research
-from app.api.console import routes as console_routes
+from app.api.console import review as console_review
 from app.api.public import contact as public_contact
 from app.api.public import feed as public_feed
 from app.api.public import media as public_media
@@ -118,8 +123,12 @@ def create_app() -> FastAPI:
     # deployment already route that prefix — media needs no new rule in either
     # place, and article documents hold these paths verbatim.
     app.include_router(public_media.router, prefix="/api")                     # images
-    app.include_router(console_routes.auth_router, prefix="/api/console")     # login
-    app.include_router(console_routes.router, prefix="/api/console")           # reviewer
+    app.include_router(console_auth.auth_router, prefix="/api/console")       # login
+    # Reviewer-only from here on, each router carrying the auth dependency. In
+    # the order the routes sat in the one file they came from.
+    for console in (console_review, console_media, console_pipeline, console_contact,
+                    console_discovery):
+        app.include_router(console.router, prefix="/api/console")
     app.include_router(console_research.router, prefix="/api/console")        # research
     # n8n. Shared-secret auth, and 404 throughout while no token is configured.
     app.include_router(automation.router, prefix="/api")                       # n8n

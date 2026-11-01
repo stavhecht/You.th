@@ -18,7 +18,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.console.routes import _enqueue_run, _run_out
+from app.api.console.pipeline import _enqueue_run, _run_out
 from app.api.console.schemas import (
     DismissCandidateRequest,
     ResearchCandidateOut,
@@ -26,7 +26,7 @@ from app.api.console.schemas import (
     ResearchRunRequest,
     RunOut,
 )
-from app.api.deps import ReviewerDep, SessionDep, SettingsDep, require_reviewer
+from app.api.deps import IdPath, ReviewerDep, SessionDep, SettingsDep, require_reviewer
 from app.domain.enums import ResearchCandidateStatus, ResearchRunMode, RunOrigin
 from app.domain.models import ResearchCandidate, ResearchRun
 from app.research import service
@@ -140,7 +140,7 @@ async def list_research_runs(
 
 @router.get("/research/runs/{run_id}", response_model=ResearchRunOut)
 async def get_research_run(
-    run_id: str, session: SessionDep, reviewer: ReviewerDep
+    run_id: IdPath, session: SessionDep, reviewer: ReviewerDep
 ) -> ResearchRunOut:
     run = await session.get(ResearchRun, run_id)
     if run is None:
@@ -150,7 +150,7 @@ async def get_research_run(
 
 @router.get("/research/runs/{run_id}/result", response_model=TrendSearchResult)
 async def get_research_result(
-    run_id: str, session: SessionDep, reviewer: ReviewerDep
+    run_id: IdPath, session: SessionDep, reviewer: ReviewerDep
 ) -> TrendSearchResult:
     """The Trend Search Agent's output for a run (snake_case, ``TrendSearchResult``)."""
     return await read_result(session, run_id)
@@ -183,7 +183,7 @@ async def _load_promotable(session: AsyncSession, candidate_id: str) -> Research
     status_code=status.HTTP_202_ACCEPTED,
 )
 async def promote_research_candidate(
-    candidate_id: str, session: SessionDep, reviewer: ReviewerDep
+    candidate_id: IdPath, session: SessionDep, reviewer: ReviewerDep
 ) -> RunOut:
     """Turn a proposed topic into a queued generation run.
 
@@ -211,7 +211,7 @@ async def promote_research_candidate(
     status_code=status.HTTP_204_NO_CONTENT,
 )
 async def dismiss_research_candidate(
-    candidate_id: str,
+    candidate_id: IdPath,
     payload: DismissCandidateRequest,
     session: SessionDep,
     reviewer: ReviewerDep,

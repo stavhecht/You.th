@@ -17,16 +17,20 @@
  *     approve time, where it blocks publication rather than typing.
  *   - On error the pending document is **kept**, not dropped, and the state
  *     goes to "error" so the UI can block Approve while edits are unsaved.
+ *   - Each save names the document it started from. A 412 means another
+ *     reviewer saved since: state "conflict", no retry, Approve stays blocked.
+ *     Retrying would overwrite their edit with this older copy.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { ApiError } from "@/lib/api/client";
 import { saveContent } from "@/lib/api/console";
 import type { TipTapDoc } from "@/types/api";
 
 const DEBOUNCE_MS = 800;
 
-export type SaveState = "idle" | "saving" | "saved" | "error";
+export type SaveState = "idle" | "saving" | "saved" | "error" | "conflict";
 
 export interface Autosave {
   state: SaveState;
@@ -43,13 +47,32 @@ export interface Autosave {
   flush: () => Promise<boolean>;
 }
 
-export function useAutosave(articleId: string): Autosave {
+/** `loaded` is the server's edited content (null if unedited); undefined while loading. */
+export function useAutosave(
+  articleId: string,
+  loaded: TipTapDoc | null | undefined,
+): Autosave {
   const [state, setState] = useState<SaveState>("idle");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pending = useRef<TipTapDoc | null>(null);
   const inFlight = useRef(false);
+  const base = useRef<TipTapDoc | null>(loaded ?? null);
+  const conflicted = useRef(false);
+
+  // A (re)loaded document replaces the editor's content, so it is the new base,
+  // and nothing typed before it is still on screen to save. Keeping `pending`
+  // here let the older copy overwrite the reload it had conflicted with.
+  useEffect(() => {
+    if (loaded === undefined) return;
+    base.current = loaded;
+    conflicted.current = false;
+    pending.current = null;
+    if (timer.current) clearTimeout(timer.current);
+    setHasUnsavedChanges(false);
+    setState("idle");
+  }, [loaded]);
 
   const flush = useCallback(async () => {
     if (timer.current) {
@@ -59,12 +82,13 @@ export function useAutosave(articleId: string): Autosave {
     const doc = pending.current;
     if (!doc) return true;
     // A save is already running; its own completion decides the outcome.
-    if (inFlight.current) return false;
+    if (inFlight.current || conflicted.current) return false;
 
     inFlight.current = true;
     setState("saving");
     try {
-      await saveContent(articleId, doc);
+      await saveContent(articleId, doc, base.current);
+      base.current = doc;
       // Only clear the buffer if nothing newer arrived while in flight.
       if (pending.current === doc) {
         pending.current = null;
@@ -72,10 +96,15 @@ export function useAutosave(articleId: string): Autosave {
       }
       setState("saved");
       return pending.current === null;
-    } catch {
+    } catch (error) {
       // Keep `pending` so the next schedule() or flush() retries the edit
       // rather than silently discarding the reviewer's work.
-      setState("error");
+      if (error instanceof ApiError && error.status === 412) {
+        conflicted.current = true;
+        setState("conflict");
+      } else {
+        setState("error");
+      }
       return false;
     } finally {
       inFlight.current = false;
@@ -86,6 +115,7 @@ export function useAutosave(articleId: string): Autosave {
     (doc: TipTapDoc) => {
       pending.current = doc;
       setHasUnsavedChanges(true);
+      if (conflicted.current) return;
       setState("saving");
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => void flush(), DEBOUNCE_MS);

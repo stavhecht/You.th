@@ -42,6 +42,9 @@ x-backend: &backend
     # `localhost` in a container is the container. Override OLLAMA_BASE_URL in
     # your shell if Ollama lives somewhere else.
     OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+    # llama-server (LLM_PROVIDER=llamacpp) stays on the host for the same Metal
+    # reason as Ollama.
+    LLAMACPP_BASE_URL: ${LLAMACPP_BASE_URL:-http://host.docker.internal:8080}
     # No MEDIA_ROOT: image bytes are rows in `media_objects`, reached through
     # DATABASE_URL like everything else. It used to be set here, absolutely,
     # so the API and the worker resolved it to the same directory — a problem
@@ -89,7 +92,9 @@ services:
       # Host port is 5433, not 5432: a native Postgres (Homebrew postgresql@15)
       # binds 127.0.0.1:5432 specifically, which beats Docker's wildcard bind
       # and silently shadows this container for `localhost` connections.
-      - "5433:5432"
+      # Loopback only: the password is in this file, so a LAN-wide bind would
+      # hand the whole database, review step included, to anyone on the wifi.
+      - "127.0.0.1:5433:5432"
     volumes:
       - evidwell_pgdata:/var/lib/postgresql/data
     healthcheck:

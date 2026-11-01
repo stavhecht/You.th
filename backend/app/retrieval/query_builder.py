@@ -42,6 +42,8 @@ MESH_HINTS: dict[str, str] = {
     "vitamin d": '"Vitamin D"',
     "zinc": "Zinc",
     "ginseng": "Panax",
+    "sunscreen": '"Sunscreening Agents"',
+    "menstrual cycle": '"Menstrual Cycle"',
 }
 
 #: Claim word -> the vocabulary papers actually use. "reduces stress" searches
@@ -62,6 +64,7 @@ OUTCOME_HINTS: dict[str, str] = {
     "strength": '("muscle strength"[MeSH] OR "resistance training")',
     "weight": '("weight loss"[MeSH] OR "body composition" OR obesity)',
     "skin": '("skin aging"[MeSH] OR "skin elasticity" OR hydration)',
+    "skin cancer": '("skin neoplasms"[MeSH] OR melanoma OR "skin cancer")',
     "hair": '("hair"[MeSH] OR alopecia)',
     "joint": '("arthralgia"[MeSH] OR "joint pain" OR osteoarthritis)',
     "gut": '("gastrointestinal microbiome"[MeSH] OR "digestive health")',
@@ -76,6 +79,9 @@ OUTCOME_HINTS: dict[str, str] = {
     "bone": '("bone density"[MeSH] OR osteoporosis OR "bone health")',
     "recovery": '("muscle soreness" OR "exercise recovery" OR "delayed onset")',
     "endurance": '("physical endurance"[MeSH] OR "aerobic capacity" OR VO2)',
+    "fitness": (
+        '("physical fitness"[MeSH] OR "athletic performance"[MeSH] OR "exercise performance")'
+    ),
 }
 
 _STOPWORDS = frozenset(
@@ -84,6 +90,12 @@ _STOPWORDS = frozenset(
         "has", "have", "help", "helps", "improve", "improves", "in", "is",
         "it", "its", "of", "on", "or", "reduce", "reduces", "support",
         "supports", "that", "the", "this", "to", "with", "your",
+        # Directional verbs (2026-10-23): a claim's direction is not its topic,
+        # and "lowers blood pressure" must search the same papers as "raises".
+        "lower", "lowers", "raise", "raises", "increase", "increases",
+        "decrease", "decreases", "boost", "boosts", "prevent", "prevents",
+        "cause", "causes", "worsen", "worsens", "enhance", "enhances",
+        "promote", "promotes",
     }
 )  # fmt: skip
 
@@ -96,6 +108,18 @@ _INTERROGATIVES = frozenset(
     }
 )  # fmt: skip
 
+#: How-it-is-taken words dropped from an unmapped product before it is quoted:
+#: "daily sunscreen use" as one phrase missed the Nambour trial, titled "regular
+#: sunscreen use" (2026-10-25). Never empties a name: all-usage keeps the original.
+_USAGE_WORDS = frozenset(
+    {
+        "daily", "regular", "regularly", "use", "using", "taking", "intake",
+        "supplement", "supplements", "supplementation", "topical", "at-home",
+        # Never left alone: "dietary supplements" stays whole rather than "dietary".
+        "dietary", "nutritional", "herbal",
+    }
+)  # fmt: skip
+
 #: What extraction is told to write when a question names no substance.
 _NO_SUBJECT = frozenset({"unspecified", "none", "unknown", "n/a", "na"})
 
@@ -103,9 +127,23 @@ _NO_SUBJECT = frozenset({"unspecified", "none", "unknown", "n/a", "na"})
 _MAX_NAME_WORDS = 8
 
 #: Reviews are scarce, so their pass needs fewer results; the general pass
-#: carries the breadth.
-REVIEW_PASS_MAX_RESULTS = 15
+#: carries the breadth. 30, not 15, since 2026-10-23: of 77 gold papers, mostly
+#: meta-analyses, 24 never reached the pool (melatonin's 2013 meta-analysis on
+#: sleep onset was not in the top 15 reviews for "melatonin AND sleep").
+REVIEW_PASS_MAX_RESULTS = 30
 GENERAL_PASS_MAX_RESULTS = 35
+
+
+#: A claim about harm. Its own effect alone ("creatine AND kidney AND injury")
+#: missed the reviews of a substance's whole safety record, the best sources for
+#: "what are the side effects of X?": with these, creatine's ISSN safety position
+#: stand and its misconceptions review reached the top 35 (2026-10-26).
+HARM_CLAIM = re.compile(
+    r"\b(?:causes?|damages?|harms?|injur\w*|toxic\w*|adverse|side effects?)\b"
+)
+_SAFETY_TERMS = (
+    '("adverse effects"[sh] OR safety[tiab] OR "side effects"[tiab] OR "adverse events"[tiab])'
+)
 
 
 class UnanchoredQuery(RuntimeError):
@@ -198,7 +236,9 @@ def _review_and_general(claim: str, terms: str, min_year: int | None) -> list[Se
 def _subject_group(substances: list[str]) -> str:
     """OR the substances together, mapping known ones to MeSH terms."""
     terms: list[str] = []
-    for substance in substances:
+    # "smart rings like the oura ring" -> both, each quoted: as one phrase it matched nothing.
+    examples = (re.split(r"\s+(?:like|such as|including)\s+(?:the\s+)?", s) for s in substances)
+    for substance in (part for parts in examples for part in parts):
         name = substance.strip().lower()
         if not name:
             continue
@@ -212,7 +252,8 @@ def _subject_group(substances: list[str]) -> str:
         mapped = mapped or _mesh_within(name)
         if mapped is None and not _is_a_name(name):
             continue
-        terms.append(mapped or f'"{names[-1]}"')
+        core = " ".join(w for w in names[-1].split() if w not in _USAGE_WORDS)
+        terms.append(mapped or f'"{core or names[-1]}"')
 
     unique = list(dict.fromkeys(term for term in terms if term))
     return f"({' OR '.join(unique)})" if unique else ""
@@ -258,17 +299,34 @@ def _outcome_group(claim: str) -> str:
     """The claim's outcome in indexed vocabulary, or its keywords as a fallback."""
     lowered = claim.lower()
     # Several can match ("improves sleep and reduces stress"): OR them all.
+    # At a word start: "stress" inside "gastrointestinal distress" searched anxiety
+    # papers (2026-10-26); plurals ("joints") still match.
+    matched = [kw for kw in OUTCOME_HINTS if re.search(rf"\b{re.escape(kw)}", lowered)]
+    # Longest match wins: "skin cancer" is not the skin-aging vocabulary of "skin".
     hints = list(
-        dict.fromkeys(hint for keyword, hint in OUTCOME_HINTS.items() if keyword in lowered)
+        dict.fromkeys(
+            OUTCOME_HINTS[keyword]
+            for keyword in matched
+            if not any(keyword != other and keyword in other for other in matched)
+        )
     )
-    if len(hints) > 1:
-        return f"({' OR '.join(hints)})"
-    if hints:
-        return hints[0]
-
     words = [
         word
         for word in re.findall(r"[a-z0-9\-]+", lowered)
         if word not in _STOPWORDS and len(word) > 2
     ]
-    return f"({' AND '.join(words)})" if words else ""
+    if len(hints) == 1 and len(words) > 1:
+        # The claim's own phrase beside the hint: "reduces sleep latency" mapped
+        # to the generic sleep vocabulary, and the meta-analysis on sleep onset
+        # lost the relevance race. A one-word claim is the hint already, and a
+        # claim naming two outcomes has no one phrase.
+        hints.append(f'"{" ".join(words)}"[tiab]')
+    if len(hints) > 1:
+        group = f"({' OR '.join(hints)})"
+    elif hints:
+        group = hints[0]
+    else:
+        group = f"({' AND '.join(words)})" if words else ""
+    if group and HARM_CLAIM.search(lowered):
+        return f"({group} OR {_SAFETY_TERMS})"
+    return group

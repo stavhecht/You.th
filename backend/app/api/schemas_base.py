@@ -38,6 +38,13 @@ EmailAddress = Annotated[
 ]
 
 
+#: A row id (``gen_random_uuid()``) arriving from a client. Checked at the
+#: boundary because an id that is not a UUID otherwise reaches Postgres, which
+#: refuses it, and the API answered 500 instead of a client error.
+UUID_PATTERN = r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+UuidStr = Annotated[str, StringConstraints(pattern=UUID_PATTERN)]
+
+
 class CamelModel(BaseModel):
     model_config = ConfigDict(
         alias_generator=to_camel,

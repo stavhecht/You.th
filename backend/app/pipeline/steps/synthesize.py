@@ -2,19 +2,27 @@
 
 from __future__ import annotations
 
+import json
 import logging
+
+from pydantic import ValidationError
 
 from app.domain.contracts import (
     CITATION_RUN_RE,
     PromptSource,
+    ReaderEditInput,
     SynthesisInput,
     SynthesisOutput,
     ValidationReport,
+    count_sentences,
     extract_handles,
 )
 from app.domain.enums import Stance
+from app.evidence.numbers import plain_sentence, sentences
 from app.llm.base import LLMError, LLMResult, SynthesisClient
+from app.llm.prompts.synthesis import SYNTHESIS_SYSTEM_PROMPT, build_synthesis_user_prompt
 from app.pipeline.stages import PipelineContext, StageError, StageName
+from app.pipeline.steps import reader_edit
 from app.services.no_evidence import no_evidence_draft
 
 logger = logging.getLogger(__name__)
@@ -71,13 +79,33 @@ MAX_HANDLES_PER_CITATION = 3
 #: sitting on plenty of unused evidence is worth a second ask.
 SECTIONS_EXPECTED_FROM = 6
 
+#: The generation server's window: llama-server's ``-c`` and Ollama's
+#: ``SYNTHESIS_NUM_CTX``. A prompt past it is refused outright (llama-server: 44,566
+#: tokens for GLP-1 side effects, 2026-10-25) or silently cut (Ollama).
+#: shortcut: one window for every provider; give the client its own once a hosted one runs.
+SYNTHESIS_CONTEXT_TOKENS = 32_768
+#: The draft's output budget plus a revision's draft and feedback, which reuse the payload.
+SYNTHESIS_RESERVED_TOKENS = 8_000 + 2_000
+#: Measured 4.55-4.84 on Bonsai's tokenizer (2026-10-25); lower, so the estimate runs high.
+CHARS_PER_TOKEN = 4.2
+
+#: Failures that name their sentence, so ``_repair`` can fix that paragraph alone.
+_REPAIRABLE = frozenset({"unsourced_number", "misattributed_citation"})
+
 
 class SynthesizeStage:
     name = StageName.SYNTHESIZE
 
-    def __init__(self, client: SynthesisClient, *, relevance_filter: bool = False) -> None:
+    def __init__(
+        self,
+        client: SynthesisClient,
+        *,
+        relevance_filter: bool = False,
+        reader_edit: bool = False,
+    ) -> None:
         self._client = client
         self._relevance_filter = relevance_filter
+        self._reader_edit = reader_edit
 
     async def run(self, ctx: PipelineContext) -> PipelineContext:
         """Write the article, grounded strictly in the ranked abstracts.
@@ -110,10 +138,11 @@ class SynthesizeStage:
 
         if not payload.sources:
             return self._no_evidence(ctx, payload)
+        payload, context_fit = _fit_context(payload, _rank_positions(ctx))
 
         fresh_draft = False
         try:
-            result = await self._client.synthesize(payload)
+            result, fitted = await self._draft(payload)
         except LLMError as exc:
             # Synthesis carries the pipeline's largest token budget, so a
             # failure here is the most expensive thing that can happen and the
@@ -131,7 +160,7 @@ class SynthesizeStage:
             logger.warning("first draft broke the output contract; writing one fresh draft")
             fresh_draft = True
             try:
-                result = await self._client.synthesize(payload)
+                result, fitted = await self._draft(payload)
             except LLMError as again:
                 ctx.record_usage(self.name, again.model, again.usage)
                 raise StageError(self.name, str(again), retryable=again.retryable) from again
@@ -146,6 +175,10 @@ class SynthesizeStage:
         else:
             retried = False
 
+        edit_metrics = None
+        if self._reader_edit:
+            result, edit_metrics = await self._edit_for_readers(ctx, payload, result)
+
         ctx.record_metrics(
             self.name,
             {
@@ -153,6 +186,8 @@ class SynthesizeStage:
                 "sources_in_prompt": len(payload.sources),
                 "coverage_retry": retried,
                 "fresh_draft_after_contract_failure": fresh_draft,
+                # What ``fit_to_contract`` moved or cut instead of a new draft; None if nothing.
+                "contract_fit": fitted or None,
                 "first_draft_handles_cited": first_cited,
                 # What the re-prompt gate counts: sources given a citation of
                 # their own. Kept beside ``handles_cited`` because the gap
@@ -174,6 +209,10 @@ class SynthesizeStage:
                 "body_words": _body_words(result.output),
                 # None when the filter is off, so on/off is one query.
                 "relevance_filter": filtered,
+                # None when the prompt fit; else what was cut to make it fit.
+                "context_fit": context_fit,
+                # None when the edit is off; see ``reader_edit.py``.
+                "reader_edit": edit_metrics,
             },
         )
 
@@ -195,13 +234,22 @@ class SynthesizeStage:
         before this loop existed. And a rewrite that errors keeps the first
         draft, which then fails validation again and is stored the same way —
         a failed revision must not turn a reportable draft into a failed run.
+
+        **The reader edit runs again on the rewrite.** The revision is written
+        under the synthesis prompt, and measured 2026-10-22 its sentences came
+        back in the academic register the edit had removed (7 study-led
+        sentences on one article whose first edit had none). The edit's guards
+        are the same here, so it still cannot add a failure VALIDATE would see.
         """
         assert ctx.synthesis_input is not None and ctx.validation is not None
         assert ctx.draft is not None
         payload = ctx.synthesis_input
         codes = sorted({failure.code for failure in ctx.validation.failures})
+        repair = await self._repair(ctx, payload)
+        if isinstance(repair, PipelineContext):
+            return repair
         try:
-            result = await self._client.synthesize(
+            result, _ = await self._draft(
                 payload, feedback=revision_feedback(ctx.validation, ctx.draft)
             )
         except LLMError as exc:
@@ -214,6 +262,7 @@ class SynthesizeStage:
                 {
                     "revision": True,
                     "revision_failed": str(exc),
+                    "repair_failed": repair,
                     "failures_fed_back": codes,
                     "verdict": str(ctx.draft.verdict),
                 },
@@ -225,6 +274,7 @@ class SynthesizeStage:
             self.name,
             {
                 "revision": True,
+                "repair_failed": repair,
                 "failures_fed_back": codes,
                 "verdict": str(result.output.verdict),
                 "sources_in_prompt": len(payload.sources),
@@ -234,7 +284,168 @@ class SynthesizeStage:
             },
         )
         logger.info("revised a draft that failed validation (%s)", ", ".join(codes))
+        if self._reader_edit:
+            result, edit_metrics = await self._edit_for_readers(ctx, payload, result)
+            ctx.metrics[str(self.name)]["reader_edit"] = edit_metrics
         return ctx.model_copy(update={"draft": result.output, "validation": None})
+
+    async def _repair(
+        self, ctx: PipelineContext, payload: SynthesisInput
+    ) -> PipelineContext | str | None:
+        """Fix only the paragraphs whose numbers failed; every other one stays.
+
+        Measured 2026-10-23: told to fix one sentence and copy the rest, the
+        whole-article revision cut a 12-source draft to 5 sources and a
+        15-source one to 4. An ``unsourced_number`` failure names its sentence,
+        so only that paragraph goes back, through the reader edit's call with
+        the failure as feedback and its guards (handles unchanged, no new
+        number, at most 15% shorter), plus one more: no number left beside a
+        source without it. A refused fix is tried once more with the
+        neighbouring paragraphs shown, the overlap a chunk gets.
+
+        Returns the repaired context; ``None`` when the failures are not all
+        located numbers (the whole-article revision handles those); or why the
+        repair failed, and the whole-article revision runs after all.
+        """
+        assert ctx.validation is not None and ctx.draft is not None
+        failures = ctx.validation.failures
+        if not failures or any(f.code not in _REPAIRABLE for f in failures):
+            return None
+        draft = ctx.draft
+        located = reader_edit.parts(draft)
+        texts = [part.text for part in located]
+        notes: dict[int, list[str]] = {}
+        named: dict[int, set[str]] = {}
+        failed: dict[int, set[str]] = {}
+        targets: dict[int, set[str]] = {}
+        for failure in failures:
+            sentence = str(failure.detail.get("sentence", ""))
+            # Every paragraph holding it: measured 2026-10-23, one sentence sat
+            # in two paragraphs, and fixing the first left the article failing.
+            indices = [
+                i
+                for i, part in enumerate(located)
+                if sentence in {plain_sentence(s) for s in sentences(part.text)}
+            ]
+            if not indices:
+                return "a failing sentence was not found in the draft"
+            for index in indices:
+                targets.setdefault(index, set()).add(sentence)
+                if failure.message not in notes.setdefault(index, []):
+                    notes[index].append(failure.message)
+                named.setdefault(index, set()).update(
+                    str(handle)
+                    for key in ("handles", "found_in")
+                    for handle in failure.detail.get(key) or ()  # type: ignore[attr-defined]
+                )
+                failed.setdefault(index, set()).update(
+                    str(raw) for raw in failure.detail.get("numbers") or ()  # type: ignore[attr-defined]
+                )
+
+        calls = dropped = 0
+        for index, messages in notes.items():
+            part = located[index]
+            fix = (
+                "This paragraph failed the citation check:\n"
+                + "\n".join(f"- {message}" for message in messages)
+                + "\nFix exactly that, and keep every other sentence as it is."
+            )
+            request = ReaderEditInput(
+                product=payload.product,
+                earlier=[],
+                paragraph=part.text,
+                max_sentences=part.max_sentences,
+                feedback=fix,
+            )
+            reason = ""
+            for _ in range(2):
+                calls += 1
+                try:
+                    edit = await self._client.edit_for_readers(request)
+                except LLMError as exc:
+                    ctx.record_usage(self.name, exc.model, exc.usage)
+                    return f"{part.name}: call failed: {exc}"
+                ctx.record_usage(self.name, edit.model, edit.usage)
+                reason = (
+                    reader_edit.repair_rejection(
+                        part, edit.output.text, payload.sources, named[index], failed[index]
+                    )
+                    or ""
+                )
+                if not reason:
+                    texts[index] = edit.output.text
+                    break
+                following = texts[index + 1] if index + 1 < len(texts) else ""
+                request = request.model_copy(
+                    update={
+                        "earlier": texts[max(index - 1, 0) : index],
+                        "feedback": f"{fix}\nYour last fix was thrown away because it "
+                        f"{reason}."
+                        + (
+                            f"\n\nThe paragraph after it, for context only:\n\n{following}"
+                            if following
+                            else ""
+                        ),
+                    }
+                )
+            if reason:
+                # Last resort before the whole-article rewrite: drop the failing
+                # sentences. Measured 2026-10-23, Bonsai twice kept a number no
+                # source holds ("1.97 million"), and the rewrite that followed
+                # cut a 12-source draft to 5. One unsourced sentence is the
+                # smaller loss, if the paragraph still cites what it must.
+                drop = targets[index]
+                kept = [s for s in sentences(texts[index]) if plain_sentence(s) not in drop]
+                remaining = " ".join(kept)
+                if not kept or (extract_handles(part.text) and not extract_handles(remaining)):
+                    return f"{part.name}: {reason}"
+                dropped += len(sentences(texts[index])) - len(kept)
+                texts[index] = remaining
+
+        edited = reader_edit.assemble(draft, texts)
+        if edited is None:
+            return "the repaired article broke the output contract"
+        if rejected := reader_edit.article_rejection(draft, edited, payload):
+            return f"the repaired article {rejected}"
+        ctx.record_metrics(
+            self.name,
+            {
+                "revision": True,
+                "repair": {
+                    "paragraphs": len(notes),
+                    "calls": calls,
+                    "sentences_dropped": dropped,
+                },
+                "failures_fed_back": sorted({f.code for f in failures}),
+                "verdict": str(edited.verdict),
+                "sources_in_prompt": len(payload.sources),
+                "handles_cited": len(edited.body.cited_handles()),
+                "handles_covered": len(_covered_handles(edited, payload.handle_set)),
+                "body_words": _body_words(edited),
+            },
+        )
+        logger.info("repaired %d paragraph(s) in place (%d calls)", len(notes), calls)
+        return ctx.model_copy(update={"draft": edited, "validation": None})
+
+    async def _draft(
+        self, payload: SynthesisInput, *, feedback: str | None = None
+    ) -> tuple[LLMResult[SynthesisOutput], list[str]]:
+        """One synthesis call; a draft that only overflowed a limit is fitted, not redrawn.
+
+        Measured 2026-10-28 over the week's runs: 41 synthesis calls broke the
+        contract after the client's repair turn, nearly all a section or beat 2
+        over its sentence cap or a headline over 12 words, and each cost a fresh
+        draft (~10 minutes) or the run. ``fit_to_contract`` keeps every sentence.
+        """
+        try:
+            return await self._client.synthesize(payload, feedback=feedback), []
+        except LLMError as exc:
+            fit = None if exc.retryable or not exc.content else fit_to_contract(exc.content)
+            if fit is None:
+                raise
+            output, changes = fit
+            logger.warning("draft broke the output contract; fitted (%s)", "; ".join(changes))
+            return LLMResult(output=output, usage=exc.usage, model=exc.model), changes
 
     async def _use_more_sources(
         self,
@@ -287,7 +498,7 @@ class SynthesizeStage:
         )
 
         try:
-            retry = await self._client.synthesize(
+            retry, _ = await self._draft(
                 payload, feedback=_coverage_feedback(covered, uncited, lumped)
             )
         except LLMError as exc:
@@ -317,6 +528,120 @@ class SynthesizeStage:
             covered,
         )
         return retry
+
+    async def _edit_for_readers(
+        self,
+        ctx: PipelineContext,
+        payload: SynthesisInput,
+        result: LLMResult[SynthesisOutput],
+    ) -> tuple[LLMResult[SynthesisOutput], dict[str, object]]:
+        """Reword the draft for everyday readers, a paragraph at a time.
+
+        See ``reader_edit.py``. Like the coverage re-prompt, this can only
+        improve the outcome: a call that raises or a paragraph the guards refuse
+        leaves that paragraph as it was, and an assembled article that fails a
+        whole-article check leaves the draft exactly as it was. Every call's
+        tokens are recorded. A retryable failure (the model server is down or
+        broken) stops the pass rather than waiting out the same failure once
+        per paragraph. A refused paragraph is asked for once more, told why.
+        """
+        draft = result.output
+        before = reader_edit.readability(draft)
+        texts: list[str] = []
+        earlier: list[str] = []
+        refused: list[str] = []
+        retried: list[str] = []
+        # Explanations the body has given so far; the summary keeps its own.
+        explained: set[str] = set()
+        stopped = False
+        for part in reader_edit.parts(draft):
+            text = part.text
+            # The first call edits the draft's paragraph. One more is made when
+            # that edit was refused (from the draft again, told why) or kept but
+            # still leaves something to fix (from that edit, told what), and the
+            # plainer of the kept edits wins.
+            request = ReaderEditInput(
+                product=payload.product,
+                earlier=earlier,
+                paragraph=part.text,
+                max_sentences=part.max_sentences,
+            )
+            reason: str | None = None
+            for attempt in range(2):
+                if stopped:
+                    break
+                try:
+                    edit = await self._client.edit_for_readers(request)
+                except LLMError as exc:
+                    ctx.record_usage(self.name, exc.model, exc.usage)
+                    reason = reason or f"call failed: {exc}"
+                    stopped = exc.retryable
+                    break
+                ctx.record_usage(self.name, edit.model, edit.usage)
+                proposed = edit.output.text
+                if part.slot != "summary":
+                    proposed = reader_edit.drop_repeated_explanations(proposed, explained)
+                rejection = reader_edit.paragraph_rejection(part, proposed, payload.sources)
+                if rejection is None:
+                    plainer = reader_edit.score(proposed) < reader_edit.score(text)
+                    if text == part.text or plainer:
+                        text = proposed
+                    reason = None
+                elif text == part.text:
+                    reason = rejection
+                if attempt == 1:
+                    break
+                note = reader_edit.leftovers(text) if text != part.text else None
+                if text != part.text and note:
+                    retried.append(f"{part.name}: {note}")
+                    request = request.model_copy(
+                        update={
+                            "paragraph": text,
+                            "feedback": f"This is your edit so far. Still to fix: {note}. "
+                            "Change those sentences as you changed the others; keep the rest.",
+                        }
+                    )
+                elif text == part.text and reason:
+                    retried.append(f"{part.name}: {reason}")
+                    request = request.model_copy(
+                        update={
+                            "feedback": "Your last edit of this paragraph was thrown away "
+                            f"because it {reason}. Edit it again, keeping to every rule."
+                        }
+                    )
+                else:
+                    break
+            if text == part.text and reason is not None:
+                refused.append(f"{part.name}: {reason}")
+            texts.append(text)
+            if part.slot != "summary":
+                earlier.append(text)
+                explained |= reader_edit.explanations(text)
+
+        metrics: dict[str, object] = {
+            "paragraphs": len(texts),
+            "refused": refused,
+            "retried": retried,
+        }
+        edited = reader_edit.assemble(draft, texts)
+        rejected = (
+            "the edited article broke the output contract"
+            if edited is None
+            else reader_edit.article_rejection(draft, edited, payload)
+        )
+        if edited is None or rejected:
+            logger.info("reader edit %s; keeping the draft", rejected)
+            return result, {**metrics, "kept": 0, "rejected": rejected, "before": before}
+
+        kept = len(texts) - len(refused)
+        after = reader_edit.readability(edited)
+        logger.info(
+            "reader edit kept %d of %d paragraphs (%s -> %s)", kept, len(texts), before, after
+        )
+        return (
+            LLMResult(output=edited, usage=result.usage, model=result.model),
+            {**metrics, "kept": kept, "before": before, "after": after},
+        )
 
     def _no_evidence(
         self, ctx: PipelineContext, payload: SynthesisInput
@@ -409,6 +734,141 @@ class SynthesizeStage:
             target_claims=ctx.extraction.target_claims,
             sources=ordered,
         )
+
+
+_OVERFLOW_HEADING = "What other studies found"
+_HEADLINE_BREAKS = (":", " \u2014 ", " \u2013 ", " - ")  # colon, em dash, en dash, hyphen
+
+
+def _split_by_cap(text: str, cap: int) -> list[str]:
+    """``text`` cut between sentences into pieces of at most ``cap``, paragraphs kept.
+
+    Counted with ``count_sentences``, the contract's own counter, so a piece passes
+    the validator that refused the whole."""
+    pieces: list[list[list[str]]] = [[]]
+    for paragraph in (p for p in text.split("\n\n") if p.strip()):
+        pieces[-1].append([])
+        for sentence in sentences(paragraph):
+            current = pieces[-1]
+            current[-1].append(sentence)
+            if count_sentences(_render(current)) > cap and sum(map(len, current)) > 1:
+                current[-1].pop()
+                pieces.append([[sentence]])
+    return [_render(piece) for piece in pieces if _render(piece)]
+
+
+def _render(paragraphs: list[list[str]]) -> str:
+    return "\n\n".join(" ".join(p) for p in paragraphs if p)
+
+
+def fit_to_contract(content: str) -> tuple[SynthesisOutput, list[str]] | None:
+    """A draft that broke only a length limit, made to fit without losing a sentence.
+
+    An over-long section becomes two (the second "<heading>, continued"), beat 2's
+    overflow opens a section of its own, and a headline over 12 words keeps the part
+    before its colon or dash. Anything else, more than five sections, or a headline
+    with no such break returns None, and the caller draws a fresh draft as before.
+    Citations move with their sentences, so VALIDATE checks the result like any draft.
+    """
+    try:
+        data = json.loads(content)
+        body = data["body"]
+        changes: list[str] = []
+        words = data["headline"].split()
+        if len(words) > 12:
+            heads = [data["headline"].split(mark)[0].strip() for mark in _HEADLINE_BREAKS]
+            fits = [h for h in heads if 3 <= len(h.split()) <= 12]
+            if not fits:
+                return None
+            data["headline"] = max(fits, key=len)
+            changes.append(f"headline cut from {len(words)} words")
+        sections: list[dict[str, str]] = []
+        beat_2 = _split_by_cap(body["beat_2_evidence"], 5)
+        if len(beat_2) > 1:
+            body["beat_2_evidence"] = beat_2[0]
+            sections += [{"heading": _OVERFLOW_HEADING, "body": b} for b in beat_2[1:]]
+            changes.append(f"beat 2 overflow moved to {len(beat_2) - 1} section(s)")
+        for section in body.get("sections") or []:
+            parts = _split_by_cap(section["body"], 8)
+            continued = f"{section['heading']}, continued"
+            later = continued if len(continued.split()) <= 8 else section["heading"]
+            sections += [
+                {"heading": section["heading"] if i == 0 else later, "body": part}
+                for i, part in enumerate(parts)
+            ]
+            if len(parts) > 1:
+                changes.append(f"section “{section['heading']}” split in {len(parts)}")
+        body["sections"] = sections
+        if not changes:
+            return None
+        return SynthesisOutput.model_validate(data), changes
+    except (ValueError, KeyError, TypeError, AttributeError, ValidationError):
+        return None
+
+
+def _rank_positions(ctx: PipelineContext) -> dict[str, int]:
+    """Each handle's best position in any claim's ranking (0 is a claim's top source)."""
+    best: dict[str, int] = {}
+    for ranked in ctx.ranked.values():
+        for position, entry in enumerate(ranked):
+            handle = entry.citation_handle
+            best[handle] = min(position, best.get(handle, position))
+    return best
+
+
+def _prompt_tokens(payload: SynthesisInput) -> int:
+    text = SYNTHESIS_SYSTEM_PROMPT + build_synthesis_user_prompt(payload)
+    return int(len(text) / CHARS_PER_TOKEN)
+
+
+def _fit_context(
+    payload: SynthesisInput, positions: dict[str, int]
+) -> tuple[SynthesisInput, dict[str, object] | None]:
+    """Cut the lowest-ranked material until the prompt fits the window.
+
+    Excerpts go first, worst-ranked paper first: without them a paper is still
+    written from its abstract, as before FULL_TEXT existed. Then whole sources,
+    worst-ranked first, so a claim's top source is the last to go. A dropped
+    source is out of the handle set VALIDATE checks against, and PERSIST still
+    records it uncited, as for the relevance filter. Never cuts the last source.
+    """
+    budget = SYNTHESIS_CONTEXT_TOKENS - SYNTHESIS_RESERVED_TOKENS
+    before = _prompt_tokens(payload)
+    if before <= budget:
+        return payload, None
+
+    def worst_first(source: PromptSource) -> tuple[int, int]:
+        return (-positions.get(source.handle, 0), -int(source.handle[1:]))
+
+    sources = list(payload.sources)
+    excerpts_dropped: list[str] = []
+    sources_dropped: list[str] = []
+    fitted = payload
+    for source in sorted((s for s in sources if s.excerpts), key=worst_first):
+        sources[sources.index(source)] = source.model_copy(update={"excerpts": []})
+        excerpts_dropped.append(source.handle)
+        fitted = payload.model_copy(update={"sources": sources})
+        if _prompt_tokens(fitted) <= budget:
+            break
+    for source in sorted(sources, key=worst_first):
+        if _prompt_tokens(fitted) <= budget or len(sources) == 1:
+            break
+        sources.remove(source)
+        sources_dropped.append(source.handle)
+        fitted = payload.model_copy(update={"sources": sources})
+
+    after = _prompt_tokens(fitted)
+    logger.warning(
+        "synthesis prompt ~%d tokens over %d: dropped excerpts of %s, sources %s (now ~%d)",
+        before, budget, excerpts_dropped, sources_dropped, after,
+    )
+    return fitted, {
+        "estimated_tokens_before": before,
+        "estimated_tokens_after": after,
+        "budget_tokens": budget,
+        "excerpts_dropped": excerpts_dropped,
+        "sources_dropped": sources_dropped,
+    }
 
 
 def _filter_by_relevance(payload: SynthesisInput) -> tuple[SynthesisInput, dict[str, object]]:

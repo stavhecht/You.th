@@ -34,9 +34,12 @@ from app.domain.contracts import (
 )
 
 _NUMBER = re.compile(r"(?<![\w.])(\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)")
-#: A number followed, within two words, by one of these is a count of sources.
+#: A number followed, within two words, by one of these is a count of sources. The
+#: space is required and the next word is no time unit: "12-week trial" and "12 week
+#: trial" are durations, and read as a count one let a revision write "12-week" beside
+#: sources that never said it (2026-10-28, wt_079).
 _COUNT_NOUN = re.compile(
-    r"^\s*(?:\w+\s){0,2}?(trials?|stud(?:y|ies)|reviews?|meta-analys[ie]s|sources|papers|"
+    r"^\s+(?!(?:week|month|day|year)s?\b)(?:[\w-]+\s){0,2}?(trials?|stud(?:y|ies)|reviews?|meta-analys[ie]s|sources|papers|"
     r"RCTs?|articles|analyses)\b",
     re.IGNORECASE,
 )
@@ -48,6 +51,13 @@ _WORDS = {
     "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "fifteen": 15,
     "twenty": 20, "thirty": 30, "forty": 40, "fifty": 50, "hundred": 100,
 }  # fmt: skip
+#: Compound numbers abstracts spell out at the start of a sentence: "Twenty-six
+#: trials with high methodological quality". Read only as 20 and 6, a correct
+#: "26 high-quality trials" failed as unsourced (measured 2026-10-15).
+_TENS = {"twenty": 20, "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60, "seventy": 70,
+         "eighty": 80, "ninety": 90}  # fmt: skip
+_UNITS = ("one", "two", "three", "four", "five", "six", "seven", "eight", "nine")
+_COMPOUND = re.compile(rf"\b({'|'.join(_TENS)})[-\s]({'|'.join(_UNITS)})\b")
 
 
 #: A decimal written without its leading zero (".005"), as abstracts often
@@ -69,6 +79,7 @@ def source_numbers(text: str) -> list[float]:
     found = [_value(match.group(1)) for match in _NUMBER.finditer(_normalise(text))]
     lowered = text.lower()
     found.extend(value for word, value in _WORDS.items() if re.search(rf"\b{word}\b", lowered))
+    found.extend(_TENS[t] + _UNITS.index(u) + 1 for t, u in _COMPOUND.findall(lowered))
     return found
 
 
@@ -126,13 +137,27 @@ def unsupported(
     output: SynthesisOutput, sources: list[PromptSource]
 ) -> list[tuple[str, list[str], list[str], list[str]]]:
     """``(sentence, handles, missing numbers, handles that do contain them)``."""
-    by_handle = {source.handle: source for source in sources}
-    numbers_by_handle = {h: source_numbers(source_text(s)) for h, s in by_handle.items()}
     body = output.body
     blocks = [body.beat_1_claim, body.beat_2_evidence]
     blocks += [section.body for section in body.sections]
     blocks.append(body.beat_3_bottom_line)
+    return unsupported_in(blocks, sources)
 
+
+def plain_sentence(sentence: str) -> str:
+    """A sentence as the number check reports it: markers out, spacing squeezed.
+
+    ``SynthesizeStage._repair`` finds a failure's paragraph by this form.
+    """
+    return " ".join(CITATION_MARKER_RE.sub("", sentence).split())
+
+
+def unsupported_in(
+    blocks: list[str], sources: list[PromptSource]
+) -> list[tuple[str, list[str], list[str], list[str]]]:
+    """``unsupported`` over any blocks of prose: one paragraph, for the reader edit."""
+    by_handle = {source.handle: source for source in sources}
+    numbers_by_handle = {h: source_numbers(source_text(s)) for h, s in by_handle.items()}
     problems = []
     for block in blocks:
         for sentence in sentences(block):
@@ -155,5 +180,5 @@ def unsupported(
                 ),
                 key=lambda h: int(h[1:]),
             )
-            problems.append((" ".join(plain.split()), handles, missing, elsewhere))
+            problems.append((plain_sentence(sentence), handles, missing, elsewhere))
     return problems

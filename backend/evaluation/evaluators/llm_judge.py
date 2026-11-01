@@ -45,6 +45,23 @@ from evaluation.harness.cassette import Cassette, stable_key
 
 logger = logging.getLogger(__name__)
 
+#: Ollama silently drops the front of a prompt past num_ctx: measured 2026-10-25, a
+#: 12-source citation check (9,703 tokens) kept 4,098 at 8K, statement included, and
+#: the judge answered "contradicted" blind. So the window grows with the prompt.
+_CTX_STEP = 8192
+_CTX_CEILING = 32768
+_CHARS_PER_TOKEN = 3  # conservative: biomedical English runs ~4
+_MAX_OUTPUT_TOKENS = 600
+
+
+def _context_for(system: str, user: str, floor: int, output_tokens: int) -> int | None:
+    """The window that holds the whole prompt, or None when none here does."""
+    needed = (len(system) + len(user)) // _CHARS_PER_TOKEN + output_tokens
+    if needed <= floor:
+        return floor
+    ctx = -(-needed // _CTX_STEP) * _CTX_STEP
+    return ctx if ctx <= _CTX_CEILING else None
+
 CITATION_SYSTEM = """\
 You check one statement from a health article against the source text it cites. \
 Use only the source text below; ignore anything you know from elsewhere.
@@ -92,7 +109,9 @@ expected_claims: for each numbered EXPECTED CLAIM, give its index and status —
 "present" (the article states it or an equivalent), "absent", or \
 "contradicted" (the article states the opposite).
 forbidden_claims: for each numbered FORBIDDEN CLAIM, give its index and \
-asserted = true only if the article states or clearly implies it.
+asserted = true only if the article states or clearly implies it is true. An \
+article that names the claim in order to reject, refute or question it ("X does \
+not double memory") does not assert it: asserted = false.
 reasoning: at most three sentences naming the main problem, if there is one.
 
 Return only the JSON object."""
@@ -154,7 +173,14 @@ class Judge:
         return f"ollama/{self._config.model}"
 
     async def _ask(self, call: str, system: str, user: str, schema: type[BaseModel]) -> Any:
-        key = stable_key("judge", self._config.model, call, system, user)
+        num_ctx = _context_for(system, user, self._config.num_ctx, _MAX_OUTPUT_TOKENS)
+        if num_ctx is None:
+            self.failures += 1
+            logger.warning("judge call %s skipped: prompt over %d tokens", call, _CTX_CEILING)
+            return None
+        # A larger window joins the key, so answers given on a truncated prompt are re-asked.
+        widened = () if num_ctx == self._config.num_ctx else (num_ctx,)
+        key = stable_key("judge", self._config.model, call, system, user, *widened)
         if self._mode != "live":
             hit = self._cassette.get("judge", key)
             if hit is not None:
@@ -172,8 +198,8 @@ class Judge:
                 system=system,
                 user=user,
                 output_format=schema,
-                num_ctx=self._config.num_ctx,
-                max_tokens=600,
+                num_ctx=num_ctx,
+                max_tokens=_MAX_OUTPUT_TOKENS,
                 temperature=0.0,
             )
         except LLMError as exc:

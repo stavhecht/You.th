@@ -317,9 +317,10 @@ function SaveIndicator({ state }: { state: Autosave["state"] }) {
     saving: "Saving…",
     saved: "Saved",
     error: "Save failed — retrying",
+    conflict: "Another reviewer saved this draft. Copy your change, then reload.",
   };
   return (
-    <span className={saveIndicator(state === "error")}>
+    <span className={saveIndicator(state === "error" || state === "conflict")}>
       {labels[state]}
     </span>
   );

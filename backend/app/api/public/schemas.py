@@ -18,7 +18,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.api.schemas_base import CamelModel, EmailAddress
+from app.api.schemas_base import CamelModel, EmailAddress, UuidStr
 from app.domain.enums import ContactKind, StudyType, Subject, Verdict
 
 
@@ -222,7 +222,7 @@ class CreateFolderRequest(CamelModel):
 class SaveRequest(CamelModel):
     """Which shelf to put it on. Omitted means the reader's first folder."""
 
-    folder_id: str | None = None
+    folder_id: UuidStr | None = None
 
 
 class SavedCardOut(FeedCardOut):

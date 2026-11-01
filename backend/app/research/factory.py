@@ -22,7 +22,7 @@ import httpx
 
 from app.config import Settings
 from app.llm.base import LLMError
-from app.llm.factory import build_generative_clients
+from app.llm.factory import build_generative_clients, llamacpp_chat
 from app.llm.ollama_client import build_ollama_client
 from app.research.contracts import PastTopic, ResearchConfig
 from app.research.evidence import EvidenceDeps
@@ -56,7 +56,7 @@ from app.research.trends.sources.gdelt import (
 from app.research.trends.sources.google_news import GoogleNewsSource
 from app.research.trends.sources.rss import FeedStateStore, RssSource
 from app.research.trends.sources.youtube import YouTubeSource, detect_youtube_quota
-from app.research.triage import OllamaTriageClient
+from app.research.triage import LlamaCppTriageClient, OllamaTriageClient
 from app.retrieval.factory import (
     build_europe_pmc_provider,
     build_pubmed_provider,
@@ -212,15 +212,18 @@ def build_research_deps(
 ) -> tuple[TrendDeps, EvidenceDeps]:
     sources, unavailable = build_trend_sources(settings, http, config, feeds=feeds)
 
-    # Triage runs on the local synthesis model (qwen2.5 by default). On the
-    # hosted path it is skipped and the raw phrases are used — one small call
-    # is not worth a second hosted integration.
-    triage = None
-    if settings.llm_provider.lower() == "ollama":
+    # Triage runs on the local synthesis model (qwen2.5 by default, or Bonsai on
+    # llama-server). On the hosted path it is skipped and the raw phrases are
+    # used — one small call is not worth a second hosted integration.
+    triage: OllamaTriageClient | None = None
+    provider = settings.llm_provider.lower()
+    if provider == "ollama":
         triage = OllamaTriageClient(
             build_ollama_client(settings.ollama_base_url, settings.ollama_timeout_seconds),
             settings.ollama_synthesis_model,
         )
+    elif provider == "llamacpp":
+        triage = LlamaCppTriageClient(llamacpp_chat(settings))
 
     embedder = None
     try:

@@ -76,8 +76,7 @@ class PipelineWorker:
     async def run_forever(self) -> None:
         """Poll for queued runs and execute them until shut down."""
         settings = get_settings()
-        await self._recover_stale_runs()
-        last_sweep = time.monotonic()
+        last_sweep = float("-inf")  # the first pass sweeps, before any claim
 
         logger.info("worker started (poll interval %.1fs)", self._poll_interval)
         while not self._shutdown.is_set():
@@ -86,9 +85,16 @@ class PipelineWorker:
             # property of where the call sits, and the reason it is not a
             # background task: a concurrent sweep would race the heartbeat and
             # could requeue a run that is still executing.
+            #
+            # Every database call in this loop is guarded: a Postgres restart
+            # used to raise out of here and end the process, leaving queued
+            # runs waiting on a worker that was gone.
             if time.monotonic() - last_sweep >= self._sweep_interval:
-                await self._recover_stale_runs()
                 last_sweep = time.monotonic()
+                try:
+                    await self._recover_stale_runs()
+                except Exception:
+                    logger.exception("could not sweep stale runs; retrying next sweep")
 
             # Research runs first, and in this process rather than their own:
             # both kinds count papers against NCBI's per-IP ceiling, and one
@@ -99,7 +105,13 @@ class PipelineWorker:
                 await self._run_research(*research, settings=settings)
                 continue
 
-            run = await self._claim_next_run()
+            try:
+                run = await self._claim_next_run()
+            except Exception:
+                logger.exception(
+                    "could not claim a queued run; retrying in %.0fs", self._poll_interval
+                )
+                run = None
             if run is None:
                 with contextlib.suppress(TimeoutError):
                     await asyncio.wait_for(
@@ -128,7 +140,11 @@ class PipelineWorker:
                 # catches anything that escapes it (a broken pipeline build, a
                 # dead database) so one bad run cannot kill the worker.
                 logger.exception("run %s crashed outside the orchestrator", run_id)
-                await self._mark_failed(run_id, "worker crashed outside the orchestrator")
+                try:
+                    await self._mark_failed(run_id, "worker crashed outside the orchestrator")
+                except Exception:
+                    # Its heartbeat has stopped, so the stale sweep recovers it.
+                    logger.exception("could not mark run %s failed", run_id)
             finally:
                 heartbeat.cancel()
                 with contextlib.suppress(asyncio.CancelledError):

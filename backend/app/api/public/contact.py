@@ -17,7 +17,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException, status
 
-from app.api.deps import ClientIpDep, ContactThrottleDep, SessionDep
+from app.api.deps import ClientIpDep, ContactThrottleDep, SessionDep, too_many_attempts
 from app.api.public.schemas import ContactRequestIn
 from app.services.contact import ContactError, ContactService
 
@@ -46,11 +46,7 @@ async def submit_contact(
     """
     retry_after = throttle.retry_after(ip=ip, email=payload.email)
     if retry_after is not None:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many messages from here. Try again later.",
-            headers={"Retry-After": str(max(1, int(retry_after)))},
-        )
+        raise too_many_attempts(retry_after, "Too many messages from here. Try again later.")
 
     try:
         request = await ContactService(session).submit(

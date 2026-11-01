@@ -7,6 +7,7 @@ Reads what RetrieveStage cached and writes nothing. The scoring itself is in
 from __future__ import annotations
 
 import logging
+import re
 from collections import Counter
 
 from sqlalchemy.exc import InterfaceError, OperationalError
@@ -16,6 +17,7 @@ from app.domain.enums import Verdict
 from app.evidence.grading import QUORUM_FOR_SUPPORTED, VERDICT_CEILING
 from app.llm.embeddings.base import EmbeddingError
 from app.pipeline.stages import PipelineContext, StageError, StageName
+from app.retrieval.query_builder import HARM_CLAIM
 from app.retrieval.rerank import (
     RerankConfig,
     SemanticReranker,
@@ -24,6 +26,42 @@ from app.retrieval.rerank import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+#: Claims one article covers. A broad question ("side effects of GLP-1 drugs")
+#: extracted six; at 12 sources each the prompt overflowed, and the thinnest claim
+#: capped the verdict at weak (wt_023b, 2026-10-25). The best-studied claims stay,
+#: whichever way their studies point, so good news and bad both survive.
+MAX_CLAIMS = 4
+
+#: What a harm claim names when the harm is serious: the organs and the medicine
+#: interactions the extraction prompt asks for "even if rare". Ranked by evidence
+#: alone, se_001 (creatine) dropped kidney and liver injury and kept stomach upset
+#: (2026-10-28), so these go ahead of milder effects.
+_SERIOUS_HARM = re.compile(
+    r"\b(?:liver|hepat\w*|kidneys?|renal|heart|cardi\w*|arrhythmi\w*|blood|bleed\w*|"
+    r"interact\w*)\b"
+)
+
+
+def _strong(entries: list[RankedSource]) -> int:
+    return sum(1 for e in entries if VERDICT_CEILING[e.paper.study_type] is Verdict.SUPPORTED)
+
+
+def _serious(claim: str) -> bool:
+    lowered = claim.lower()
+    return bool(HARM_CLAIM.search(lowered) and _SERIOUS_HARM.search(lowered))
+
+
+def best_studied(ranked: dict[str, list[RankedSource]], limit: int = MAX_CLAIMS) -> list[str]:
+    """The ``limit`` claims to cover: serious harms first, then the most supported-tier
+    sources, then the most sources."""
+    order = {claim: i for i, claim in enumerate(ranked)}
+    ranking = sorted(
+        ranked,
+        key=lambda c: (not _serious(c), -_strong(ranked[c]), -len(ranked[c]), order[c]),
+    )
+    return sorted(ranking[:limit], key=order.__getitem__)
 
 
 def thin_claims(ranked: dict[str, list[RankedSource]]) -> list[str]:
@@ -69,6 +107,20 @@ class RankStage:
             # The embedding server or the database being unreachable is an
             # outage: retrying finds every paper already cached and embedded.
             raise StageError(self.name, f"ranking failed: {exc}", retryable=True) from exc
+        dropped: list[str] = []
+        if len(ranked_by_claim) > MAX_CLAIMS:
+            kept = best_studied(ranked_by_claim)
+            dropped = [claim for claim in ranked_by_claim if claim not in kept]
+            logger.info("covering the %d best-studied claims; dropped %s", len(kept), dropped)
+            ranked_by_claim = {claim: ranked_by_claim[claim] for claim in kept}
+            # Every later stage reads the claim list: VALIDATE seeds a quorum per claim,
+            # so a dropped claim left in it would still cap the verdict.
+            ctx = ctx.model_copy(
+                update={
+                    "candidates": {c: ctx.candidates[c] for c in kept},
+                    "extraction": ctx.extraction.model_copy(update={"target_claims": kept}),
+                }
+            )
         ranked_by_claim = assign_handles(ranked_by_claim)
 
         thin = thin_claims(ranked_by_claim)
@@ -93,6 +145,7 @@ class RankStage:
                 "unique_sources": len({entry.source_id for entry in all_ranked}),
                 "refine_round": ctx.refine_round,
                 "thin_claims": thin,
+                "claims_dropped": dropped,
                 "ranked_against": subject,
             },
         )

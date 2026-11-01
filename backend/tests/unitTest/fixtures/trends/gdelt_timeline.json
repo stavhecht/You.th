@@ -1,0 +1,8 @@
+{"query_details": {"title": "\"creatine\" sourcelang:english", "date_resolution": "day"},
+ "timeline": [{"series": "Article Count", "data": [
+  {"date": "20261001T000000Z", "value": 4, "norm": 51234},
+  {"date": "20261002T000000Z", "value": 3, "norm": 50110},
+  {"date": "20261005T000000Z", "value": 9, "norm": 52001},
+  {"date": "20261010T000000Z", "value": 12, "norm": 49876},
+  {"date": "20261011T000000Z", "value": 15, "norm": 50442}
+ ]}]}

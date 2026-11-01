@@ -41,7 +41,7 @@ MAX_SYNTHESIS_CALLS = 1 + 1 + MAX_REVISE_ROUNDS
 #: A run that makes more HTTP calls than this is running away, whatever the cause.
 HTTP_CALL_BUDGET = 400
 #: Model calls, as the trace names them. Everything else but embeddings is HTTP.
-LLM_TOOLS = frozenset({"llm_extraction", "llm_appraisal", "llm_synthesis"})
+LLM_TOOLS = frozenset({"llm_extraction", "llm_appraisal", "llm_synthesis", "llm_reader_edit"})
 
 
 def expected_tools(case: EvalCase, enabled: list[str]) -> set[str]:
@@ -203,7 +203,11 @@ def decisions(trace: dict[str, Any]) -> list[dict[str, Any]]:
             len(offered) >= SECTIONS_EXPECTED_FROM
             and _covered(first["output"], offered) < len(offered) * MIN_CITED_FRACTION
         )
-        reprompted = any(d["kind"] == "coverage" for d in trace.get("drafts") or [])
+        # The decision log, not the drafts: a re-prompt whose draft was not kept
+        # leaves only the first draft in the trace (2026-10-24, 4 false failures).
+        reprompted = any(
+            d.get("decision") == "coverage re-prompt" for d in trace.get("decisions") or []
+        ) or any(d["kind"] == "coverage" for d in trace.get("drafts") or [])
         rule(
             "coverage_reprompt_rule",
             reprompted == thin,
@@ -215,7 +219,10 @@ def decisions(trace: dict[str, Any]) -> list[dict[str, Any]]:
     if validations:
         first_report = validations[0]
         codes = {f["code"] for f in first_report.get("failures") or []}
-        revised = any(d["kind"] == "revision" for d in trace.get("drafts") or [])
+        # A targeted repair (``SynthesizeStage._repair``) revises without a synthesis call.
+        synthesize = (trace.get("stage_metrics") or {}).get("synthesize") or {}
+        repaired = bool(synthesize.get("repair"))
+        revised = repaired or any(d["kind"] == "revision" for d in trace.get("drafts") or [])
         if not first_report.get("passed") and codes and codes <= REVISABLE_FAILURES:
             rule(
                 "revise_fixable_failures",

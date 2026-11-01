@@ -24,10 +24,13 @@ from fastapi.responses import JSONResponse
 
 from app.api.deps import (
     ClientIpDep,
+    IdPath,
     ReaderDep,
     ReaderLoginThrottleDep,
     SessionDep,
     SettingsDep,
+    SignupThrottleDep,
+    too_many_attempts,
 )
 from app.api.public.schemas import (
     CreateFolderRequest,
@@ -41,7 +44,8 @@ from app.api.public.schemas import (
     SignupRequest,
     UpdateReaderRequest,
 )
-from app.security.auth import create_reader_token, equalise_timing, verify_password
+from app.api.schemas_base import UUID_PATTERN
+from app.security.auth import check_password, create_reader_token, equalise_timing
 from app.services.reader import (
     EmailAlreadyRegistered,
     ReaderError,
@@ -71,13 +75,23 @@ async def signup(
     payload: SignupRequest,
     session: SessionDep,
     settings: SettingsDep,
+    throttle: SignupThrottleDep,
+    ip: ClientIpDep,
 ) -> ReaderTokenResponse:
     """Create an account and sign in with it.
 
     Returns a token rather than 201-and-go-log-in: the form that posts here is
     "build my feed", and bouncing someone to a login screen immediately after
     they typed their password is a step with no purpose.
+
+    Throttled before the password is hashed, like ``/login``. Every attempt
+    counts, taken or not: a successful signup is what a bot repeats.
     """
+    retry_after = throttle.retry_after(ip=ip, email=payload.email)
+    if retry_after is not None:
+        raise too_many_attempts(retry_after, "Too many attempts. Try again later.")
+    throttle.record_failure(ip=ip, email=payload.email)
+
     try:
         reader = await ReaderService(session).signup(
             email=payload.email,
@@ -109,20 +123,16 @@ async def login(
 
     retry_after = throttle.retry_after(ip=ip, email=email)
     if retry_after is not None:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many attempts. Try again later.",
-            headers={"Retry-After": str(max(1, int(retry_after)))},
-        )
+        raise too_many_attempts(retry_after, "Too many attempts. Try again later.")
 
     reader = await ReaderService(session).by_email(email)
 
     if reader is None:
-        equalise_timing()
+        await equalise_timing()
         throttle.record_failure(ip=ip, email=email)
         raise _INVALID_CREDENTIALS
 
-    if not verify_password(payload.password, reader.password_hash):
+    if not await check_password(payload.password, reader.password_hash):
         throttle.record_failure(ip=ip, email=email)
         raise _INVALID_CREDENTIALS
 
@@ -208,15 +218,11 @@ async def delete_me(
     """
     retry_after = throttle.retry_after(ip=ip, email=reader.email)
     if retry_after is not None:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many attempts. Try again later.",
-            headers={"Retry-After": str(max(1, int(retry_after)))},
-        )
+        raise too_many_attempts(retry_after, "Too many attempts. Try again later.")
 
     service = ReaderService(session)
     row = await service.get(reader.id)
-    if not verify_password(payload.password, row.password_hash):
+    if not await check_password(payload.password, row.password_hash):
         throttle.record_failure(ip=ip, email=reader.email)
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="That password is not right."
@@ -249,7 +255,7 @@ async def create_folder(
 
 @router.delete("/folders/{folder_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_folder(
-    folder_id: str, reader: ReaderDep, session: SessionDep
+    folder_id: IdPath, reader: ReaderDep, session: SessionDep
 ) -> None:
     try:
         await ReaderService(session).delete_folder(reader.id, folder_id)
@@ -261,7 +267,7 @@ async def delete_folder(
 async def saved(
     reader: ReaderDep,
     session: SessionDep,
-    folder_id: Annotated[str | None, Query(alias="folderId")] = None,
+    folder_id: Annotated[str | None, Query(alias="folderId", pattern=UUID_PATTERN)] = None,
 ) -> SavedPageOut:
     """The reader's shelf, plus the folder tabs above it, in one request."""
     service = ReaderService(session)

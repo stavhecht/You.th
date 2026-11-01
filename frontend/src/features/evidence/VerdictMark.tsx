@@ -44,8 +44,8 @@ interface Props {
 }
 
 /**
- * Decorative by design: every caller renders {@link VerdictLabel} or its own
- * text beside this, so announcing the shape would only duplicate the word.
+ * Decorative by design: every caller renders the verdict's wording
+ * beside this, so announcing the shape would only duplicate the word.
  */
 export function VerdictMark({ verdict, size = "card" }: Props) {
   const box = markBox(size);

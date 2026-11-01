@@ -10,6 +10,7 @@ write — or worse, as silently degraded retrieval.
 from __future__ import annotations
 
 import json
+import logging
 from functools import lru_cache
 from typing import Annotated, Literal
 
@@ -28,6 +29,16 @@ CsvList = Annotated[list[str], NoDecode]
 
 #: Weakest to strongest. Mirrored by ``research/contracts.py::EvidenceStatus``;
 #: kept as strings here so config does not import the research package.
+logger = logging.getLogger(__name__)
+
+#: Signing keys printed in this repo: the code default and the two
+#: ``.env.example`` values. Each passes the length check, so a deployment that
+#: copied one runs on a key anyone with the source can sign reviewer tokens with.
+_DEV_JWT_SECRET = "dev-only-insecure-secret-change-me-32-chars"
+PUBLIC_JWT_SECRETS = frozenset(
+    {_DEV_JWT_SECRET, "change-me-at-least-32-characters-long-please"}
+)
+
 _EVIDENCE_STATUSES = ("none", "limited", "emerging", "moderate", "strong")
 #: Mirrored by ``research/contracts.py::SOURCE_NAMES``, for the same reason.
 _TREND_SOURCES = (
@@ -50,7 +61,7 @@ class Settings(BaseSettings):
 
     # --- auth ---
     jwt_secret: str = Field(
-        default="dev-only-insecure-secret-change-me-32-chars",
+        default=_DEV_JWT_SECRET,
         min_length=32,
         description="HS256 signing key",
     )
@@ -61,7 +72,7 @@ class Settings(BaseSettings):
     #: built: every generative call runs locally, costs nothing, and needs no
     #: key. Set LLM_PROVIDER=anthropic for real deployment — the hosted client
     #: is fully wired and nothing else changes. See llm/factory.py.
-    llm_provider: str = "ollama"          # "ollama" | "anthropic"
+    llm_provider: str = "ollama"          # "ollama" | "anthropic" | "llamacpp"
 
     # --- Ollama (local, free) ---
     ollama_base_url: str = "http://localhost:11434"
@@ -86,6 +97,23 @@ class Settings(BaseSettings):
     #: and it is often still resident from EXTRACT when APPRAISE runs.
     #: Empty means the synthesis model.
     ollama_appraisal_model: str = "llama3.1:8b"
+
+    # --- llama.cpp server (local; used when llm_provider='llamacpp') ---
+    #: For models Ollama cannot load — Ternary-Bonsai-2-27B needs PrismML's
+    #: llama.cpp fork — through `llama-server`'s OpenAI-compatible endpoint.
+    #: Extraction, appraisal and synthesis all run on it; embeddings stay on
+    #: EMBEDDING_PROVIDER. Every generative call, not just synthesis, because
+    #: on a 16 GB Mac it cannot share the GPU with an Ollama language model
+    #: (see llm/llamacpp_client.py).
+    llamacpp_base_url: str = "http://localhost:8080"
+    #: A label, not a lookup: llama-server serves the one model it was started
+    #: with. It names the model in the run record and the price table.
+    llamacpp_model: str = "ternary-bonsai-2-27b"
+    #: Sent as `reasoning_effort`. "none" turns Bonsai's thinking off (a budget
+    #: of 0 does not); "medium" is the vendor's recommended shorter setting.
+    #: Bonsai's template rejects "high" with a 500, and "low" thinks about as
+    #: long as "xhigh" (PrismML KNOWN_ISSUES, 2026-09-23).
+    llamacpp_reasoning_effort: str = "none"
 
     # --- Claude (hosted; used when llm_provider='anthropic') ---
     anthropic_api_key: str = ""
@@ -152,7 +180,10 @@ class Settings(BaseSettings):
     #: to cite them survives, and the run fails as `hallucinated_handle` with
     #: nothing pointing at the real cause.
     retrieval_top_k: int = 12
-    retrieval_max_candidates_per_claim: int = 50
+    #: The sum of the query builder's two passes (30 reviews + 35 general), so
+    #: the cap cuts nothing they found. At 50 against 65, measured 2026-10-23,
+    #: the extra reviews cost 10 gold papers from the general pass.
+    retrieval_max_candidates_per_claim: int = 65
     retrieval_min_year: int | None = None
     #: How many open-access papers per article get full-text excerpts in the
     #: synthesis prompt (pipeline/steps/full_text.py). 0 turns full text off.
@@ -188,6 +219,11 @@ class Settings(BaseSettings):
     #: exempts ``supports``, so dropping ``off_topic`` drops the null trials.
     #: Revisit only after that guard stops producing ``off_topic`` for them.
     synthesis_relevance_filter: bool = False
+    #: The plain-language edit (``pipeline/steps/reader_edit.py``): one more
+    #: synthesis call that rewrites the draft for everyday readers, kept only if
+    #: it changed nothing but the wording. ~3 minutes on llama-server, which
+    #: reuses its cache of the source block. False skips it.
+    synthesis_reader_edit: bool = True
 
     # --- pipeline ---
     worker_poll_interval_seconds: float = 5.0
@@ -582,6 +618,18 @@ class Settings(BaseSettings):
                 f"{info.field_name} must be a positive multiple of 16, got {value}"
             )
         return value
+
+    @model_validator(mode="after")
+    def _warn_on_a_public_jwt_secret(self) -> Settings:
+        """Warn, not refuse: local dev runs on the default by design. The warning
+        is the only signal a real deployment would otherwise never get."""
+        if self.jwt_secret in PUBLIC_JWT_SECRETS:
+            logger.warning(
+                "JWT_SECRET is a placeholder published in this repository; anyone "
+                "with the source can sign reviewer tokens. Set a random value "
+                "(python -c 'import secrets; print(secrets.token_urlsafe(48))')."
+            )
+        return self
 
     @model_validator(mode="after")
     def _heartbeat_leaves_room_to_miss_one(self) -> Settings:

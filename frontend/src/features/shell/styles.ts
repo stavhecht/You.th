@@ -59,7 +59,7 @@ export const WORDMARK = "block leading-none";
  * mark leaves over, and the right one holds the avatar and theme toggle (~71px)
  * — a full-height mark (~195px) would push them into it on a 375px screen.
  */
-export const WORDMARK_IMAGE = "youth-mark block h-[52px] w-auto max-w-none sm:h-header";
+export const WORDMARK_IMAGE = "youth-mark block h-[44px] w-auto max-w-none sm:h-[51px]";
 
 /** The hamburger — three rules, drawn rather than iconified. */
 export const MENU_BUTTON =

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import base64
 import logging
+import uuid
 from datetime import UTC, datetime
 from typing import Any
 
@@ -32,11 +33,21 @@ class ReviewError(RuntimeError):
     """An illegal review transition was attempted. Surfaces as HTTP 409."""
 
 
+class EditConflict(ReviewError):
+    """The draft changed since the editor loaded it. Surfaces as HTTP 412."""
+
+
+#: ``base`` not sent: the save is unconditional, as before the check existed.
+_UNCHECKED: Any = object()
+
+
 class ReviewService:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def save_edits(self, article_id: str, content: dict, reviewer_id: str) -> None:
+    async def save_edits(
+        self, article_id: str, content: dict, reviewer_id: str, *, base: Any = _UNCHECKED
+    ) -> None:
         """Autosave the editor's content into ``edited_content``.
 
         Writes ``edited_content`` only. ``original_content`` is never touched —
@@ -57,15 +68,26 @@ class ReviewService:
         the difference between a broken `src` being noticed now and it being
         noticed by a reader.
 
+        ``base`` is the ``edited_content`` the editor last loaded or saved (None
+        for an unedited draft). The whole document is saved, so without it a
+        second reviewer's autosave from an older copy silently undid the first
+        reviewer's edits. Compared as dicts, so JSONB's key order is irrelevant.
+
         Raises:
+            EditConflict: ``edited_content`` is no longer ``base``.
             ReviewError: the article is not in ``pending_review``, or the
                 document references media this system did not store.
         """
-        article = await self._get(article_id)
+        article = await self._get(article_id, lock=True)
         if article.status != ArticleStatus.PENDING_REVIEW:
             raise ReviewError(
                 f"cannot edit an article in state '{article.status}'; "
                 "only drafts pending review are editable"
+            )
+        if base is not _UNCHECKED and base != article.edited_content:
+            raise EditConflict(
+                "another reviewer saved this draft since you opened it; "
+                "copy your change and reload"
             )
 
         try:
@@ -95,7 +117,7 @@ class ReviewService:
                 validates. The message names the specific handles, because a
                 reviewer needs to know *which* citation broke.
         """
-        article = await self._get(article_id)
+        article = await self._get(article_id, lock=True)
 
         if article.status != ArticleStatus.PENDING_REVIEW:
             # Deliberately includes validation_failed: a draft that failed
@@ -165,7 +187,7 @@ class ReviewService:
         guessed subject would put a confident colour on an unchecked
         classification.
         """
-        article = await self._get(article_id)
+        article = await self._get(article_id, lock=True)
         if article.status in (ArticleStatus.REJECTED, ArticleStatus.DRAFT_FAILED):
             raise ReviewError(
                 f"cannot classify an article in state '{article.status}'"
@@ -244,7 +266,7 @@ class ReviewService:
         navigating away mid-swap is a typographic tile — never a tile showing a
         picture the article does not have.
         """
-        article = await self._get(article_id)
+        article = await self._get(article_id, lock=True)
         if article.status != ArticleStatus.PENDING_REVIEW:
             raise ReviewError(
                 f"cannot regenerate imagery for an article in state '{article.status}'; "
@@ -285,7 +307,7 @@ class ReviewService:
         applies with most force to ``validation_failed`` drafts, which is why
         discarding one records a reason rather than removing the row.
         """
-        article = await self._get(article_id)
+        article = await self._get(article_id, lock=True)
         if article.status not in self._REJECTABLE:
             raise ReviewError(
                 f"cannot reject an article in state '{article.status}'"
@@ -412,6 +434,7 @@ class ReviewService:
                 "url": source.resolved_url,
                 "pmid": source.pmid,
                 "doi": source.doi,
+                "abstract": source.abstract,
                 "was_cited": link.was_cited,
                 "relevance_score": link.relevance_score,
                 "is_weak_evidence": is_weak_evidence(StudyType(source.study_type)),
@@ -455,8 +478,16 @@ class ReviewService:
             "created_at": article.created_at,
         }
 
-    async def _get(self, article_id: str) -> Article:
-        article = await self._session.get(Article, article_id)
+    async def _get(self, article_id: str, *, lock: bool = False) -> Article:
+        """``lock`` for writes that check the status first: ``FOR UPDATE`` makes a
+        racing approve, autosave or reject wait and re-read rather than act on
+        a status that has already changed. Off for reads, and deliberately for
+        ``article_for_illustration``, which must not hold the row across a
+        provider call. ``populate_existing`` because the lock alone re-queries
+        but keeps a copy this session already holds, stale status included."""
+        article = await self._session.get(
+            Article, article_id, with_for_update=lock, populate_existing=lock
+        )
         if article is None:
             raise ReviewError(f"article {article_id} not found")
         return article
@@ -491,6 +522,7 @@ def _decode_cursor(cursor: str) -> tuple[datetime, str]:
     try:
         raw = base64.urlsafe_b64decode(cursor.encode()).decode()
         timestamp, article_id = raw.split("|", 1)
+        uuid.UUID(article_id)  # a non-UUID would reach Postgres and 500
         return datetime.fromisoformat(timestamp), article_id
-    except (ValueError, UnicodeDecodeError) as exc:
+    except ValueError as exc:  # binascii and Unicode errors are ValueErrors too
         raise ReviewError("malformed cursor") from exc

@@ -126,6 +126,7 @@ async def generate_illustration(
     topic: str = "",
     subject: Subject | None = None,
     ingredients: str = "",
+    outcome: str = "",
     lead_size: tuple[int, int],
     cover_size: tuple[int, int],
     session: AsyncSession,
@@ -150,6 +151,8 @@ async def generate_illustration(
             photograph from the text below; that inference picks a picture and
             is never written to ``articles.subject``.
         ingredients: joined actives, as one more signal for that inference.
+        outcome: the joined claims, read for ``imagery/prompt.py``'s outcome
+            scenes when the product names no motif; never put in the prompt.
         seed: selects the prompt's arrangement, framing, light and surface.
             Every frame drawn on this call shares it, so they come from one
             shoot; a frame carried over from ``keep`` keeps its own.
@@ -188,7 +191,12 @@ async def generate_illustration(
     # here even though the provider ignores the copy it is also sent; see
     # ``seed_for_run``.
     prompt, negative_prompt = build_prompt(
-        product, subject=subject, fallback=topic, ingredients=ingredients, seed=seed
+        product,
+        subject=subject,
+        fallback=topic,
+        ingredients=ingredients,
+        seed=seed,
+        outcome=outcome,
     )
     # Same `subject` as the prompt, so the alt text cannot call a photograph of
     # someone on a mat a still life. It gets no `topic`, matching the people

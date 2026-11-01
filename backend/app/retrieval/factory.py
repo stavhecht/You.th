@@ -40,6 +40,7 @@ USER_AGENT = "EvidWell/0.1 (evidence-checked wellness content)"
 PUBMED_ANONYMOUS_RPS = 2.0  # documented 3/s
 PUBMED_KEYED_RPS = 7.0  # documented 10/s with an API key
 EUROPE_PMC_RPS = 5.0
+DOI_ORG_RPS = 5.0  # undocumented; the handle API is a public resolver
 #: Semantic Scholar's keyed search endpoint is 1 req/s. It is the slowest of
 #: the four by an order of magnitude, which is a reason to keep its result cap
 #: low rather than a reason to exceed it.
@@ -172,6 +173,11 @@ def build_europe_pmc_client(settings: Settings, http: httpx.AsyncClient) -> Http
     worker runs one pipeline at a time.
     """
     return throttled_client(settings, http, "europe_pmc", EUROPE_PMC_RPS)
+
+
+def build_doi_client(settings: Settings, http: httpx.AsyncClient) -> HttpClient:
+    """The throttled client behind RETRIEVE's DOI registration check."""
+    return throttled_client(settings, http, "doi_org", DOI_ORG_RPS)
 
 
 def throttled_client(

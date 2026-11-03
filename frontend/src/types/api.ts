@@ -481,7 +481,7 @@ export type ContactKind = "fact_check" | "topic" | "other";
 
 export interface ContactSubmission {
   kind: ContactKind;
-  name?: string | null;
+  name: string;
   email: string;
   link?: string | null;
   note: string;

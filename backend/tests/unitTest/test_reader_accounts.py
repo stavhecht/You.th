@@ -348,6 +348,7 @@ async def test_a_handled_request_has_to_name_who_handled_it(
     service = ContactService(session)
     request = await service.submit(
         kind=ContactKind.FACT_CHECK,
+        name="Maya",
         email="maya@example.com",
         note="Someone on my feed says collagen powder rebuilds cartilage.",
         link="https://example.com/a-post",
@@ -385,7 +386,7 @@ async def test_reopening_a_request_clears_the_handler(session: AsyncSession) -> 
 
     service = ContactService(session)
     request = await service.submit(
-        kind=ContactKind.TOPIC, email="maya@example.com", note="Cover creatine."
+        kind=ContactKind.TOPIC, name="Maya", email="maya@example.com", note="Cover creatine."
     )
 
     await service.set_status(request.id, ContactStatus.ANSWERED, user_id)

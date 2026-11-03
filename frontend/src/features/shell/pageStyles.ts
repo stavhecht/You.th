@@ -102,6 +102,9 @@ export const PASSWORD_RULE_MARK = "w-3 flex-none text-center text-accent-ink";
 export const FORM_ERROR =
   "mt-3.5 rounded-field border-l-2 border-accent bg-accent-wash px-3.5 py-2.5 font-body text-[12.5px] leading-normal text-ink";
 
+/** A problem with one field, shown under it once the reader has left it. */
+export const FIELD_ERROR = "mt-1.5 block font-body text-[12.5px] text-danger-ink";
+
 /* ── chips ──────────────────────────────────────────────────────────────── */
 
 export const CHIP_ROW = "flex flex-wrap gap-2";

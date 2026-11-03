@@ -228,13 +228,13 @@ async def test_the_request_helper_finds_and_erases_by_address_case_insensitively
     reader = await _make_reader(session, address.lower())
     contacts = ContactService(session)
     await contacts.submit(
-        kind=ContactKind.OTHER, email=address, note="mine", name=None, link=None
+        kind=ContactKind.OTHER, email=address, note="mine", name="Maya", link=None
     )
     await contacts.submit(
         kind=ContactKind.OTHER,
         email=f"other-{uuid.uuid4().hex[:8]}@example.com",
         note="someone else's",
-        name=None,
+        name="Sam",
         link=None,
     )
     await session.flush()

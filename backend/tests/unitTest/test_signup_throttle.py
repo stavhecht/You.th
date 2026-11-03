@@ -128,7 +128,11 @@ async def test_password_checks_run_off_the_event_loop(monkeypatch: pytest.Monkey
             {"email": "a@example.com", "password": "x"},
             "get_reader_login_throttle",
         ),
-        ("/api/contact", {"email": "a@example.com", "note": "hello"}, "get_contact_throttle"),
+        (
+            "/api/contact",
+            {"name": "Ada", "email": "a@example.com", "note": "hello"},
+            "get_contact_throttle",
+        ),
     ],
 )
 def test_a_blocked_caller_gets_a_429_with_retry_after(

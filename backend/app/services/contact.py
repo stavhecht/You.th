@@ -51,8 +51,11 @@ class ContactService:
     ) -> ContactRequest:
         """Record a submission. Always lands as ``new``."""
         cleaned_note = note.strip()
-        if not cleaned_note:
-            raise ContactError("tell us what this is about")
+        cleaned_name = (name or "").strip()
+        if not cleaned_name:
+            raise ContactError("tell us your name")
+        if not cleaned_note and not (link or "").strip():
+            raise ContactError("add a link or tell us what this is about")
         if len(cleaned_note) > MAX_NOTE_CHARS:
             raise ContactError(
                 f"that note is longer than the {MAX_NOTE_CHARS} characters we can take"
@@ -64,7 +67,7 @@ class ContactService:
             kind=kind,
             email=email.strip().lower(),
             note=cleaned_note,
-            name=(name or "").strip() or None,
+            name=cleaned_name,
             link=(link or "").strip() or None,
             status=ContactStatus.NEW,
         )

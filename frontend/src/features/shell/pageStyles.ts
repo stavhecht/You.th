@@ -1,5 +1,5 @@
 /**
- * Names for the four standing public pages — About, Join, You, Let us know.
+ * Names for the four standing public pages - About, Join, You, Let us know.
  *
  * These share a shape the feed and the article do not: a narrow measure, a
  * "← Feed" escape at the top, and forms. Keeping their names together rather
@@ -109,7 +109,7 @@ export const FIELD_ERROR = "mt-1.5 block font-body text-[12.5px] text-danger-ink
 
 export const CHIP_ROW = "flex flex-wrap gap-2";
 
-/** A choice among several — interests, contact kinds, folder tabs. */
+/** A choice among several - interests, contact kinds, folder tabs. */
 export function chip(active: boolean): string {
   return `inline-flex items-center gap-2 rounded-full border px-4 py-2.5 font-body text-[12px] font-semibold tracking-[0.02em] transition-colors ${
     active
@@ -189,7 +189,7 @@ export const LEGAL_TH =
   "border-b border-rule px-2 py-2 text-left align-top font-bold text-ink";
 export const LEGAL_TD = "border-b border-rule-soft px-2 py-2 align-top";
 /**
- * A fact only the operator can supply. Marked loudly on purpose — a page that
+ * A fact only the operator can supply. Marked loudly on purpose - a page that
  * looks finished while naming no controller is worse than one that is plainly
  * a draft. See COMPLIANCE_BUSINESS_INPUTS.md.
  */

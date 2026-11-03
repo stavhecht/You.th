@@ -12,15 +12,15 @@ keeps that server running without anyone watching it.
 ./manage.sh uninstall
 ```
 
-Logs are in `~/Library/Logs/evidwell/`: `llama-server.log` (trimmed to its last 5 MB
+Logs are in `~/Library/Logs/youth/`: `llama-server.log` (trimmed to its last 5 MB
 past 20 MB) and `watchdog.log` (only failures, restarts and recoveries).
 
 ## What runs
 
-- **`com.evidwell.llama-server`** runs `run.sh`: it unloads Ollama's language models
+- **`com.youth.llama-server`** runs `run.sh`: it unloads Ollama's language models
   (keeping `mxbai-embed-large`), then execs llama-server. `KeepAlive` restarts it
   whenever it exits; `RunAtLoad` starts it at login.
-- **`com.evidwell.llama-server.watchdog`** runs `watchdog.sh` every 2 minutes. It asks
+- **`com.youth.llama-server.watchdog`** runs `watchdog.sh` every 2 minutes. It asks
   for a real four-token completion and restarts the server after **two failed checks in
   a row** (`launchctl kickstart -k`, which runs `run.sh` again).
 

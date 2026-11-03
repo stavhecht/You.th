@@ -17,7 +17,6 @@ from app.discovery.manual import ManualScanStatus
 from app.domain.enums import (
     ArticleStatus,
     ContactKind,
-    ContactStatus,
     DiscoveryCandidateStatus,
     ImageFrame,
     ResearchCandidateStatus,
@@ -416,13 +415,7 @@ class ContactRequestOut(CamelModel):
     email: str
     link: str | None
     note: str
-    status: ContactStatus
-    handled_at: datetime | None = None
     created_at: datetime
-
-
-class SetContactStatusRequest(CamelModel):
-    status: ContactStatus
 
 
 # --- trend discovery -------------------------------------------------------

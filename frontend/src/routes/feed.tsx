@@ -1,8 +1,8 @@
 /**
  * The public feed.
  *
- * The masthead the previous design opened with — a display-size statement of
- * what the product is — is gone, replaced by the comp's hero: the footage full
+ * The masthead the previous design opened with - a display-size statement of
+ * what the product is - is gone, replaced by the comp's hero: the footage full
  * bleed with one serif line over it. The claim is the same and the register is
  * not, which is the point of the redesign. The promise it used to make in a
  * standfirst is now the line under the grid, where a reader arrives at it
@@ -128,7 +128,7 @@ export function FeedRoute() {
  * What the grid below is currently showing.
  *
  * Named rather than always "Latest research", because the drawer and the search
- * box can both narrow the feed from somewhere the reader cannot see — a grid
+ * box can both narrow the feed from somewhere the reader cannot see - a grid
  * that silently holds one category is how a reader concludes the site is empty.
  */
 function heading({
@@ -153,7 +153,7 @@ function heading({
  *
  * `autoPlay muted playsInline loop` is the only combination browsers will start
  * without a gesture, and `muted` has to be on the element itself rather than set
- * later — Safari decides at parse time, so a `ref` that mutes after mount is
+ * later - Safari decides at parse time, so a `ref` that mutes after mount is
  * already too late and the video simply never plays.
  *
  * No audio track in use: this is wallpaper with a sentence over it, not
@@ -162,7 +162,7 @@ function heading({
  *
  * **But it has a pause button, and does not start for a reader who asked for
  * less motion.** Footage that moves for more than five seconds alongside other
- * content needs a way to stop it (WCAG 2.2.2, Level A — part of IS 5568): for
+ * content needs a way to stop it (WCAG 2.2.2, Level A - part of IS 5568): for
  * someone with a vestibular or attention disorder, a looping beach is not
  * wallpaper. `autoPlay` stays on the element for the Safari reason above; the
  * effect pauses it at once under `prefers-reduced-motion`.

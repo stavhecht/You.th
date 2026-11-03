@@ -45,7 +45,7 @@ from app.db import dispose_engine, get_session_factory
 from app.domain.models import ContactRequest, Reader, User
 from app.services.reader import ReaderService
 
-_CONTACT_FIELDS = ("kind", "name", "email", "link", "note", "status", "created_at")
+_CONTACT_FIELDS = ("kind", "name", "email", "link", "note", "created_at")
 
 
 def _normalise(email: str) -> str:

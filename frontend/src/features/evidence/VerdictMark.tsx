@@ -1,5 +1,5 @@
 /**
- * The verdict mark — the single most important pixel in the product.
+ * The verdict mark - the single most important pixel in the product.
  *
  * It carries the judgment in **geometry, not colour**: a square that is filled,
  * half-filled, quarter-filled or empty. That is a deliberate reversal of the
@@ -7,18 +7,18 @@
  * old coloured badge:
  *
  * 1. **Never colour-only.** A verdict conveyed by hue fails silently for
- *    colour-blind readers and in greyscale screenshots — and this product gets
+ *    colour-blind readers and in greyscale screenshots - and this product gets
  *    screenshotted into arguments. Geometry survives both, and the text label
  *    still rides alongside it in every usage.
  * 2. **`no_evidence` is neutral, not alarming.** "We looked and found nothing"
  *    is an honest, useful result. It is an empty square drawn in the same ink
- *    family as the rest — a gap in the literature, not a warning.
+ *    family as the rest - a gap in the literature, not a warning.
  * 3. **A green/amber/red ramp turns the feed into a scoreboard.** Ranking
  *    products by hue is the thing the content rules forbid, and a grid of
  *    traffic lights does it whatever the copy says. Freeing the colour axis is
  *    what lets `subject` colour exist at all (see `./subject.ts`).
  *
- * The fill fraction is not decorative either — it reads as "how much of the
+ * The fill fraction is not decorative either - it reads as "how much of the
  * claim is supported", which is exactly what `mixed` and `weak` mean.
  */
 

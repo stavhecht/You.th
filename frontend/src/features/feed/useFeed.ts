@@ -6,18 +6,18 @@
  * up out of the grid, the route owns the query through this hook and hands the
  * result to both.
  *
- * This is the React binding only — the fetch itself stays in `lib/api/feed.ts`,
+ * This is the React binding only - the fetch itself stays in `lib/api/feed.ts`,
  * framework-agnostic, so the Next.js port can call it from a server component
  * without dragging react-query along (DESIGN.md §3.1).
  *
  * **Every narrowing happens on the server**, free text included. The feed is
  * paginated, so narrowing client-side would only narrow the pages already
- * loaded — a category with nothing on page one would look empty, and a search
+ * loaded - a category with nothing on page one would look empty, and a search
  * would miss everything not yet scrolled to. Free text used to be the
  * exception, matched against loaded cards only, because the alternative on
  * offer was a `LIKE` over card columns that would quietly miss every
  * article's body. `GET /feed?q=` now searches the whole approved text of every
- * published article (migration 0006), so "nothing matched" is a claim about
+ * published article (`0001_initial.sql`), so "nothing matched" is a claim about
  * the archive and the empty state can make it.
  */
 

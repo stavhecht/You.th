@@ -6,8 +6,8 @@
  * mechanisms changes, this page becomes a false statement rather than a stale
  * one, so whoever changes the mechanism changes the sentence.
  *
- * What the code cannot know — who the controller is, where the servers are,
- * how long logs and contact messages are kept — is a `<Fill>` placeholder,
+ * What the code cannot know - who the controller is, where the servers are,
+ * how long logs and contact messages are kept - is a `<Fill>` placeholder,
  * rendered loudly, and listed in COMPLIANCE_BUSINESS_INPUTS.md. The page is a
  * draft until those are filled and a lawyer has read it; the banner at the top
  * says so to anyone who lands here first.
@@ -63,21 +63,21 @@ const DATA_TABLE: { what: string; why: string; basis: string; kept: ReactNode }[
     kept: "Until you remove them or delete your account",
   },
   {
-    // readers.newsletter — a stored choice; nothing sends email yet
+    // readers.newsletter - a stored choice; nothing sends email yet
     what: "Whether you asked for the newsletter",
     why: "To record your choice. We do not send a newsletter yet; if we start, we will only send it to people who asked",
     basis: "Your consent, which you can withdraw on your profile at any time",
     kept: "Until you switch it off or delete your account",
   },
   {
-    // contact_requests: email, name?, link?, note
-    what: "What you send through “Let us know”: your email, optional name, optional link and your message",
+    // contact_requests: name, email, link?, note - also emailed to the editorial inbox
+    what: "What you send through “Let us know”: your name, your email, a link if you add one, and your message",
     why: "To read your request and reply to it",
     basis: "Responding to your request; our legitimate interest in running the publication",
     kept: <Fill>retention period for contact messages</Fill>,
   },
   {
-    // security/login_throttle.py — in memory only
+    // security/login_throttle.py - in memory only
     what: "Your IP address and the email address used when you sign in, confirm deleting your account, or send a message",
     why: "To block password guessing and spam",
     basis: "Our legitimate interest in keeping accounts secure",
@@ -163,7 +163,7 @@ export function PrivacyRoute() {
           for (ePrivacy Art 5(3) exemption; the PPA's position is notice for
           essential storage, opt-in for analytics/advertising). Adding any
           analytics, pixel or third-party embed that stores an identifier
-          changes that — see COMPLIANCE_AUDIT.md §4.2. */}
+          changes that - see COMPLIANCE_AUDIT.md §4.2. */}
       <h2 className={LEGAL_H2}>Cookies and browser storage</h2>
       <p className={LEGAL_P}>
         You.th sets no cookies. We keep two small items in your browser&rsquo;s
@@ -203,6 +203,11 @@ export function PrivacyRoute() {
         <li>
           Our hosting provider, <Fill>hosting provider and server location</Fill>,
           which stores the database and runs the service on our behalf.
+        </li>
+        <li>
+          <strong>Google (Gmail).</strong> A copy of each message you send through
+          &ldquo;Let us know&rdquo; is emailed to our editorial team&rsquo;s Gmail
+          inbox, so that it is read and answered.
         </li>
         <li>
           <strong>YouTube (Google).</strong> Some articles include a video. On those
@@ -252,8 +257,8 @@ export function PrivacyRoute() {
           <strong>Delete it.</strong> &ldquo;Delete my account&rdquo; on your
           profile erases your account, folders and saved articles at once. Copies in
           our backups are removed when those backups expire, within{" "}
-          <Fill>backup retention period</Fill>. To delete messages you sent us, or if
-          you cannot sign in, write to us.
+          <Fill>backup retention period</Fill>. To delete messages you sent us
+          (including the copy in our mailbox), or if you cannot sign in, write to us.
         </li>
         <li>
           <strong>Withdraw consent.</strong> Switch the newsletter off on your
@@ -275,7 +280,7 @@ export function PrivacyRoute() {
         answer within <Fill>response time, e.g. 30 days</Fill>.
       </p>
       <p className={LEGAL_P}>
-        <Fill>EU / UK representative, if one is appointed — or remove</Fill>
+        <Fill>EU / UK representative, if one is appointed, or remove</Fill>
       </p>
 
       <h2 className={LEGAL_H2}>Security</h2>

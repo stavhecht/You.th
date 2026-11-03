@@ -3,7 +3,7 @@
  *
  * Written for what the service actually is: free reading, a free optional
  * account, a contact form. There are no payments, subscriptions or user
- * publishing anywhere in the code, so there are no clauses for them — add them
+ * publishing anywhere in the code, so there are no clauses for them - add them
  * when the product does, not before. Nothing here tries to exclude a right the
  * law gives a consumer; the liability section says so explicitly, because a
  * clause that purports to waive a mandatory right is unenforceable and, in some

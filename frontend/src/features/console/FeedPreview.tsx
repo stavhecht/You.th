@@ -1,12 +1,12 @@
 /**
- * How this draft will look on the feed — the real tile, among real neighbours.
+ * How this draft will look on the feed - the real tile, among real neighbours.
  *
  * Two decisions carry the whole component.
  *
  * **It renders the public feed's own `ArticleCard`, not a copy of it.** A
  * console-local tile would be a second definition of a tile, free to drift from
  * the one that ships, and a preview that drifts from what publishes is worse
- * than no preview — it is reassuring instead of useful. The card's data comes
+ * than no preview - it is reassuring instead of useful. The card's data comes
  * from `GET /console/articles/:id/card`, which runs the same `derive_card()`
  * the publish path runs, so neither half is a reimplementation.
  *
@@ -19,7 +19,7 @@
  *
  * **Neighbours come from the live feed.** Scale is comparative. Whether a
  * headline survives three lines of clamp, whether a picture reads at 190px,
- * whether the verdict kicker holds against a photograph — none of that is
+ * whether the verdict kicker holds against a photograph - none of that is
  * answerable from a tile on its own, which is why this is an overlay showing a
  * few cells of the real grid rather than a swatch in the sidebar.
  *
@@ -30,7 +30,7 @@
  * **The one live control is Redraw tile**, and it is here rather than in the
  * editor's toolbar because this is the only screen where its effect is visible.
  * A button that spends money and changes nothing you can see is a button
- * reviewers press twice. It redraws the cover alone — the article's own picture
+ * reviewers press twice. It redraws the cover alone - the article's own picture
  * is untouched, which is the entire point of the two being separable.
  */
 
@@ -61,7 +61,7 @@ import type { CardPreview, FeedCard } from "@/types/api";
 /** How many published tiles to stand the draft among. */
 const NEIGHBOURS = 11;
 
-/** Where the draft's own tile sits in the grid — a row down, not first. */
+/** Where the draft's own tile sits in the grid - a row down, not first. */
 const MY_POSITION = 3;
 
 interface Props {
@@ -111,7 +111,7 @@ export function FeedPreview({ articleId, onClose }: Props) {
    * Redraw the cover, then re-derive the tile from the server.
    *
    * No editor is passed and none is needed: the cover is not in the document.
-   * That is what makes this the cheap, self-contained half of the pair — the
+   * That is what makes this the cheap, self-contained half of the pair - the
    * article the reviewer has been editing is not touched, so there is nothing
    * to flush and nothing that can be clobbered.
    */
@@ -184,7 +184,7 @@ export function FeedPreview({ articleId, onClose }: Props) {
               )}
             </div>
             <p className={PREVIEW_NOTE}>
-              {describePicture(card)} Not published yet — the tiles around it are
+              {describePicture(card)} Not published yet. The tiles around it are
               live, and shown at the width the feed gives them.
             </p>
           </>
@@ -203,12 +203,12 @@ export function FeedPreview({ articleId, onClose }: Props) {
 /** Says which of the tile's three picture states this is, and what breaks it. */
 function describePicture(card: CardPreview): string {
   if (card.image === null) {
-    return "No picture, so the feed draws a typographic tile — that is the design's resting state, not a missing image.";
+    return "No picture, so the feed draws a typographic tile. That is the design's resting state, not a missing image.";
   }
   if (card.imageIsGeneratedCover) {
-    return "The tile shows the portrait frame drawn for this article — redrawing it here leaves the article's own picture alone. Replace or remove that picture in the editor and the pairing breaks, so the tile falls back to the article's own first image.";
+    return "The tile shows the portrait frame drawn for this article. Redrawing it here leaves the article's own picture alone. Replace or remove that picture in the editor and the pairing breaks, so the tile falls back to the article's own first image.";
   }
-  return "The tile shows the article's own first picture, cropped to fit — so it is changed by changing the article, not the tile.";
+  return "The tile shows the article's own first picture, cropped to fit, so it is changed by changing the article, not the tile.";
 }
 
 type Entry = { card: FeedCard; mine: boolean };
@@ -216,7 +216,7 @@ type Entry = { card: FeedCard; mine: boolean };
 /**
  * Put the draft's tile a row into the grid rather than first.
  *
- * First position is the one place a tile never has to hold its own — there is
+ * First position is the one place a tile never has to hold its own - there is
  * nothing above it and nothing beside it yet. A few cells in is where the
  * question actually gets answered.
  */

@@ -9,6 +9,10 @@
 # Metal access, so a containerised llama3.1:8b would be CPU-only and unusably
 # slow. Run `ollama serve` alongside this.
 
+# Fixed, so the project name (and every volume's name) does not depend on what
+# the checkout directory is called.
+name: youth
+
 # Shared by every Python service. `<<: *backend` merges these keys wholesale, so
 # a service that needs an extra environment variable has to restate the block
 # rather than add to it — YAML merge does not deep-merge.
@@ -38,7 +42,7 @@ x-backend: &backend
   environment:
     # Inside Docker the hostname is the service name, not localhost — and not
     # the 5433 host port, which exists only to dodge a native Homebrew Postgres.
-    DATABASE_URL: postgresql+asyncpg://evidwell:evidwell@db:5432/evidwell
+    DATABASE_URL: postgresql+asyncpg://youth:youth@db:5432/youth
     # `localhost` in a container is the container. Override OLLAMA_BASE_URL in
     # your shell if Ollama lives somewhere else.
     OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
@@ -85,9 +89,9 @@ services:
   db:
     image: pgvector/pgvector:pg16
     environment:
-      POSTGRES_USER: evidwell
-      POSTGRES_PASSWORD: evidwell
-      POSTGRES_DB: evidwell
+      POSTGRES_USER: youth
+      POSTGRES_PASSWORD: youth
+      POSTGRES_DB: youth
     ports:
       # Host port is 5433, not 5432: a native Postgres (Homebrew postgresql@15)
       # binds 127.0.0.1:5432 specifically, which beats Docker's wildcard bind
@@ -96,9 +100,9 @@ services:
       # hand the whole database, review step included, to anyone on the wifi.
       - "127.0.0.1:5433:5432"
     volumes:
-      - evidwell_pgdata:/var/lib/postgresql/data
+      - youth_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U evidwell"]
+      test: ["CMD-SHELL", "pg_isready -U youth"]
       interval: 5s
       retries: 10
 
@@ -176,7 +180,7 @@ services:
       - ./frontend:/app
       # Shadows the host's node_modules: esbuild and rollup ship platform
       # binaries, and a darwin-arm64 tree is not runnable on linux.
-      - evidwell_node_modules:/app/node_modules
+      - youth_node_modules:/app/node_modules
     depends_on:
       - backend
 
@@ -206,7 +210,7 @@ services:
       N8N_SECURE_COOKIE: "false"
       # The backend service in this stack; set it to
       # http://host.docker.internal:8000 when the API runs in a host venv.
-      EVIDWELL_API_URL: ${EVIDWELL_API_URL:-http://backend:8000}
+      YOUTH_API_URL: ${YOUTH_API_URL:-http://backend:8000}
       RESEARCH_TRIGGER_TOKEN: ${RESEARCH_TRIGGER_TOKEN:-}
       RESEARCH_WEEKLY_CRON: ${RESEARCH_WEEKLY_CRON:-0 8 * * 0}
       # Optional: JSON parameters for the weekly run, and a URL to POST its summary to.
@@ -215,10 +219,10 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - evidwell_n8n:/home/node/.n8n
+      - youth_n8n:/home/node/.n8n
       - ./n8n/workflows:/workflows:ro
 
 volumes:
-  evidwell_pgdata:
-  evidwell_node_modules:
-  evidwell_n8n:
+  youth_pgdata:
+  youth_node_modules:
+  youth_n8n:

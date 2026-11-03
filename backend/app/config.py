@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     debug: bool = False
 
     # --- database ---
-    database_url: str = "postgresql+asyncpg://evidwell:evidwell@localhost:5433/evidwell"
+    database_url: str = "postgresql+asyncpg://youth:youth@localhost:5433/youth"
     db_echo: bool = False
 
     # --- auth ---
@@ -519,6 +519,23 @@ class Settings(BaseSettings):
     #: Shared secret for /api/automation/* (n8n). Empty disables that router
     #: entirely — it answers 404 — so an unconfigured deployment exposes nothing.
     research_trigger_token: str = ""
+
+    # --- contact notifications ---
+    #: Every "Let us know" message is also emailed to the editorial inbox
+    #: (``services/notify.py``). **An empty ``smtp_password`` sends nothing.**
+    #: The ``contact_requests`` row is kept either way, but the desk has no inbox
+    #: screen yet, so without this email a message is readable only through
+    #: ``GET /api/console/contact`` (``/docs``, reviewer login).
+    #: Gmail by default; ``smtp_user`` is the sending account, and Gmail needs an
+    #: app password there (Google Account → Security → App passwords), never the
+    #: account's own password.
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    #: shortcut: placeholder until the editorial Gmail inbox exists; set
+    #: CONTACT_NOTIFY_TO in the root .env, then --force-recreate backend.
+    contact_notify_to: str = "editorial@example.com"
 
     # --- article media ---
     #: Per-file ceiling. Generous for a photo, small enough that a stray upload

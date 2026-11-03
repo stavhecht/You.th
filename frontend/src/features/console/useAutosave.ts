@@ -3,14 +3,14 @@
  *
  * Writes to edited_content only; original_content is never in the payload and
  * the DB rejects any attempt to change it. That split is what gives the audit
- * trail its meaning — "what the model wrote vs. what went live" is only true
+ * trail its meaning - "what the model wrote vs. what went live" is only true
  * if one side genuinely cannot be rewritten.
  *
  * Design notes:
  *   - 800ms debounce: long enough that mid-sentence typing doesn't generate a
  *     request per keystroke, short enough that a reviewer closing the tab
  *     rarely loses a thought.
- *   - Flush on unmount and on `visibilitychange` — the tab-close case is where
+ *   - Flush on unmount and on `visibilitychange` - the tab-close case is where
  *     lost work is most annoying and least recoverable.
  *   - No validation here. Failing a reviewer's autosave mid-sentence because a
  *     citation is momentarily orphaned would be hostile; validation runs at

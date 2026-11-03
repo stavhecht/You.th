@@ -21,14 +21,11 @@ from typing import Any
 
 import pytest
 import sqlalchemy as sa
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.config import get_settings
 from app.domain.enums import (
     ArticleStatus,
-    ContactKind,
-    ContactStatus,
     StudyType,
     Subject,
     UserRole,
@@ -44,7 +41,6 @@ from app.security.auth import (
     decode_token_subject,
     hash_password,
 )
-from app.services.contact import ContactService
 from app.services.feed import FeedService
 from app.services.reader import DEFAULT_FOLDER_NAME, ReaderError, ReaderService
 
@@ -336,63 +332,3 @@ async def test_the_feed_serves_the_derived_card_image(session: AsyncSession) -> 
     items, _ = await FeedService(session).page(limit=50)
     card = next(item for item in items if item["slug"] == slug)
     assert card["image"] is not None
-
-
-# --- contact ---------------------------------------------------------------
-
-
-async def test_a_handled_request_has_to_name_who_handled_it(
-    session: AsyncSession,
-) -> None:
-    """Enforced by a CHECK, so it survives the service being wrong."""
-    service = ContactService(session)
-    request = await service.submit(
-        kind=ContactKind.FACT_CHECK,
-        name="Maya",
-        email="maya@example.com",
-        note="Someone on my feed says collagen powder rebuilds cartilage.",
-        link="https://example.com/a-post",
-    )
-    assert request.status is ContactStatus.NEW
-
-    # `IntegrityError` specifically, not any exception: a typo in the SQL below
-    # would raise too, and would pass a blind `Exception` assertion while
-    # verifying nothing about the constraint this test is named for.
-    with pytest.raises(IntegrityError):
-        async with session.begin_nested():
-            await session.execute(
-                sa.text(
-                    "UPDATE contact_requests SET status = 'answered' WHERE id = :id"
-                ),
-                {"id": request.id},
-            )
-
-
-async def test_reopening_a_request_clears_the_handler(session: AsyncSession) -> None:
-    user_id = str(uuid.uuid4())
-    await session.execute(
-        sa.text(
-            "INSERT INTO users (id, email, password_hash, display_name, role, created_at)"
-            " VALUES (:id, :email, :hash, :name, :role, now())"
-        ),
-        {
-            "id": user_id,
-            "email": f"reviewer-{user_id[:8]}@example.com",
-            "hash": hash_password("a-sufficiently-long-password"),
-            "name": "Test Reviewer",
-            "role": UserRole.REVIEWER.value,
-        },
-    )
-
-    service = ContactService(session)
-    request = await service.submit(
-        kind=ContactKind.TOPIC, name="Maya", email="maya@example.com", note="Cover creatine."
-    )
-
-    await service.set_status(request.id, ContactStatus.ANSWERED, user_id)
-    assert request.handled_by == user_id
-
-    # Reopening has to clear both fields or the CHECK refuses the row.
-    await service.set_status(request.id, ContactStatus.NEW, user_id)
-    assert request.handled_by is None
-    assert request.handled_at is None

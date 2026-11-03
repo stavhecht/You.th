@@ -99,7 +99,7 @@ export function ReaderAuthProvider({ children }: { children: ReactNode }) {
    * Adopt a session and drop every cached response from the previous one.
    *
    * The feed's cache key includes `personalised`, but the *saved* queries are
-   * keyed only by folder — so without this reset, signing in as someone else
+   * keyed only by folder - so without this reset, signing in as someone else
    * on a shared machine shows the previous reader's shelf until a refetch
    * lands. Clearing is the only version of this that cannot be got wrong by
    * forgetting a key later.
@@ -189,7 +189,7 @@ export function useReader(): ReaderAuthState {
   return context;
 }
 
-/** Initials for the avatar. `?` while signed out — a guest is not a person. */
+/** Initials for the avatar. `?` while signed out - a guest is not a person. */
 export function readerInitials(reader: Reader | null): string {
   if (!reader) return "?";
   const letters = reader.displayName

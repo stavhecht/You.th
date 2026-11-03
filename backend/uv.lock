@@ -705,7 +705,7 @@ wheels = [
 ]
 
 [[package]]
-name = "evidwell-backend"
+name = "youth-backend"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

@@ -2,14 +2,14 @@
  * The review desk's sign-in.
  *
  * The server returns one identical 401 for unknown email and wrong password,
- * and this form shows that message verbatim — narrowing it to "no such user"
+ * and this form shows that message verbatim - narrowing it to "no such user"
  * would hand back the account enumeration the API deliberately avoids.
  *
  * The standfirst says what signing in commits you to rather than welcoming you:
  * every approval is recorded against a name, and this is the screen where a
  * reviewer takes that on.
  *
- * Drawn in the You.th shapes — one rounded card on the paper, pill button,
+ * Drawn in the You.th shapes - one rounded card on the paper, pill button,
  * rounded fields, wordmark centred in the bar above. The accent kicker is what
  * says which surface this is; the rest is the product a reviewer already knows.
  */

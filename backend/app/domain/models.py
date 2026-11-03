@@ -41,7 +41,6 @@ from app.config import get_settings
 from app.domain.enums import (
     ArticleStatus,
     ContactKind,
-    ContactStatus,
     DiscoveryCandidateStatus,
     DiscoveryDescriptorKind,
     DiscoveryScanMode,
@@ -268,7 +267,7 @@ class Article(Base):
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     #: Weighted full-text document for public search, written at publish time
-    #: by the SQL function ``article_search_document`` (migration 0006) — never
+    #: by the SQL function ``article_search_document`` (0001_initial.sql) — never
     #: built in Python, so the backfill and the publish path cannot index an
     #: article two different ways. Deferred: it is a predicate, never a payload,
     #: and loading it with every article would ship a tsvector nobody reads.
@@ -322,7 +321,7 @@ class ArticleSource(Base):
     #: a list of {"section", "text"}. NULL when none were shown.
     excerpts: Mapped[list[dict[str, str | None]] | None] = mapped_column(NullableJSONB)
     #: Which way APPRAISE found this source pointing for this claim. NULL means
-    #: not appraised, never ``unclear`` (migration 0004).
+    #: not appraised, never ``unclear`` (0001_initial.sql).
     stance: Mapped[Stance | None] = mapped_column(pg_enum(Stance, "source_stance"))
 
     article: Mapped[Article] = relationship(back_populates="sources")
@@ -506,11 +505,6 @@ class ContactRequest(Base):
     email: Mapped[str] = mapped_column(Text, nullable=False)
     link: Mapped[str | None] = mapped_column(Text)
     note: Mapped[str] = mapped_column(Text, nullable=False)
-    status: Mapped[ContactStatus] = mapped_column(pg_enum(ContactStatus, "contact_status"))
-    handled_by: Mapped[str | None] = mapped_column(
-        UUID(as_uuid=False), ForeignKey("users.id")
-    )
-    handled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -546,9 +540,10 @@ class MediaObject(Base):
 class DiscoveryScan(Base):
     """One run of ``scripts/scan_trends.py``.
 
-    Bookkeeping only. The observations a scan recorded outlive it — they are the
-    baseline every later scan is measured against — which is why
-    ``DiscoveryObservation.scan_id`` is ``ON DELETE SET NULL``.
+    Bookkeeping only, and nothing points at a scan: the observations it recorded
+    outlive it as the baseline every later scan is measured against, and the
+    candidates it proposed are refreshed by whichever scan sees them next.
+    ``next_window`` reads the succeeded rows; that is all a scan is for.
     """
 
     __tablename__ = "discovery_scans"
@@ -567,10 +562,8 @@ class DiscoveryScan(Base):
         pg_enum(DiscoveryScanStatus, "discovery_scan_status"),
         server_default=text("'running'"),
     )
-    seeds_queried: Mapped[int] = mapped_column(Integer, server_default=text("0"))
     records_seen: Mapped[int] = mapped_column(Integer, server_default=text("0"))
     descriptors_seen: Mapped[int] = mapped_column(Integer, server_default=text("0"))
-    candidates_emitted: Mapped[int] = mapped_column(Integer, server_default=text("0"))
     error: Mapped[dict | None] = mapped_column(NullableJSONB)
     started_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -645,9 +638,6 @@ class DiscoveryCandidate(Base):
     __tablename__ = "discovery_candidates"
 
     id: Mapped[str] = mapped_column(UUID_PK, primary_key=True, server_default=GEN_UUID)
-    scan_id: Mapped[str] = mapped_column(
-        UUID(as_uuid=False), ForeignKey("discovery_scans.id", ondelete="CASCADE")
-    )
     substance_ui: Mapped[str] = mapped_column(
         Text, ForeignKey("discovery_descriptors.ui"), nullable=False
     )
@@ -809,9 +799,6 @@ class ResearchTopic(Base):
     last_seen_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
-    merged_into: Mapped[str | None] = mapped_column(
-        UUID(as_uuid=False), ForeignKey("research_topics.id", ondelete="SET NULL")
-    )
 
 
 class ResearchTopicObservation(Base):
@@ -837,7 +824,6 @@ class ResearchTopicObservation(Base):
     trend_score: Mapped[float | None] = mapped_column(Float)
     data_coverage: Mapped[float] = mapped_column(Float, nullable=False)
     trend_status: Mapped[str | None] = mapped_column(Text)
-    scoring_version: Mapped[str] = mapped_column(Text, nullable=False)
     proposed: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     metrics: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     scores: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)

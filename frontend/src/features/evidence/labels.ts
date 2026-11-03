@@ -87,7 +87,7 @@ export const GRADE_LABELS: Record<StudyType, string> = {
 /** What that rung actually buys you. Shown beside the grade bar. */
 export const GRADE_NOTES: Record<StudyType, string> = {
   unknown:
-    "Study type could not be classified. Treated as the weakest tier — uncertainty caps confidence.",
+    "Study type could not be classified. Treated as the weakest tier, because uncertainty caps confidence.",
   in_vitro:
     "Cells or tissue in a dish. Tells you a mechanism is possible, not that it happens in a person.",
   animal: "Whole organism, wrong species. Dose and physiology rarely transfer cleanly.",
@@ -117,7 +117,7 @@ export const STUDY_TYPE_LABELS: Record<StudyType, string> = {
 };
 
 /**
- * What APPRAISE read a source as finding, for one claim — shown on the desk's
+ * What APPRAISE read a source as finding, for one claim - shown on the desk's
  * source rows. Written as what the *study* found, so a reviewer reads it as a
  * claim about the paper they can check, not as a verdict.
  *

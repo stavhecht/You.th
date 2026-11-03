@@ -4,7 +4,7 @@
  * Three ways in, one path through: the toolbar's Image button, a paste, and a
  * drop all end at `insertFiles`, which uploads the bytes and inserts a node
  * pointing at what the server stored. Nothing here ever puts a link to someone
- * else's server into the document — see `lib/media.ts` for why that is the
+ * else's server into the document - see `lib/media.ts` for why that is the
  * rule rather than a preference.
  *
  * The editor arrives after this hook does (`useEditor` needs the paste and drop
@@ -14,7 +14,7 @@
  * render and cannot hold state.
  *
  * Failures are reported, never swallowed. An upload that fails silently looks
- * exactly like a slow one, and the reviewer's next move is to try again — which
+ * exactly like a slow one, and the reviewer's next move is to try again - which
  * is the one thing that cannot help.
  */
 
@@ -29,7 +29,7 @@ import { youtubeIdFromUrl } from "@/lib/media";
 export const ACCEPTED_IMAGE_TYPES = "image/png,image/jpeg,image/gif,image/webp";
 
 export interface MediaInsert {
-  /** True while an upload is in flight — the toolbar disables itself. */
+  /** True while an upload is in flight - the toolbar disables itself. */
   uploading: boolean;
   /** The last failure, shown under the toolbar until the next attempt. */
   error: string | null;
@@ -62,7 +62,7 @@ export function useMediaInsert(): MediaInsert {
         const { src } = await uploadMedia(file);
         // Asked once per image, and after the upload rather than before, so a
         // failed upload never costs the reviewer an answer. Empty alt is a
-        // real answer — it marks the image decorative — which is why the
+        // real answer - it marks the image decorative - which is why the
         // prompt says what an empty one means rather than nagging.
         const alt = window.prompt(
           `Describe "${file.name}" for readers using a screen reader.\n` +
@@ -108,7 +108,7 @@ export function useMediaInsert(): MediaInsert {
 /**
  * The server's own words where it has any.
  *
- * A 415 says which formats are accepted and a 413 names the size ceiling —
+ * A 415 says which formats are accepted and a 413 names the size ceiling,
  * both are things the reviewer can act on, and both are lost by a house
  * "Upload failed".
  */

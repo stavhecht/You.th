@@ -1,4 +1,4 @@
-"""Seed ``evidwell_test`` for the browser tests (``frontend/e2e``).
+"""Seed ``youth_test`` for the browser tests (``frontend/e2e``).
 
 Run by Playwright's global setup before every browser run:
 
@@ -135,7 +135,7 @@ async def main() -> None:
             )
         ).all()
     await engine.dispose()
-    print("seeded evidwell_test:", dict(counts))
+    print("seeded youth_test:", dict(counts))
     if dict(counts) != {"pending_review": len(DRAFTS), "published": len(PUBLISHED)}:
         raise SystemExit("seed did not produce the expected articles")
 

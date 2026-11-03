@@ -8,7 +8,7 @@
  * for something readers can already see.
  *
  * The one link out is to the public feed, so a reviewer can check what they just
- * published — that direction is safe. The public site carries no link back.
+ * published - that direction is safe. The public site carries no link back.
  */
 
 import { Link } from "react-router-dom";
@@ -36,13 +36,13 @@ export function ReviewHeader() {
     <header className={REVIEW_HEADER}>
       <div className={REVIEW_BAR}>
         {/*
-          Three columns, mark in the middle — the public bar's layout. What
+          Three columns, mark in the middle - the public bar's layout. What
           names the surface is the accent tag in the left column, where the
           public site puts browse and search.
         */}
         <span className={REVIEW_BRAND_TAG}>Review desk</span>
 
-        <Link to="/review" className={REVIEW_BRAND} aria-label="Review desk — queue">
+        <Link to="/review" className={REVIEW_BRAND} aria-label="Review desk queue">
           <img
             src="/media/you.th-logo.png"
             alt="You.th"

@@ -8,7 +8,7 @@
  * (see MediaNodes.ts).
  *
  * The editing surface is drawn as a recessed panel on the ground with a rule
- * around it — the same inversion the console's text fields use. In a system
+ * around it - the same inversion the console's text fields use. In a system
  * with no corner radius, the border is the only thing that can say "this region
  * is yours to change", and the reviewer needs to know that at a glance on a
  * screen where everything else is read-only.
@@ -55,7 +55,7 @@ export function ArticleEditor({ content, autosave, articleId, onCitationClick }:
       StarterKit.configure({
         // Level 2 only, and it is not optional. The pipeline writes an `h2` for
         // every `ArticleBody` section, and **TipTap silently drops any node its
-        // schema does not declare** — with `heading: false` the editor would
+        // schema does not declare** - with `heading: false` the editor would
         // parse a sectioned draft, discard every heading, and the first
         // autosave would write an `edited_content` with the article flattened.
         // Same failure `BeatAttribute` exists to prevent for `attrs.beat`, and
@@ -63,7 +63,7 @@ export function ArticleEditor({ content, autosave, articleId, onCitationClick }:
         // wrong.
         //
         // Deeper levels stay off because the public renderer draws one heading
-        // style and an h3 under an h2 would render identically — a hierarchy
+        // style and an h3 under an h2 would render identically - a hierarchy
         // the reviewer can express and the reader cannot see.
         heading: { levels: [2] },
         // Still out: lists, code blocks and quotes are not part of the format,
@@ -138,7 +138,7 @@ export function ArticleEditor({ content, autosave, articleId, onCitationClick }:
       ) : null}
       <div className={EDITOR_STATUS_ROW}>
         <span className={EDITOR_NOTE}>
-          Edits save to the reviewed copy — the AI draft is preserved.
+          Edits save to the reviewed copy. The AI draft is preserved.
         </span>
         <SaveIndicator state={autosave.state} />
       </div>
@@ -149,7 +149,7 @@ export function ArticleEditor({ content, autosave, articleId, onCitationClick }:
 /**
  * Image files out of a paste or a drop, uploaded.
  *
- * Returns true — which stops ProseMirror's own handling — only when there were
+ * Returns true - which stops ProseMirror's own handling - only when there were
  * files to take, so an ordinary text paste is untouched.
  *
  * Copying a picture out of a web page puts both an `<img>` and the decoded
@@ -258,8 +258,8 @@ function Toolbar({
 
       {/*
         Beside Image because they produce the same thing by another route. These
-        are the only controls on this screen that spend money per press — a GPU
-        render each on a hosted provider — which is why the server keeps a
+        are the only controls on this screen that spend money per press - a GPU
+        render each on a hosted provider - which is why the server keeps a
         budget in front of them and answers 429 with the wait.
 
         Two buttons rather than one because an article has two pictures and they
@@ -292,7 +292,7 @@ function Toolbar({
       {/*
         The button is the control; this input only opens the file dialog. It is
         reset after every pick so choosing the same file twice still fires a
-        change event — otherwise re-adding an image a reviewer just deleted
+        change event - otherwise re-adding an image a reviewer just deleted
         silently does nothing.
       */}
       <input
@@ -316,7 +316,7 @@ function SaveIndicator({ state }: { state: Autosave["state"] }) {
     idle: "",
     saving: "Saving…",
     saved: "Saved",
-    error: "Save failed — retrying",
+    error: "Save failed, retrying",
     conflict: "Another reviewer saved this draft. Copy your change, then reload.",
   };
   return (

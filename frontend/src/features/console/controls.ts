@@ -4,10 +4,10 @@
  * Small enough to inline, and that is exactly why they are not: the login form,
  * the queue and the review screen all render an approve-shaped button and a
  * reject-shaped button, and when those drift the console stops teaching which
- * action is which. Consistency here is a safety property, not tidiness — this
+ * action is which. Consistency here is a safety property, not tidiness - this
  * is the surface where one button publishes.
  *
- * They carry the You.th shapes — pill actions, rounded fields — for the same
+ * They carry the You.th shapes - pill actions, rounded fields - for the same
  * reason. The desk is a different surface from the public site and says so
  * through its chrome, not by being built out of different parts: a reviewer who
  * has to relearn what a button looks like when they cross between the two is
@@ -15,7 +15,7 @@
  */
 
 /**
- * A text field. Inputs sit on the *ground* inside a surface panel — inverted
+ * A text field. Inputs sit on the *ground* inside a surface panel - inverted
  * from the usual, so the editable region is the recess rather than the raised
  * thing. That inversion was load-bearing when the system had no radius; it is
  * kept now that it does, because a recessed field still reads as "yours to

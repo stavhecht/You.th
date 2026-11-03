@@ -1,5 +1,5 @@
 #!/bin/bash
-# What launchd runs as com.evidwell.llama-server (installed by manage.sh): free
+# What launchd runs as com.youth.llama-server (installed by manage.sh): free
 # the GPU, then exec llama-server so launchd supervises the server process
 # itself — KeepAlive restarts it when it exits, and the watchdog's
 # `launchctl kickstart -k` lands here again.

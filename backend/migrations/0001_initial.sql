@@ -1,4 +1,4 @@
--- EvidWell initial schema
+-- You.th initial schema
 --
 -- Apply with:  python -m scripts.migrate
 --          or  psql "$DATABASE_URL" -v embedding_dim=1024 -f migrations/0001_initial.sql
@@ -43,6 +43,19 @@
 -- and `.last_seen_at`. The existing data was copied across rather than
 -- discarded (the old database was kept, renamed, as the backup).
 --
+-- The sixth (2026-11-03) folded in 0002–0008: the subject enum as editorial
+-- categories (the old five-value type was swapped, so it is simply created in
+-- its final form), the research agent's categories (a data rewrite, nothing to
+-- carry), `article_sources.stance`, the trend search's topics, observations and
+-- feed state with `research_runs.summary` and the one-active-run index, public
+-- search (`search_document`, `article_search_document`, `pg_trgm`), and the
+-- removal of the contact inbox's handling state and of five more write-only
+-- columns (`discovery_scans.seeds_queried` and `.candidates_emitted`,
+-- `discovery_candidates.scan_id`, `research_topic_observations.scoring_version`,
+-- `research_topics.merged_into`). The dev and test databases kept their data:
+-- their `schema_migrations` rows were collapsed to this file's new checksum,
+-- after a schema-only diff against a database built from it showed no change.
+--
 -- scripts/migrate.py records a sha256 per filename and refuses to re-run a file
 -- whose contents changed, which is what makes squashing a deliberate act rather
 -- than an accident. From here every schema change is a new numbered file,
@@ -62,6 +75,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;   -- gen_random_uuid()
+CREATE EXTENSION IF NOT EXISTS pg_trgm;    -- typo fallback in public search
 
 -- ---------------------------------------------------------------------------
 -- Enumerated domains
@@ -125,29 +139,42 @@ CREATE TYPE user_role AS ENUM ('admin', 'reviewer');
 
 CREATE TYPE run_status AS ENUM ('queued', 'running', 'succeeded', 'failed', 'cancelled');
 
--- What kind of thing an article assesses. Colour in the UI means *subject*,
--- never verdict — see frontend/src/features/evidence/subject.ts. Deliberately
--- a small closed set set by a reviewer at publish time: it cannot be derived
--- from `product`, which is free text, and a guessed subject would put a
--- confident colour on an unchecked classification.
+-- The editorial category an article is filed under. Colour in the UI means
+-- *subject*, never verdict — see frontend/src/features/evidence/subject.ts. It
+-- is the feed's browse axis (the drawer narrows with `WHERE subject = $1`,
+-- served by articles_subject_feed_idx) and a reader's interests lift categories
+-- to the top. Deliberately a small closed set set by a reviewer at publish
+-- time: it cannot be derived from `product`, which is free text, and a guessed
+-- subject would put a confident colour on an unchecked classification.
+-- `other` is a reviewer's answer ("none of these fit"); NULL still means nobody
+-- has classified the article. Postgres cannot drop enum values, so a new
+-- category is a migration that swaps the type.
 CREATE TYPE subject AS ENUM (
-    'supplement',
-    'device',
-    'protocol',
-    'food',
-    'topical'
+    'fitness',
+    'nutrition',
+    'supplements',
+    'sleep_recovery',
+    'lifestyle',
+    'preventive_health',
+    'general_health',
+    'wellness',
+    'other'
+);
+
+-- Which way a source points relative to one claim, as the APPRAISE stage labels
+-- it (app/pipeline/steps/appraise.py).
+CREATE TYPE source_stance AS ENUM (
+    'supports',
+    'no_effect',
+    'contradicts',
+    'unclear',
+    'off_topic'
 );
 
 CREATE TYPE contact_kind AS ENUM (
     'fact_check',   -- "here is a claim, check it"
     'topic',        -- "cover this"
     'other'
-);
-
-CREATE TYPE contact_status AS ENUM (
-    'new',
-    'answered',
-    'closed'
 );
 
 -- Trend discovery. Deliberately not reusing `run_status` for a scan: a scan is
@@ -507,6 +534,11 @@ CREATE TABLE articles (
     )
 );
 
+-- Public search document: a weighted tsvector, written by
+-- `ReviewService.approve()` at publish time through `article_search_document`
+-- below (NULL until published). See that function for what is indexed.
+ALTER TABLE articles ADD COLUMN search_document tsvector;
+
 COMMENT ON COLUMN articles.generated_imagery IS
     'Both frames of the generated illustration, each with the prompt, model and '
     'seed that made it. `lead` is also an image node in original_content; '
@@ -534,6 +566,69 @@ CREATE INDEX articles_queue_idx ON articles (created_at DESC) WHERE status = 'pe
 CREATE INDEX articles_retraction_flagged_idx
     ON articles (retraction_flagged_at DESC)
     WHERE retraction_flagged_at IS NOT NULL;
+
+-- Public search over published articles (`services/feed.py::FeedService.search`),
+-- two mechanisms tried in order:
+--
+-- 1. Full-text search over `search_document`: English stemming ("sleeping"
+--    finds "sleep"), `websearch_to_tsquery` so a search box's quotes, `or` and
+--    `-word` work and malformed input never raises, `ts_rank_cd` for order.
+--    Weights:
+--      A  headline, product, ingredients — what an article is *about*
+--      B  verdict qualifier, summary, claims, card excerpt — what it says
+--      C  the approved body's text
+--    Only what a reader is shown is indexed. `topic` is the generation input
+--    (sometimes the user's raw question) and is not on the page; cited sources'
+--    titles are not either, so "creatine kidneys" finds the article about it
+--    rather than every article that cites a kidney paper.
+--
+-- 2. When full text finds nothing, a trigram fallback over headline + product
+--    for typos ("magnesum", "ashwaganda"). `word_similarity` via `<%`, not
+--    `similarity` via `%`: measured 2026-10-14 against real headlines,
+--    whole-string similarity scored "creatin" against "Creatine increases
+--    muscle strength creatine" at 0.21, under any usable threshold, while word
+--    similarity scored it 0.88. The default `pg_trgm.word_similarity_threshold`
+--    (0.6) is used as is; at it "vitamn d" (0.58) is missed and "stres" matches
+--    "strength" (0.67), which is why the API labels these results as close
+--    matches rather than as results.
+--
+-- The document is built by ONE function, called by `ReviewService.approve()` at
+-- publish time and by the backfill, so published rows cannot be indexed two
+-- different ways. It reads COALESCE(edited_content, original_content), the same
+-- rule as the card (invariant #4): what the reviewer approved. Body text comes
+-- from the TipTap tree's `text` nodes (`$.**.text`): citation nodes carry no
+-- `text`, so `[S1]` never reaches the index, and image and video nodes carry
+-- only `attrs`. A `jsonb_to_tsvector` over the whole document would index every
+-- string value, so "paragraph", "citation" and every media path would become
+-- searchable words matching every article.
+CREATE FUNCTION article_search_document(a articles) RETURNS tsvector
+LANGUAGE sql STABLE AS $$
+    SELECT
+        setweight(to_tsvector('english', concat_ws(' ',
+            a.card_headline, a.product, array_to_string(a.ingredients, ' '))), 'A')
+     || setweight(to_tsvector('english', concat_ws(' ',
+            a.verdict_qualifier, a.summary, array_to_string(a.target_claims, ' '),
+            a.card_excerpt)), 'B')
+     || setweight(to_tsvector('english', coalesce((
+            SELECT string_agg(node #>> '{}', ' ')
+            FROM jsonb_path_query(
+                coalesce(a.edited_content, a.original_content), 'strict $.**.text'
+            ) AS node
+        ), '')), 'C')
+$$;
+
+-- Both indexes are partial on `status = 'published'`, like articles_feed_idx:
+-- drafts are never searched, and `_published_only` in the service is still the
+-- audit point for that rule — the predicate is an optimisation, not the guard.
+CREATE INDEX articles_search_idx
+    ON articles USING GIN (search_document)
+    WHERE status = 'published';
+
+-- The expression must match `services/feed.py::_TYPO_TITLE` character for
+-- character, or the planner will not use this index.
+CREATE INDEX articles_title_trgm_idx
+    ON articles USING GIN ((card_headline || ' ' || product) gin_trgm_ops)
+    WHERE status = 'published';
 
 CREATE TRIGGER articles_original_content_immutable
     BEFORE UPDATE ON articles
@@ -567,6 +662,15 @@ CREATE TABLE article_sources (
     -- checking it needs the passage. NULL: none shown (not open access, not
     -- chosen, or the article predates full text). Written once, at PERSIST.
     excerpts        JSONB,
+    -- Which way this source points, per claim (`article_sources` is already
+    -- keyed (article_id, source_id, claim), the grain a label belongs to).
+    -- NULL means **not appraised**: an article from before the stage, a run with
+    -- appraisal switched off, a model call that failed, or a handle the model
+    -- skipped. It never means `unclear`, which is an answer the model gave.
+    -- Like `retraction_checked_at IS NULL`, nobody asked is not the same as
+    -- clean. Nothing gates a verdict on it; it is recorded and shown in the
+    -- review desk (CLAUDE.md, APPRAISE).
+    stance          source_stance,
 
     PRIMARY KEY (article_id, source_id, claim)
 );
@@ -822,26 +926,12 @@ CREATE TABLE contact_requests (
     email      TEXT NOT NULL,
     link       TEXT,
     note       TEXT NOT NULL,
-    status     contact_status NOT NULL DEFAULT 'new',
-
-    -- Who in the console dealt with it, and when. Same shape as the review
-    -- trail on articles, for the same reason: "who handled this" stays
-    -- answerable after the person has moved on.
-    handled_by UUID REFERENCES users (id) ON DELETE SET NULL,
-    handled_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-
-    -- A handled request must name who handled it, and an unhandled one must
-    -- not. The same shape as the articles CHECK that carries invariant #1:
-    -- a status that claims a human acted has to point at the human.
-    CONSTRAINT contact_handled_has_reviewer CHECK (
-        (status = 'new' AND handled_by IS NULL AND handled_at IS NULL)
-        OR (status <> 'new' AND handled_by IS NOT NULL AND handled_at IS NOT NULL)
-    )
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    -- No handling state: `status`, `handled_by` and `handled_at` recorded a
+    -- reviewer marking a message answered, through an endpoint nothing called
+    -- (the desk has no inbox screen; replies go out from the editorial Gmail
+    -- inbox, which the app cannot see). A message is what was sent and when.
 );
-
-CREATE INDEX contact_requests_inbox_idx
-    ON contact_requests (status, created_at DESC);
 
 -- ---------------------------------------------------------------------------
 -- media_objects — content-addressed image bytes.
@@ -975,10 +1065,8 @@ CREATE TABLE discovery_scans (
     mode               discovery_scan_mode   NOT NULL DEFAULT 'scan',
     status             discovery_scan_status NOT NULL DEFAULT 'running',
 
-    seeds_queried      INTEGER NOT NULL DEFAULT 0,
     records_seen       INTEGER NOT NULL DEFAULT 0,
     descriptors_seen   INTEGER NOT NULL DEFAULT 0,
-    candidates_emitted INTEGER NOT NULL DEFAULT 0,
 
     error              JSONB,
     started_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -1087,7 +1175,6 @@ COMMENT ON TABLE discovery_observations IS
 
 CREATE TABLE discovery_candidates (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    scan_id         UUID NOT NULL REFERENCES discovery_scans (id) ON DELETE CASCADE,
 
     substance_ui    TEXT NOT NULL REFERENCES discovery_descriptors (ui),
     -- Nullable: a substance whose co-occurring descriptors name no recognisable
@@ -1254,12 +1341,89 @@ CREATE TABLE research_runs (
     heartbeat_at     TIMESTAMPTZ,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
     started_at       TIMESTAMPTZ,
-    finished_at      TIMESTAMPTZ
+    finished_at      TIMESTAMPTZ,
+    -- The Trend Search Agent's output, frozen when its phase ends, plus the
+    -- run's observability counts. GET .../runs/{id}/result serves it.
+    summary          JSONB
 );
 
 -- The worker's claim query: oldest queued first.
 CREATE INDEX research_runs_claimable_idx ON research_runs (created_at)
     WHERE status = 'queued';
+
+-- Single-flight as a constraint. start_research_run checked for an active run
+-- and then inserted, so two simultaneous triggers (the weekly slot and a desk
+-- press) could both pass the check.
+CREATE UNIQUE INDEX research_runs_one_active ON research_runs ((true))
+    WHERE status IN ('queued', 'running');
+
+-- research_topics — a topic's identity across runs. A run's candidates are new
+-- rows every week; this is what says "this week's Creatine for women is the
+-- topic seen three weeks ago". Keyed by subject|outcome, normalised. There are
+-- deliberately no incremented counters here (times seen, times selected):
+-- those are COUNTs over the observations, which a retried write cannot drift.
+-- (No hand-merge column either: nothing ever set one. Splitting or folding is
+-- just a new key.)
+CREATE TABLE research_topics (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    topic_key     TEXT NOT NULL UNIQUE,
+    label         TEXT NOT NULL,
+    subject       TEXT NOT NULL,
+    outcome       TEXT NOT NULL DEFAULT '',
+    category      TEXT NOT NULL,
+    first_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_seen_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Matching drifted wording reads the topics seen recently.
+CREATE INDEX research_topics_recent_idx ON research_topics (last_seen_at DESC);
+
+-- research_topic_observations — one row per topic per run: the trend history.
+-- Written once, when a run finishes and only if its trend phase completed
+-- (partial metrics would read as "declining" the following week), as an upsert
+-- on (topic_id, research_run_id), so finishing twice is a no-op. Pruned after
+-- `research_history_retention_days` (180), which a settings validator keeps
+-- above everything that reads history. The scoring version lives inside
+-- `scores`, which is what a recomputation reads.
+CREATE TABLE research_topic_observations (
+    topic_id               UUID NOT NULL REFERENCES research_topics(id) ON DELETE CASCADE,
+    research_run_id        UUID NOT NULL REFERENCES research_runs(id) ON DELETE CASCADE,
+    observed_at            TIMESTAMPTZ NOT NULL,
+    window_start           TIMESTAMPTZ NOT NULL,
+    window_end             TIMESTAMPTZ NOT NULL,
+    stories                INTEGER NOT NULL,
+    independent_publishers INTEGER NOT NULL,
+    trend_score            DOUBLE PRECISION,
+    data_coverage          DOUBLE PRECISION NOT NULL,
+    trend_status           TEXT,
+    proposed               BOOLEAN NOT NULL DEFAULT false,
+    metrics                JSONB NOT NULL,
+    scores                 JSONB NOT NULL,
+    PRIMARY KEY (topic_id, research_run_id),
+    CONSTRAINT research_topic_observations_window CHECK (window_start <= window_end)
+);
+
+-- A topic's history, newest first; and the retention sweep.
+CREATE INDEX research_topic_observations_topic_idx
+    ON research_topic_observations (topic_id, observed_at DESC);
+CREATE INDEX research_topic_observations_observed_idx
+    ON research_topic_observations (observed_at);
+
+-- research_feed_state — per publisher feed: the ETag / Last-Modified the next
+-- fetch sends, when it was last fetched and last succeeded, its last error,
+-- and the last parsed items. The items are what a 304 Not Modified replays:
+-- without them "unchanged" would read as "this feed has nothing".
+CREATE TABLE research_feed_state (
+    feed_url             TEXT PRIMARY KEY,
+    etag                 TEXT,
+    last_modified        TEXT,
+    last_fetched_at      TIMESTAMPTZ,
+    last_success_at      TIMESTAMPTZ,
+    last_status          INTEGER,
+    last_error           TEXT,
+    consecutive_failures INTEGER NOT NULL DEFAULT 0,
+    items                JSONB
+);
 
 CREATE TABLE research_candidates (
     id               UUID PRIMARY KEY,
@@ -1279,6 +1443,8 @@ CREATE TABLE research_candidates (
     decided_at       TIMESTAMPTZ,
     dismiss_reason   TEXT,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- The candidate's persistent topic (trend history).
+    topic_ref_id     UUID REFERENCES research_topics(id) ON DELETE SET NULL,
 
     -- The same three guarantees discovery_candidates carries.
     CONSTRAINT research_candidates_promoted_has_run CHECK (
@@ -1294,6 +1460,8 @@ CREATE TABLE research_candidates (
 );
 
 CREATE INDEX research_candidates_run_idx ON research_candidates (research_run_id, rank);
+CREATE INDEX research_candidates_topic_idx ON research_candidates (topic_ref_id)
+    WHERE topic_ref_id IS NOT NULL;
 -- Novelty reads every decided candidate of the last months.
 CREATE INDEX research_candidates_decided_idx ON research_candidates (decided_at DESC)
     WHERE status IN ('promoted', 'dismissed');

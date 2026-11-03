@@ -1,5 +1,5 @@
 /**
- * Subject colour — the only chromatic axis in the product.
+ * Subject colour - the only chromatic axis in the product.
  *
  * Colour tells you *which category* an article is filed under, never how it
  * scored. The same categories are the feed's browse filter (`?subject=`).
@@ -9,7 +9,7 @@
  *
  * ── It extends Modernist past its tokens ────────────────────────────────────
  * The bound design system is deliberately mono: one red, no second accent.
- * These nine hues are *not* `--color-accent-*` steps — they are an addition,
+ * These nine hues are *not* `--color-accent-*` steps - they are an addition,
  * held to the system's rules (flat fills, 2–4px rules, zero radius, flush left)
  * and kept off every judgment. Red stays the interaction colour, and the
  * supplements hue is drawn from it so the addition still reads as one family.

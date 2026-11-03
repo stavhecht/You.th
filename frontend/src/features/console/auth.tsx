@@ -3,7 +3,7 @@
  *
  * The token lives in `sessionStorage`, not `localStorage`: it expires with the
  * tab, which suits a review tool used in sittings and limits exposure on a
- * shared machine. This is not XSS-proof — nothing readable by JS is — but the
+ * shared machine. This is not XSS-proof - nothing readable by JS is - but the
  * console is a small authenticated surface and an httpOnly-cookie flow would
  * mean CSRF handling for no benefit at this size. Revisit if the console grows
  * public-facing surface area.
@@ -25,7 +25,7 @@ import { fetchMe, login as loginRequest } from "@/lib/api/console";
 import { ROUTE_MESSAGE } from "@/features/shell/styles";
 import type { Reviewer } from "@/types/api";
 
-const TOKEN_KEY = "evidwell.console.token";
+const TOKEN_KEY = "youth.console.token";
 
 interface AuthState {
   reviewer: Reviewer | null;

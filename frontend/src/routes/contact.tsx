@@ -1,5 +1,5 @@
 /**
- * "Let us know" — suggest a topic to cover, or send anything else.
+ * "Let us know" - suggest a topic to cover, or send anything else.
  *
  * The submission lands in `contact_requests` and is read in the review desk's
  * inbox. It does **not** create a pipeline run: nothing reaches generation
@@ -7,7 +7,7 @@
  * pointed at the other end of the pipeline. The copy says so rather than
  * implying an article is on its way.
  *
- * Name and email are required — without a way to reply, a request we can
+ * Name and email are required - without a way to reply, a request we can
  * answer looks exactly like one we cannot. A topic needs a link or a
  * description (either will do); anything else needs a description.
  */
@@ -143,7 +143,7 @@ export function ContactRoute() {
           ← Feed
         </Link>
         <div className={DONE_CARD}>
-          <p className={DONE_TITLE}>Got it — thank you.</p>
+          <p className={DONE_TITLE}>Got it, thank you.</p>
           <p className={DONE_BODY}>
             Your message is with the editorial team. A person reads every one.
             If a study exists either way, you will hear back at the address you
@@ -168,7 +168,7 @@ export function ContactRoute() {
         <h1 className={PAGE_TITLE}>Saw something that needs checking?</h1>
         <p className={PAGE_STANDFIRST}>
           Send us a claim, a video, or a topic you want covered. Requests go to the
-          editorial team — they do not start an article on their own, and a person
+          editorial team. They do not start an article on their own, and a person
           decides what gets researched.
         </p>
       </header>
@@ -331,7 +331,7 @@ export function ContactRoute() {
           research.
         </p>
 
-        {/* Notice at collection — PPL s.11, GDPR Art 13. Asks the sender to
+        {/* Notice at collection - PPL s.11, GDPR Art 13. Asks the sender to
             leave health details out because the note is free text that the
             editorial team reads, and nothing it is for needs them. */}
         <p className={COLLECTION_NOTICE}>

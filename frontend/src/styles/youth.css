@@ -1,4 +1,4 @@
-/* You.th — the product layer over Modernist.
+/* You.th - the product layer over Modernist.
  *
  * Source: `You.th.dc.html` in the Claude Design project. The comp defines its
  * own `--c-*` scale; this file adopts those values under the `--ew-*` names the
@@ -22,18 +22,18 @@
  *   - **Radius is back.** Modernist is a zero-radius system; the comp rounds
  *     tiles at 20px and panels at 22px. The radii live here as tokens rather
  *     than as literals in components, so the two systems disagree in exactly
- *     one place — this file — instead of everywhere.
+ *     one place - this file - instead of everywhere.
  *   - **Pills for actions.** Buttons and chips are fully round, which is what
  *     separates a control from a card at a glance now that cards are round too.
  *
  * Everything is wrapped in `@layer base` so it lands after Tailwind's preflight
- * — otherwise preflight resets `body` and the theme never applies.
+ * - otherwise preflight resets `body` and the theme never applies.
  */
 
 @layer base {
   :root {
     /* ── Type ───────────────────────────────────────────────────────────────
-       Instrument Serif is the interface face — headings, body, labels and
+       Instrument Serif is the interface face - headings, body, labels and
        controls all resolve to it, so `font-heading` and `font-body` are the
        same family here and the distinction survives only as intent.
 
@@ -43,12 +43,12 @@
 
        `--font-heading-weight` drops to 400 because Instrument Serif ships one
        weight. Left at 800 every bare `h1`–`h4` would be synthetically
-       emboldened by the browser — a smeared outline, not a bolder face.
+       emboldened by the browser - a smeared outline, not a bolder face.
 
        `--ew-font-ui` is the two-job exception, and both jobs are the same job:
        type that has to hold at 10–12px, tracked out and often over a
        photograph. Article titles and the nav buttons in the site bar, the
-       drawer and the tab bar stay on Archivo. Nothing else may reach for it —
+       drawer and the tab bar stay on Archivo. Nothing else may reach for it,
        a third caller is the beginning of two typefaces sharing the interface,
        which is the thing this change replaced. */
     --font-heading: "Instrument Serif", Georgia, "Times New Roman", serif;
@@ -65,24 +65,24 @@
     --ew-surface-2: #f0ece5;
     --ew-tile: #e7e3dc;
 
-    --ew-ink: #201e1d;      /* ≈15.6:1 — headlines, body, verdict marks       */
-    --ew-ink-2: #504b48;    /* ≈8.1:1  — excerpts, secondary prose            */
-    /* Ratios are against --ew-bg, the ground most text sits on — not against
+    --ew-ink: #201e1d;      /* ≈15.6:1 - headlines, body, verdict marks       */
+    --ew-ink-2: #504b48;    /* ≈8.1:1  - excerpts, secondary prose            */
+    /* Ratios are against --ew-bg, the ground most text sits on - not against
        --ew-surface, which is lighter and flatters every value. Measured that
        way, ink-3 was 4.32:1 and ink-4 3.27:1, both under WCAG 1.4.3's 4.5:1
        (IS 5568 AA), and ink-4 carried real text: form notes, dates, password
        rules. Both are now text-safe; ink-4 stays a step lighter than ink-3. */
-    --ew-ink-3: #6b645f;    /* ≈5.2:1  — meta, qualifiers, study type         */
-    --ew-ink-4: #736c66;    /* ≈4.6:1  — the quietest text; still AA          */
+    --ew-ink-3: #6b645f;    /* ≈5.2:1  - meta, qualifiers, study type         */
+    --ew-ink-4: #736c66;    /* ≈4.6:1  - the quietest text; still AA          */
 
     --ew-rule: #cfc8bd;
     --ew-rule-soft: #e0dbd2;
 
-    --ew-accent: #6eb59b;     /* ≈2.1:1 — chrome, focus ring, fills; never text */
-    --ew-accent-ink: #26604b; /* ≈6.5:1 — the accent at text size             */
+    --ew-accent: #6eb59b;     /* ≈2.1:1 - chrome, focus ring, fills; never text */
+    --ew-accent-ink: #26604b; /* ≈6.5:1 - the accent at text size             */
     --ew-accent-hover: #5a9f86;
     --ew-accent-wash: #eef6f2;
-    --ew-danger-ink: #b42318; /* ≈6.5:1 — a failed check, text size */
+    --ew-danger-ink: #b42318; /* ≈6.5:1 - a failed check, text size */
     /* Text on an accent fill. Dark in both themes: white on #6eb59b is 2.4:1,
        this is 7.4:1 (5.7:1 on hover). */
     --ew-on-accent: #1a1817;
@@ -95,7 +95,7 @@
     --ew-panel: #28241f;
     --ew-panel-fg: #f4f1ec;
 
-    /* ── Subject hues — the only chromatic axis ─────────────────────────────
+    /* ── Subject hues - the only chromatic axis ─────────────────────────────
        Colour says what kind of thing is being assessed, never how it scored.
        Nothing green, nothing amber, and no hue on the verdict axis, so a feed
        of tiles cannot read as a traffic light. See `subject.ts`. */
@@ -109,7 +109,7 @@
     --ew-cat-wellness: #00607a;
     --ew-cat-other: #4b5560;
 
-    /* ── Verdict prominence — the comp's `coequal` setting ──────────────────
+    /* ── Verdict prominence - the comp's `coequal` setting ──────────────────
        The verdict label and the headline carry equal weight: the label is small
        and tracked-out caps, the headline is 19px/700. `dominant` read as a
        scoreboard; `quiet` buried the one thing a reader is here for. */
@@ -121,7 +121,7 @@
     --ew-ch-size: 19px;
     --ew-ch-weight: 700;
 
-    /* ── Citation chips — the comp's `bracket` setting ──────────────────────
+    /* ── Citation chips - the comp's `bracket` setting ──────────────────────
        A bracketed, boxed handle rather than a superscript: superscripts are a
        4px tap target and disappear at body size, and this chip is the primary
        affordance for checking a claim against its paper. */
@@ -149,7 +149,7 @@
   }
 
   /* ── Type scopes ────────────────────────────────────────────────────────
-     The serif above is the *published* face, so it stays on `:root` — anything
+     The serif above is the *published* face, so it stays on `:root` - anything
      rendered outside a scope is set the way a reader will see it, which is the
      safe default for a shared component, an error boundary or a future embed.
 
@@ -158,12 +158,12 @@
      dense small type in a screen a reviewer reads for an hour at a time. That
      is the job Modernist picked Archivo for, and it is why these two values
      are the vendored defaults from `design-system.css` restated rather than a
-     third choice — the desk is not being retyped, it is being left where it
+     third choice - the desk is not being retyped, it is being left where it
      was when the public side moved.
 
      The weight comes back to 800 with the family. It dropped to 400 only
      because Instrument Serif ships one weight, so leaving it there would set
-     every console heading in Archivo Regular — a retype nobody asked for,
+     every console heading in Archivo Regular - a retype nobody asked for,
      arriving as a side effect of the face it no longer uses. */
   .ew-type-console {
     --font-heading: "Archivo", system-ui, sans-serif;
@@ -176,7 +176,7 @@
      real published tiles, and it is nested inside the console scope, so it
      would inherit Archivo and show the reviewer a tile in a face the feed
      never uses. A preview that drifts from what publishes is worse than none,
-     because it is reassuring rather than useful — the same reason the overlay
+     because it is reassuring rather than useful - the same reason the overlay
      renders the live component instead of a console-local clone.
 
      Restates the `:root` values rather than inheriting them, because
@@ -196,7 +196,7 @@
     --ew-ink: #f2efea;      /* ≈14.9:1 */
     --ew-ink-2: #c2bcb5;    /* ≈8.6:1  */
     --ew-ink-3: #98918a;    /* ≈5.7:1  */
-    --ew-ink-4: #8f877f;    /* ≈5.1:1 on bg, 4.6:1 on surface — was 4.0:1 */
+    --ew-ink-4: #8f877f;    /* ≈5.1:1 on bg, 4.6:1 on surface - was 4.0:1 */
 
     --ew-rule: #443f3b;
     --ew-rule-soft: #34302e;
@@ -231,7 +231,7 @@
 
   html {
     /* Prevents the sticky site header from covering an element scrolled to via
-       its anchor — citation chips jump to `#source-S1` in the source list. */
+       its anchor - citation chips jump to `#source-S1` in the source list. */
     scroll-behavior: smooth;
   }
 
@@ -258,7 +258,7 @@
     color: #fff;
   }
 
-  /* Never the browser default blue — the accent ring is part of the system.
+  /* Never the browser default blue - the accent ring is part of the system.
      Drawn in accent-*ink*, the same hue at text strength: the fill accent is
      2.1:1 on the light ground, too faint to find a focused control by
      (WCAG 1.4.11 / 2.4.7). */
@@ -295,7 +295,7 @@
   .ew-chip::before { content: var(--ew-chip-open); }
   .ew-chip::after { content: var(--ew-chip-close); }
 
-  /* The verdict label and the card headline are a matched pair — their size,
+  /* The verdict label and the card headline are a matched pair - their size,
      weight and case are set together by the prominence tokens, so they move
      together when the balance is retuned. Splitting them into four utility
      classes each would let them drift apart. */
@@ -314,7 +314,7 @@
      A three-stop gradient rather than a flat wash, because the text sits at
      the bottom and the picture has to survive at the top. Written as a class
      rather than a Tailwind arbitrary value so the stops are legible and can be
-     retuned once for every surface that uses a tile — the feed, the saved
+     retuned once for every surface that uses a tile - the feed, the saved
      shelf and the recommendation row.
 
      Fixed dark stops, not theme tokens, deliberately: this sits over a
@@ -333,7 +333,7 @@
      Tiles fade up as they enter the viewport. The class is the *resting*
      state; `data-shown` is what animates, so a tile that never intersects
      (because JavaScript failed, or the observer is unsupported) is still
-     visible — the fallback is "no animation", never "no content".
+     visible - the fallback is "no animation", never "no content".
 
      Honours `prefers-reduced-motion` by skipping the transform entirely. */
   .ew-reveal {
@@ -363,7 +363,7 @@
      layout and not just of words.
 
      Why this is CSS and not Tailwind: the width is a number chosen at runtime,
-     so it cannot be a class the JIT compiler has ever seen — and it has to
+     so it cannot be a class the JIT compiler has ever seen - and it has to
      stop applying below 640px, which an inline style cannot express. A custom
      property set inline, read inside a media query, is what does both.
 

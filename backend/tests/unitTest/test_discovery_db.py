@@ -147,9 +147,9 @@ async def _make_run(db: AsyncSession) -> str:
 
 _INSERT_CANDIDATE = sa.text(
     "INSERT INTO discovery_candidates"
-    " (id, scan_id, substance_ui, topic, score, paper_count, baseline_count,"
+    " (id, substance_ui, topic, score, paper_count, baseline_count,"
     "  rationale, status, pipeline_run_id, decided_by, decided_at, dismiss_reason)"
-    " VALUES (:id, :scan_id, :substance_ui, :topic, :score, :paper_count,"
+    " VALUES (:id, :substance_ui, :topic, :score, :paper_count,"
     "  :baseline_count, :rationale, :status, :run_id, :decided_by, :decided_at,"
     "  :dismiss_reason)"
 )
@@ -184,17 +184,16 @@ async def test_one_live_proposal_per_substance(session: AsyncSession) -> None:
     guarantee has to live in the database, or a second write path reintroduces
     the duplicate the console then shows twice.
     """
-    scan_id = await _make_scan(session)
     ui = await _make_descriptor(session, _FAKE_UIS[0])
 
     await session.execute(
-        _INSERT_CANDIDATE, _candidate_params(scan_id=scan_id, substance_ui=ui)
+        _INSERT_CANDIDATE, _candidate_params(substance_ui=ui)
     )
     await session.flush()
 
     with pytest.raises(IntegrityError):
         await session.execute(
-            _INSERT_CANDIDATE, _candidate_params(scan_id=scan_id, substance_ui=ui)
+            _INSERT_CANDIDATE, _candidate_params(substance_ui=ui)
         )
         await session.flush()
 
@@ -208,7 +207,6 @@ async def test_decided_candidates_do_not_block_a_new_proposal(
     again now. All three rows have to coexist, because that history is exactly
     what ``suppression_reason`` reads to decide whether to propose it again.
     """
-    scan_id = await _make_scan(session)
     ui = await _make_descriptor(session, _FAKE_UIS[0])
     reviewer = await _make_user(session)
     run_id = await _make_run(session)
@@ -217,7 +215,6 @@ async def test_decided_candidates_do_not_block_a_new_proposal(
     await session.execute(
         _INSERT_CANDIDATE,
         _candidate_params(
-            scan_id=scan_id,
             substance_ui=ui,
             status=DiscoveryCandidateStatus.DISMISSED.value,
             decided_by=reviewer,
@@ -228,7 +225,6 @@ async def test_decided_candidates_do_not_block_a_new_proposal(
     await session.execute(
         _INSERT_CANDIDATE,
         _candidate_params(
-            scan_id=scan_id,
             substance_ui=ui,
             status=DiscoveryCandidateStatus.PROMOTED.value,
             run_id=run_id,
@@ -237,7 +233,7 @@ async def test_decided_candidates_do_not_block_a_new_proposal(
         ),
     )
     await session.execute(
-        _INSERT_CANDIDATE, _candidate_params(scan_id=scan_id, substance_ui=ui)
+        _INSERT_CANDIDATE, _candidate_params(substance_ui=ui)
     )
     await session.flush()
 
@@ -323,7 +319,6 @@ async def test_observation_survives_its_scan(session: AsyncSession) -> None:
 
 
 async def test_promoted_candidate_requires_a_run(session: AsyncSession) -> None:
-    scan_id = await _make_scan(session)
     ui = await _make_descriptor(session, _FAKE_UIS[0])
     reviewer = await _make_user(session)
 
@@ -331,7 +326,6 @@ async def test_promoted_candidate_requires_a_run(session: AsyncSession) -> None:
         await session.execute(
             _INSERT_CANDIDATE,
             _candidate_params(
-                scan_id=scan_id,
                 substance_ui=ui,
                 status=DiscoveryCandidateStatus.PROMOTED.value,
                 decided_by=reviewer,
@@ -342,14 +336,12 @@ async def test_promoted_candidate_requires_a_run(session: AsyncSession) -> None:
 
 
 async def test_decided_candidate_requires_a_reviewer(session: AsyncSession) -> None:
-    scan_id = await _make_scan(session)
     ui = await _make_descriptor(session, _FAKE_UIS[0])
 
     with pytest.raises(IntegrityError):
         await session.execute(
             _INSERT_CANDIDATE,
             _candidate_params(
-                scan_id=scan_id,
                 substance_ui=ui,
                 status=DiscoveryCandidateStatus.DISMISSED.value,
                 dismiss_reason="too thin",
@@ -359,7 +351,6 @@ async def test_decided_candidate_requires_a_reviewer(session: AsyncSession) -> N
 
 
 async def test_dismissed_candidate_requires_a_reason(session: AsyncSession) -> None:
-    scan_id = await _make_scan(session)
     ui = await _make_descriptor(session, _FAKE_UIS[0])
     reviewer = await _make_user(session)
 
@@ -367,7 +358,6 @@ async def test_dismissed_candidate_requires_a_reason(session: AsyncSession) -> N
         await session.execute(
             _INSERT_CANDIDATE,
             _candidate_params(
-                scan_id=scan_id,
                 substance_ui=ui,
                 status=DiscoveryCandidateStatus.DISMISSED.value,
                 decided_by=reviewer,
@@ -381,7 +371,7 @@ async def test_dismissed_candidate_requires_a_reason(session: AsyncSession) -> N
 
 
 async def test_run_origin_defaults_to_console(session: AsyncSession) -> None:
-    """0005 cannot break ``create_run``, which does not set ``origin``.
+    """The schema cannot break ``create_run``, which does not set ``origin``.
 
     The column is a convenience for cost accounting; if it were ever required at
     insert time it would turn the console's own enqueue into a 500.
@@ -444,13 +434,12 @@ async def test_promotion_writes_the_run_and_the_decision_together(
     """
     from app.api.console.discovery import promote_candidate
 
-    scan_id = await _make_scan(session)
     ui = await _make_descriptor(session, _FAKE_UIS[0])
     reviewer_id = await _make_user(session)
     candidate_id = str(uuid.uuid4())
     await session.execute(
         _INSERT_CANDIDATE,
-        _candidate_params(id=candidate_id, scan_id=scan_id, substance_ui=ui),
+        _candidate_params(id=candidate_id, substance_ui=ui),
     )
     await session.flush()
 
@@ -493,7 +482,6 @@ async def test_promoting_an_already_decided_candidate_is_a_conflict(
 
     from app.api.console.discovery import promote_candidate
 
-    scan_id = await _make_scan(session)
     ui = await _make_descriptor(session, _FAKE_UIS[0])
     reviewer_id = await _make_user(session)
     candidate_id = str(uuid.uuid4())
@@ -501,7 +489,6 @@ async def test_promoting_an_already_decided_candidate_is_a_conflict(
         _INSERT_CANDIDATE,
         _candidate_params(
             id=candidate_id,
-            scan_id=scan_id,
             substance_ui=ui,
             status=DiscoveryCandidateStatus.EXPIRED.value,
         ),

@@ -3,13 +3,13 @@ import type { Config } from "tailwindcss";
 /**
  * Every value here resolves to a design-system custom property rather than a
  * literal. Components therefore say `text-ink-3` / `border-rule-soft`, and the
- * theme — including the light/dark flip — is decided entirely in
+ * theme - including the light/dark flip - is decided entirely in
  * `src/styles/youth.css`. A hex in a component is a bug: it cannot follow the
  * theme, and it is invisible to anyone retuning the system.
  *
  * The old `verdict.*` ramp (green / amber / orange / stone) is deliberately
  * gone. The design direction takes verdict off the colour axis entirely and
- * carries it in geometry instead — see `features/evidence/VerdictMark.tsx`.
+ * carries it in geometry instead - see `features/evidence/VerdictMark.tsx`.
  * Colour now means *subject*, never judgment.
  *
  * The consequence to know about: colours defined as `var(...)` do not support
@@ -59,7 +59,7 @@ export default {
         },
 
         accent: {
-          DEFAULT: "var(--ew-accent)", // chrome, marks, focus — not text
+          DEFAULT: "var(--ew-accent)", // chrome, marks, focus - not text
           ink: "var(--ew-accent-ink)", // the accent at text size
           hover: "var(--ew-accent-hover)",
           wash: "var(--ew-accent-wash)",
@@ -84,7 +84,7 @@ export default {
 
       fontFamily: {
         /**
-         * Both resolve to Instrument Serif — see the type block in
+         * Both resolve to Instrument Serif - see the type block in
          * `styles/youth.css`. They stay two names because they carry two
          * intents, and a future retype that splits the face again should not
          * have to rediscover which of two hundred class strings meant which.
@@ -95,7 +95,7 @@ export default {
          * The exception, and the only sans in the product: article titles and
          * the nav buttons in the site bar, the drawer and the tab bar. Both are
          * type that has to survive at 10–12px, tracked out, frequently over a
-         * photograph — which is the one job a display serif does badly.
+         * photograph - which is the one job a display serif does badly.
          *
          * Anywhere else this is the wrong face; reach for `font-body`. A third
          * kind of caller here is how an interface ends up set in two typefaces
@@ -138,10 +138,10 @@ export default {
        * named for what they belong to rather than by size, so a component
        * cannot pick "the medium one" and drift:
        *
-       *   `tile`  — anything showing a picture: feed tiles, lead images.
-       *   `panel` — a block of content resting on the page: source lists,
+       *   `tile`  - anything showing a picture: feed tiles, lead images.
+       *   `panel` - a block of content resting on the page: source lists,
        *             the dark explainer, the sign-up card.
-       *   `field` — text inputs and textareas, softer than a panel so a form
+       *   `field` - text inputs and textareas, softer than a panel so a form
        *             row does not read as a stack of cards.
        *
        * Actions are `rounded-full`, not one of these. A pill against a rounded
@@ -160,7 +160,7 @@ export default {
           from: { transform: "translateX(-100%)" },
           to: { transform: "translateX(0)" },
         },
-        // The toast, up into place rather than simply appearing — a message
+        // The toast, up into place rather than simply appearing - a message
         // that arrives without motion reads as something that was always
         // there and went unnoticed.
         "fade-up": {
@@ -193,7 +193,7 @@ export default {
       //
       // 800px and not more. The frame holds the headline, byline, verdict bar
       // and source panel, and the body now fills it (see PROSE_MEASURE) rather
-      // than sitting in a 600px column inside it — so this number is the
+      // than sitting in a 600px column inside it - so this number is the
       // article's one measure, and every px added to it lengthens the line.
       // 880 was tried as a frame around the narrower column and read as a
       // ribbon of text in a wide box; that complaint does not apply now the

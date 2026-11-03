@@ -3,7 +3,7 @@
  *
  * Every test fails on an uncaught exception or a console error, not only on the
  * assertion it makes: a page can render the element under test while a crashed
- * component elsewhere leaves it unusable. "Failed to load resource" is allowed —
+ * component elsewhere leaves it unusable. "Failed to load resource" is allowed,
  * the browser logs one for every deliberate 4xx (a missing article, a wrong
  * password), and the tests assert those responses directly.
  */

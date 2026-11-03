@@ -1,5 +1,5 @@
 /**
- * Regenerating an article's generated pictures — either of them, or both.
+ * Regenerating an article's generated pictures - either of them, or both.
  *
  * An article has two: the `lead` in its body, and the portrait `cover` that
  * only ever appears on the feed tile. They are seen in different places and
@@ -8,7 +8,7 @@
  * drawn from one seed.
  *
  * The server draws them and records them on the article, then hands both back.
- * **It does not touch the document** — `original_content` is trigger-protected
+ * **It does not touch the document** - `original_content` is trigger-protected
  * and `edited_content` is this editor's live buffer, so a server-side rewrite
  * would either fail or clobber whatever the reviewer is typing. The swap
  * happens here instead, which has a second benefit: the new `src` reaches the
@@ -20,8 +20,8 @@
  * about that particular render, and resetting it on every press would make the
  * button feel destructive.
  *
- * If the document has no picture — the reviewer deleted it, or the pipeline
- * never made one — the new lead is inserted at the top rather than refused.
+ * If the document has no picture - the reviewer deleted it, or the pipeline
+ * never made one - the new lead is inserted at the top rather than refused.
  * That is also what re-pairs the tile: the cover is only used while the
  * document's first image is the lead it was drawn beside.
  */
@@ -47,8 +47,8 @@ export interface Illustration {
   working: RegenerateTarget | null;
   error: string | null;
   /**
-   * Returns whether the article changed, so a caller showing the result — the
-   * feed preview — knows when to refetch. An editor is required for any target
+   * Returns whether the article changed, so a caller showing the result - the
+   * feed preview - knows when to refetch. An editor is required for any target
    * that redraws the lead; see the guard below for why.
    */
   regenerate: (target: RegenerateTarget, editor?: Editor | null) => Promise<boolean>;

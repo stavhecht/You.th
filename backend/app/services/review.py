@@ -166,7 +166,7 @@ class ReviewService:
         await self._session.flush()
         # After the flush, because the function reads the row as it now stands:
         # published, with the card columns just derived. Built in SQL by the
-        # same function migration 0006 backfilled with, so a newly published
+        # same function the schema defines, so a newly published
         # article is indexed exactly as the older ones were.
         await self._session.execute(_INDEX_FOR_SEARCH, {"article_id": article_id})
         logger.info("article %s published by reviewer %s", article_id, reviewer_id)

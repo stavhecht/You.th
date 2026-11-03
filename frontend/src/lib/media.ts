@@ -3,7 +3,7 @@
  *
  * The console writes these values into an article document and the public feed
  * renders them, so the two must agree about the shape of an image `src` and
- * about what a YouTube video id is. This module is where they agree — and it
+ * about what a YouTube video id is. This module is where they agree - and it
  * imports nothing, which is the point: the reader's bundle can use it without
  * pulling in TipTap, and `lib/api` stays free of the editor for the same
  * reason it stays free of the router.
@@ -40,14 +40,14 @@ const YOUTUBE_HOSTS = new Set([
 /**
  * How a picture or a video sits in the prose.
  *
- * `left` and `right` float, and the prose wraps down the other side — Word's
+ * `left` and `right` float, and the prose wraps down the other side - Word's
  * "Square" wrap. `none` is a block with text above and below; when it is
  * narrower than the column it centres, because a narrow block hugging the left
  * margin reads as a mistake rather than a choice.
  *
  * There are no coordinates here on purpose. Media are siblings of the beat
  * paragraphs and are placed by being dragged between them, which is what keeps
- * `attrs.beat` — and therefore the derived feed card — meaningful.
+ * `attrs.beat` - and therefore the derived feed card - meaningful.
  */
 export type MediaAlign = "none" | "left" | "right";
 
@@ -77,7 +77,7 @@ export function isMediaAlign(value: unknown): value is MediaAlign {
  * The classes that lay a media block out, from `styles/youth.css`.
  *
  * Here rather than in either styles module because the console and the feed
- * must produce the *same* classes — that identity is what makes "the editor
+ * must produce the *same* classes - that identity is what makes "the editor
  * shows what publishes" true of layout. Two copies of this mapping would be
  * two things that could drift, and the symptom of drift is an article that
  * looks one way to the reviewer approving it and another to everyone else.
@@ -103,7 +103,7 @@ export function mediaAlign(value: unknown): MediaAlign {
 /**
  * A width in range, or full width.
  *
- * Rounded to whole percents — the resize handle produces fractions of a pixel
+ * Rounded to whole percents - the resize handle produces fractions of a pixel
  * and storing `44.7391304347826` makes a diff between the original and the
  * edited document unreadable for the sake of a difference nobody can see.
  */
@@ -120,8 +120,8 @@ export function isYouTubeId(value: unknown): value is string {
 /**
  * The video id inside whatever the reviewer pasted, or null.
  *
- * Accepts the four links YouTube itself hands out — `watch?v=`, `youtu.be/`,
- * `/embed/`, `/shorts/` — and a bare id, because someone will paste one. Only
+ * Accepts the four links YouTube itself hands out - `watch?v=`, `youtu.be/`,
+ * `/embed/`, `/shorts/` - and a bare id, because someone will paste one. Only
  * the id is kept: a document stores data, and the renderer builds the embed
  * URL from it, so no pasted string ever reaches an iframe's `src` intact.
  */
@@ -170,7 +170,7 @@ export function youtubeWatchUrl(videoId: string): string {
 
 /**
  * The player, built here from an id that has been checked against
- * {@link isYouTubeId} — never from a string anyone typed.
+ * {@link isYouTubeId} - never from a string anyone typed.
  *
  * `youtube-nocookie.com` because a reader arriving at a health article has not
  * asked to be tracked by Google, and this is the domain that honours that

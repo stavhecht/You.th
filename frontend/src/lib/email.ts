@@ -1,5 +1,5 @@
 /**
- * The email shape the API accepts — mirror of `EMAIL_PATTERN` in
+ * The email shape the API accepts - mirror of `EMAIL_PATTERN` in
  * backend/app/api/schemas_base.py. The browser's own `type="email"` check
  * passes `ada@gmail`, which the API then refuses with a generic error.
  * English (ASCII) addresses only, like the API.

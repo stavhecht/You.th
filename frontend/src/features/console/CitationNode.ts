@@ -5,7 +5,7 @@
  * markdown (DESIGN.md §3.4). As an atomic inline node, a citation:
  *
  *   - renders as a chip a reviewer can click to jump to the sources panel;
- *   - deletes as one unit, so it cannot be half-destroyed into "[S" — in
+ *   - deletes as one unit, so it cannot be half-destroyed into "[S" - in
  *     markdown a reviewer backspacing through "[S1]" silently produces text
  *     that no longer parses as a citation and no longer resolves;
  *   - is countable structurally at approve time, which is what lets the server

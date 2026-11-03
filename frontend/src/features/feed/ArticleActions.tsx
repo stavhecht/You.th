@@ -118,7 +118,7 @@ export function ArticleActions({
  *
  * `navigator.share` is the right thing on a phone and absent on most desktops;
  * `clipboard.writeText` needs a secure context and can be refused outright.
- * Every branch ends in the toast saying what actually happened — a share button
+ * Every branch ends in the toast saying what actually happened - a share button
  * that silently does nothing is worse than one that says it could not.
  */
 async function share(
@@ -134,7 +134,7 @@ async function share(
       return;
     } catch {
       // Includes the reader simply dismissing the sheet, which is not a
-      // failure worth a message — fall through to the clipboard only if the
+      // failure worth a message - fall through to the clipboard only if the
       // sheet was never usable.
       return;
     }

@@ -34,8 +34,8 @@ variable here: the observation ledger is keyed (descriptor, pmid), so a scan
 re-reading a window a previous scan already counted changes nothing, and
 ``--limit`` controls how much reaches the desk independently.
 
-    15 6 * * 1 cd /srv/evidwell/backend && /srv/evidwell/.venv/bin/python \\
-        -m scripts.scan_trends --apply >> /var/log/evidwell/scan_trends.log 2>&1
+    15 6 * * 1 cd /srv/youth/backend && /srv/youth/.venv/bin/python \\
+        -m scripts.scan_trends --apply >> /var/log/youth/scan_trends.log 2>&1
 
 06:15 Monday on purpose: outside the hours a reviewer is queueing runs, so the
 scan and the worker are not competing for the same NCBI per-IP ceiling.

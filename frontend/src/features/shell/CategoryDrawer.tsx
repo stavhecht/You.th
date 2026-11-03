@@ -4,14 +4,14 @@
  * **Subject only.** The drawer also listed the four verdicts for a while, and
  * they are gone deliberately rather than for space: a standing menu of
  * Supported / Mixed / Weak / No evidence is a scoreboard, and offering it as a
- * primary way into the feed invites browsing by score instead of by subject —
+ * primary way into the feed invites browsing by score instead of by subject,
  * the framing this product exists to avoid. Verdict is still a real narrowing
  * and still survives in the URL as `?verdict=`, so a link someone shares keeps
  * working and the feed heading still names it; it is just not something the
  * navigation proposes.
  *
  * The counts are server-side totals over everything published, not a tally of
- * what has loaded — a number that climbs as you scroll reads as being wrong.
+ * what has loaded - a number that climbs as you scroll reads as being wrong.
  * They exist because this feed fills slowly on purpose, so a category with
  * nothing in it is the normal case, and a row with no number is a door you have
  * to open to find that out.

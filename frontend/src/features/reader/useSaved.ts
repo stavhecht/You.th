@@ -8,7 +8,7 @@
  *
  * Signed out, `isSaved` is always false and `toggle` reports what is missing
  * rather than failing. Saving is the main reason to have an account, so the
- * control stays visible and becomes the prompt — hiding it would remove the
+ * control stays visible and becomes the prompt - hiding it would remove the
  * one place the reason for signing up is obvious.
  */
 
@@ -63,7 +63,7 @@ export function useSaved(): SavedState {
       if (saved) await unsaveArticle(slug);
       else await saveArticle(slug, folderId);
     },
-    // Every saved query at once — the index, the shelf, and the folder counts
+    // Every saved query at once - the index, the shelf, and the folder counts
     // above it all move together, and invalidating them separately is how a
     // tab label ends up disagreeing with the grid under it.
     onSettled: () => queryClient.invalidateQueries({ queryKey: readerKeys.saved }),

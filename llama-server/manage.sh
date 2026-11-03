@@ -10,10 +10,10 @@
 set -eu
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-SERVER=com.evidwell.llama-server
-WATCHDOG=com.evidwell.llama-server.watchdog
+SERVER=com.youth.llama-server
+WATCHDOG=com.youth.llama-server.watchdog
 AGENTS="$HOME/Library/LaunchAgents"
-LOG_DIR="$HOME/Library/Logs/evidwell"
+LOG_DIR="$HOME/Library/Logs/youth"
 URL="http://127.0.0.1:8080"
 DOMAIN="gui/$(id -u)"
 

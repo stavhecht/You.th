@@ -12,15 +12,15 @@ export interface FeedFilter {
   /**
    * Whether a signed-in reader's interests reorder the page.
    *
-   * Ordering, never filtering — the personalised feed holds the same articles
+   * Ordering, never filtering - the personalised feed holds the same articles
    * as the anonymous one, in a different order. Turned off while the reader is
    * browsing a single subject, where a second ordering rule on top of an
    * explicit choice is just confusing.
    */
   personalise?: boolean;
   /**
-   * Free-text search, answered by the server over every published article —
-   * body included — and ranked by relevance. While it is set the server
+   * Free-text search, answered by the server over every published article,
+   * body included - and ranked by relevance. While it is set the server
    * ignores `personalise`: a search promises best match first.
    */
   query?: string | null;
@@ -53,7 +53,7 @@ export const feedKeys = {
  * Cursor-paginated rather than offset-paginated: the feed grows at the head,
  * and offsets skip or duplicate items when something publishes mid-scroll.
  * Pairs with useInfiniteQuery. With `query` set it is a search, and the
- * cursor it returns is a search cursor — opaque either way.
+ * cursor it returns is a search cursor - opaque either way.
  */
 export async function fetchFeed(
   params: { cursor?: string; limit?: number } & FeedFilter,

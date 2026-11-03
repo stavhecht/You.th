@@ -4,7 +4,7 @@
  *      properties are immune to Tailwind's preflight, so they can sit first.
  *   2. `@tailwind base` (preflight) then resets elements.
  *   3. `youth.css` wraps its rules in `@layer base`, which Tailwind hoists
- *      to the *end* of the base layer — after preflight, so the theme wins.
+ *      to the *end* of the base layer - after preflight, so the theme wins.
  *
  * Swapping (1) and (3) would leave `body` reset to white on every load.
  */

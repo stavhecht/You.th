@@ -2,7 +2,7 @@
  * Your profile: interests, folders, and the shelf.
  *
  * Signed out this is a pitch rather than a redirect. Bouncing a guest to
- * `/join` would lose the one thing that makes signing up make sense — seeing
+ * `/join` would lose the one thing that makes signing up make sense - seeing
  * what the page would hold.
  *
  * The interests here are the same control as on the sign-up form and write
@@ -111,7 +111,7 @@ export function YouRoute() {
     flash(
       next.length
         ? `Your feed leads with ${next.length} ${next.length === 1 ? "subject" : "subjects"}`
-        : "Personalisation off — newest first",
+        : "Personalisation off, newest first",
     );
   }
 
@@ -130,7 +130,7 @@ export function YouRoute() {
               {reader?.interests.length
                 ? reader.interests.map((s) => SUBJECT_LABELS[s]).join(" · ")
                 : "No interests picked yet"}
-              {reader?.newsletter ? " — newsletter on" : ""}
+              {reader?.newsletter ? ", newsletter on" : ""}
             </div>
           </div>
         </div>
@@ -229,7 +229,7 @@ export function YouRoute() {
       ) : (
         /*
          * A plain CSS grid rather than the feed's virtualised masonry. A shelf
-         * is a human-sized list — there is no infinite scroll to virtualise —
+         * is a human-sized list - there is no infinite scroll to virtualise,
          * and masonic measures nodes on mount, which makes it the wrong tool
          * for a list that shrinks as you remove things from it.
          */
@@ -246,7 +246,7 @@ export function YouRoute() {
 }
 
 /**
- * The newsletter choice, a copy of the account, and erasure — the controls the
+ * The newsletter choice, a copy of the account, and erasure - the controls the
  * privacy policy promises are here.
  *
  * The newsletter box is the withdrawal half of the opt-in on `/join`: consent
@@ -269,7 +269,7 @@ function YourData() {
 
   async function onNewsletter(next: boolean) {
     await update({ newsletter: next });
-    flash(next ? "Newsletter on" : "Newsletter off — we will not email you");
+    flash(next ? "Newsletter on" : "Newsletter off, we will not email you");
   }
 
   async function onExport() {
@@ -428,7 +428,7 @@ function GuestState() {
         <p className={GUEST_BODY}>
           Everything on the feed is readable without an account. An account
           keeps your folders across devices and moves the subjects you care
-          about to the top — without hiding anything else.
+          about to the top, without hiding anything else.
         </p>
         <Link to="/join" className={PILL_BUTTON}>
           Create an account

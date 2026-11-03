@@ -12,23 +12,22 @@ docker compose up -d db                  # pgvector/pgvector:pg16 on :5433
 uv sync                                  # installs from uv.lock, dev group included; add
                                          # deps with `uv add` / `uv add --dev`, never pip
 python -m scripts.migrate                # applies migrations via asyncpg; no psql needed
-                                         # 0001_initial.sql is the only file — squashed a fifth
-                                         # time on 2026-09-30, folding in source_chunks,
-                                         # chunk_settings, full-text excerpts and the research
-                                         # tables, and dropping 7 write-only columns. The data
-                                         # was COPIED into a fresh database, not discarded; the
-                                         # old copy, evidwell_backup_20260930, was dropped on
-                                         # 2026-10-14. Squashing
-                                         # is only free while every database holding the schema
-                                         # can be rebuilt; the file's header states that
-                                         # condition. 0002 swaps the subject enum
-                                         # for editorial categories; 0003 moves the
-                                         # research agent onto them. 0004 adds
-                                         # article_sources.stance (APPRAISE). 0005 adds
-                                         # the trend search's topics, observations and
-                                         # feed state. 0006 adds public
-                                         # search (tsvector + pg_trgm). Next
-                                         # is 0007.
+                                         # 0001_initial.sql is the only file — squashed a sixth
+                                         # time on 2026-11-03, folding in 0002-0008: editorial
+                                         # subject categories, research categories,
+                                         # article_sources.stance, the trend search's tables,
+                                         # public search (tsvector + pg_trgm), and 7 more
+                                         # write-only columns dropped. The dev and test
+                                         # databases kept their data: schema_migrations was
+                                         # collapsed to the new checksum after a schema-only
+                                         # diff against a database built from the file showed
+                                         # no change. (The fifth squash, 2026-09-30, COPIED the
+                                         # data into a fresh database; its backup,
+                                         # evidwell_backup_20260930, was dropped on 2026-10-14.)
+                                         # Squashing is only free while every database holding
+                                         # the schema can be rebuilt or have its history
+                                         # rewritten; the file's header states that condition.
+                                         # Next is 0002.
 python -m scripts.migrate --status
 python -m scripts.seed_admin --email you@example.com --name "Your Name"
 
@@ -44,6 +43,9 @@ python -m scripts.privacy_request --email a@b.c   # access/erasure request for s
                                               # without a usable account; counts only by
                                               # default, --export f.json, --erase --apply.
                                               # Verify they own the address first.
+                                              # It cannot reach the copy each contact
+                                              # message emails to the editorial Gmail
+                                              # inbox: delete that by hand.
 python -m scripts.scan_trends                 # trend discovery; dry run makes the API calls
                                               # (same code as the console's Run scan button)
 python -m scripts.scan_trends --bootstrap --apply   # one-time, ~3 min: build the baseline
@@ -87,7 +89,7 @@ npm run typecheck
 npm test               # vitest over src/ only: pure logic (console/checks.test.ts); e2e/ is Playwright's
 npm run build          # tsc -b && vite build
 npm run test:e2e       # Playwright, Chromium: the built app against its own API on
-                       # :8001 + evidwell_test (reseeded by backend/tests/e2e/
+                       # :8001 + youth_test (reseeded by backend/tests/e2e/
                        # browser_seed.py each run), served on :4174. Never touches the
                        # dev stack. Dev-only: nothing in src/ imports it, so dist/
                        # never contains it. First time: npx playwright install chromium
@@ -139,7 +141,7 @@ query planner. A green `pytest` with the DB down is a much weaker signal than it
 | `test_worker_claim.py` | the claim `UPDATE`, and `attempts` counted at claim time |
 | `test_stale_recovery.py` | heartbeat sweep, requeue-vs-fail on a spent budget |
 | `test_rerank_plan.py` | the `EXPLAIN` assertion that no approximate scan is chosen, and a paper scoring as its best chunk |
-| `test_reader_accounts.py` | the composite FK on `reader_saves`, the save-is-a-move primary key, folder-name uniqueness, and the contact `CHECK` |
+| `test_reader_accounts.py` | the composite FK on `reader_saves`, the save-is-a-move primary key, and folder-name uniqueness |
 | `test_discovery_db.py` | the one-live-proposal-per-substance index, the observation ledger's idempotence, the three decision CHECKs, the descriptor FK that forces the scan's write order, and `pipeline_runs.origin` defaulting |
 | `test_reader_privacy.py` | account export and erasure reaching exactly the caller's rows (the folder/save cascade), the password re-check and its throttle on `DELETE /readers/me`, and `privacy_request` erasing by address |
 | `test_feed_search.py` | `approve()` indexing the *edited* body through `article_search_document`, drafts never answering a search, citation markers and `topic` staying out of the index, and the typo fallback answering only when full text found nothing and the query used no `-word` |
@@ -156,14 +158,14 @@ from a manual run turns them into passes. Clear it before trusting them. Worse t
 they also *claim* such a row, so a leftover queued run can flip to `running` mid-suite and make
 the failure look intermittent. Promoting a trend candidate by hand leaves exactly that residue.
 
-**`tests/e2e/` runs the whole product against its own database, `evidwell_test`**, never
+**`tests/e2e/` runs the whole product against its own database, `youth_test`**, never
 the dev one: a topic queued over HTTP, generated by the real worker and orchestrator (only
 the models, paper search and embedder are faked, in `tests/e2e/support.py`), reviewed and
 approved over HTTP, then read, searched and saved by a reader. Separate for two reasons:
 each test starts from truncated tables, and a run queued in the dev database would be
 claimed by the docker worker within five seconds and generated with the real model. The
 fixture refuses to truncate any database whose name does not end in `_test`. Create it
-once: `CREATE DATABASE evidwell_test`, then `DATABASE_URL=…/evidwell_test python -m
+once: `CREATE DATABASE youth_test`, then `DATABASE_URL=…/youth_test python -m
 scripts.migrate` (and again after every new migration). Skipped when absent; point
 elsewhere with `E2E_DATABASE_URL`. The e2e engine uses `NullPool` because `TestClient`
 runs the app on its own event loop. Its fake abstracts must stay over RANK's
@@ -396,7 +398,7 @@ counts sources by direction, and it waits on the labels' measured accuracy. Six 
   `disabled`, `no_sources`, `model_error`, `partial_model_error` or `unexpected`, and the draft
   proceeds exactly as it did before the stage existed. `APPRAISAL_ENABLED=false` switches it off.
 - **A missing label means not appraised, never `unclear`.** A skipped handle stays absent, an
-  invented one is dropped, and `article_sources.stance` is NULL for it (migration 0004) — the
+  invented one is dropped, and `article_sources.stance` is NULL for it (`0001_initial.sql`) — the
   same rule as `retraction_checked_at IS NULL`.
 - **The synthesis model is not shown the labels**, by decision. `PromptSource.stances` carries
   them to VALIDATE and `render_source_block` ignores them; a test pins that the rendered prompt is
@@ -875,7 +877,7 @@ returns `UNKNOWN` for one already cached; `scripts/check_retractions.py` re-chec
 against PubMed + Crossref on a schedule, because retractions land *after* publication and the
 ingest screen only ever catches what was already withdrawn when we first saw it. The schedule is
 a host LaunchAgent, Mondays 07:00 (`./jobs/retractions.sh install`; log
-`~/Library/Logs/evidwell/retractions.log`). Nothing ran it before 2026-10-28; the first run
+`~/Library/Logs/youth/retractions.log`). Nothing ran it before 2026-10-28; the first run
 checked the 106 sources cited by published and pending articles, all clean.
 
 Two rules with teeth. **Retractions are checked *before* the publication-type map**, unlike
@@ -1007,7 +1009,7 @@ would make every *unclassified* article (`subject IS NULL`) invisible to anyone 
 interest set. The cost is that the tiered sort cannot use `articles_feed_idx`; the tier is
 therefore skipped entirely for a reader with no interests, which is every anonymous request.
 Free-text search is `GET /feed?q=`, server-side over every published article's approved text
-(migration 0006, DESIGN.md §3.1): full text first, a trigram typo fallback only when that finds
+(`0001_initial.sql`, DESIGN.md §3.1): full text first, a trigram typo fallback only when that finds
 nothing, labelled `match: "similar"`. The tsvector is built by the SQL function
 `article_search_document`, called by `approve()` and by the migration's backfill — never in
 Python, so the two cannot index differently. `_TYPO_TITLE` in `services/feed.py` must match
@@ -1021,7 +1023,7 @@ listing rather than a word the reader was shown. An unclassified article renders
 sits under "Everything" — the design's resting state, not a broken cell — so it must never
 block publishing.
 
-**Subjects are editorial categories, not kinds of object** (migration 0002, 2026-10-01): Fitness,
+**Subjects are editorial categories, not kinds of object** (2026-10-01): Fitness,
 Nutrition, Supplements, Sleep and recovery, Lifestyle, Preventive health, General health,
 Wellness, Other. `other` is a reviewer's answer ("none of these fit") and is not `NULL`
 (unclassified). They are the drawer's filter, the readers' interests and the tile hue, so a
@@ -1365,7 +1367,7 @@ DESIGN.md §4b has the design. What to know when editing:
   through n8n: it must work while n8n is down. `mode` (weekly/manual) is metadata only. **No
   request parameter can switch the evidence check off**; a trigger may narrow sources and raise
   thresholds, never widen or lower them (`ResearchConfig.resolve`).
-- **Single-flight is an index now** (`research_runs_one_active`, migration 0005). The SELECT
+- **Single-flight is an index now** (`research_runs_one_active`). The SELECT
   check in `start_research_run` names the run in the way; the partial unique index is what
   holds when two triggers race past it, caught as `IntegrityError` inside a savepoint → 409.
 - **Runs execute in the pipeline worker**, sharing NCBI's per-IP ceiling with article runs, so
@@ -1781,6 +1783,16 @@ generated by a separate model call, so card and article cannot contradict each o
   root `.env`, keys kept.** `IMAGE_PROVIDER=none` makes drafts text-only (illustrate cause
   `disabled`; the console's Regenerate answers 503). `NEWS_API_ENABLED=false` makes research
   use DuckDuckGo news. To turn either back on, flip the line and `--force-recreate` (below).
+- **Every "Let us know" message is also emailed to `CONTACT_NOTIFY_TO`** (`services/notify.py`,
+  Gmail SMTP by default; `SMTP_USER` + an app password in `SMTP_PASSWORD`). An empty password
+  sends nothing, and the address is a placeholder (`editorial@example.com`) until the inbox
+  exists. It is a `BackgroundTasks` job after the commit, so it never fails or delays a
+  submission and never describes an unsaved row. **A mail outage is only a log line, and
+  the desk has no inbox screen**: `frontend/src` never calls `/api/console/contact`, so
+  while email is broken (a revoked app password, a wrong `SMTP_HOST`) new messages sit
+  unseen in `contact_requests`, readable only through that endpoint in `/docs`. The
+  sender's text stays in the plain-text body, and line breaks are collapsed out of the
+  subject, so a name cannot add a `Bcc:` header. `Reply-To` is the sender.
 - **`IMAGE_GEN_KEY` must be a fine-grained HF token with "Make calls to Inference Providers".**
   A plain read token authenticates and then 403s on the first render, which reads nothing like
   a permissions problem until you see the message. No key at all is a supported state, not a

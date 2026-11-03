@@ -2,14 +2,14 @@
  * Keeps `attrs.beat` alive through an edit.
  *
  * The body is three beat paragraphs, and the server addresses them by
- * `attrs.beat` rather than by position — `services/tiptap.py::beat_text()`,
+ * `attrs.beat` rather than by position - `services/tiptap.py::beat_text()`,
  * which the feed card excerpt is derived from, and which stays correct when a
  * reviewer inserts an image above beat 1 (see MediaNodes.ts).
  *
  * TipTap drops attributes the schema does not declare. Without this extension
  * StarterKit's plain `paragraph` parses the loaded document, discards `beat`,
  * and the first autosave writes an `edited_content` in which no paragraph is
- * addressable any more — the feed then renders those articles with an empty
+ * addressable any more - the feed then renders those articles with an empty
  * excerpt, silently, because nothing about the document is otherwise wrong.
  *
  * Declared as a global attribute rather than a replacement paragraph node so

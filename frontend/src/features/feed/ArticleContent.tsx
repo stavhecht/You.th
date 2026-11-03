@@ -6,11 +6,11 @@
  * text is a cost with no benefit. The console loads the real editor; the feed
  * does not.
  *
- * Citation nodes become bracketed chips — `[1]` — that open the paper's card
+ * Citation nodes become bracketed chips - `[1]` - that open the paper's card
  * in place. The number is the reader's, not the pipeline's: the stored handle
  * is `S4`, a position in the ranked retrieval set, and `citations.ts` maps it
  * onto the source list's own ordering so the brackets count 1, 2, 3 with no
- * gaps. The handle stays the identity behind it — anchor, popover key, and the
+ * gaps. The handle stays the identity behind it - anchor, popover key, and the
  * row the source list highlights. The design comp weighed three treatments and this is the one that
  * shipped: a superscript is a 4px tap target that vanishes at body size, and a
  * dotted underline on the sentence makes the *claim* look uncertain rather than
@@ -22,7 +22,7 @@
  * the console; either way they are plain labels, never claims, so nothing here
  * needs to treat them as content that could assert something.
  *
- * Two more block nodes sit alongside the beat paragraphs — a picture and a
+ * Two more block nodes sit alongside the beat paragraphs - a picture and a
  * YouTube embed, both added by the reviewer in the console. They are re-checked
  * here before they render: the server refuses to store either one pointing
  * anywhere it did not put it, so anything that fails these checks means that
@@ -76,12 +76,12 @@ interface Props {
   sources: Source[];
   /**
    * Handle → the number the reader sees. Passed in rather than derived here so
-   * the chips and the source list cannot disagree — see `citations.ts`.
+   * the chips and the source list cannot disagree - see `citations.ts`.
    */
   numbers: Map<string, number>;
   /**
    * Raised whenever a chip is pressed, so the source list can highlight the
-   * matching row. The chip's `href` still anchors there — the highlight is what
+   * matching row. The chip's `href` still anchors there - the highlight is what
    * makes the jump legible once you arrive.
    */
   onCite?: (handle: string) => void;
@@ -99,7 +99,7 @@ export function ArticleContent({ doc, sources, numbers, onCite }: Props) {
         if (block.type === "youtube") return <ArticleVideo key={index} node={block} />;
         if (block.type === "heading") {
           // Always h2. The article's own headline is the h1, and the document
-          // has no level below this one — `body_text_to_doc` writes level 2 and
+          // has no level below this one - `body_text_to_doc` writes level 2 and
           // the console editor only offers level 2, so the attribute is not
           // read. Reading it would invite an h4 nested under nothing.
           return (
@@ -153,7 +153,7 @@ function layoutOf(node: TipTapNode): { className: string; style: CSSProperties }
 /**
  * A picture the reviewer uploaded.
  *
- * `alt` is whatever they typed when they inserted it, including nothing — an
+ * `alt` is whatever they typed when they inserted it, including nothing - an
  * empty `alt` is the correct markup for a decorative image and the console
  * says so when it asks. `loading="lazy"` because an article's pictures are
  * below the lede by construction.
@@ -179,7 +179,7 @@ function ArticleFigure({ node }: { node: TipTapNode }) {
 /**
  * A YouTube embed, as a still until the reader presses it.
  *
- * The iframe is mounted by the click, not by the page — see `VIDEO_FRAME` for
+ * The iframe is mounted by the click, not by the page - see `VIDEO_FRAME` for
  * the reasoning. `autoplay` on that first mount is what makes the press feel
  * like a play button rather than a loading step.
  */

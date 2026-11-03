@@ -217,17 +217,13 @@ class DiscoveryService:
         scan: DiscoveryScan,
         *,
         status: DiscoveryScanStatus,
-        seeds_queried: int = 0,
         records_seen: int = 0,
         descriptors_seen: int = 0,
-        candidates_emitted: int = 0,
         error: dict | None = None,
     ) -> None:
         scan.status = status
-        scan.seeds_queried = seeds_queried
         scan.records_seen = records_seen
         scan.descriptors_seen = descriptors_seen
-        scan.candidates_emitted = candidates_emitted
         scan.error = error
         scan.finished_at = datetime.now(UTC)
         await self._session.flush()
@@ -534,9 +530,7 @@ class DiscoveryService:
             )
         return dict(history)
 
-    async def propose(
-        self, scan_id: str, candidates: list[ScoredCandidate], window: Window
-    ) -> int:
+    async def propose(self, candidates: list[ScoredCandidate], window: Window) -> int:
         """Write the ranked candidates, refreshing any already on the desk.
 
         The ``ON CONFLICT`` here is the anti-repeat guarantee doing its work: an
@@ -554,7 +548,6 @@ class DiscoveryService:
             return 0
         rows = [
             {
-                "scan_id": scan_id,
                 "substance_ui": candidate.substance_ui,
                 "outcome_ui": candidate.outcome_ui,
                 "topic": candidate.topic,
@@ -575,7 +568,6 @@ class DiscoveryService:
                 ],
                 index_where=DiscoveryCandidate.status == DiscoveryCandidateStatus.PROPOSED,
                 set_={
-                    "scan_id": statement.excluded.scan_id,
                     "topic": statement.excluded.topic,
                     "score": statement.excluded.score,
                     "paper_count": statement.excluded.paper_count,

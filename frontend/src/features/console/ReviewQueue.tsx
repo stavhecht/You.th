@@ -7,7 +7,7 @@
  *
  * The "Failed validation" tab is not an error log. Those drafts can never be
  * approved, but a run of them is the signal that the synthesis prompt has
- * regressed — hiding them would make the grounding check look like silence
+ * regressed - hiding them would make the grounding check look like silence
  * rather than like enforcement.
  *
  * Each row carries both signals at once: the verdict mark on the left, the
@@ -75,7 +75,7 @@ import {
 
 /**
  * Tab copy is reviewer-facing wording, not the status name. `validation_failed`
- * stays the status everywhere else — it is the API contract, the enum in the
+ * stays the status everywhere else - it is the API contract, the enum in the
  * database and what the invariant #2 tests grep for; only the label a reviewer
  * reads is softened here. "Failed validation" described the machinery rather
  * than the draft, and read as something broken in the system rather than a
@@ -102,7 +102,7 @@ export function ReviewQueue() {
     queryFn: () => fetchQueue({ status }),
   });
 
-  // Runs still generating. Only pending review shows them — they are drafts
+  // Runs still generating. Only pending review shows them - they are drafts
   // that have not happened yet, so they belong to no other tab. The hook runs
   // on every tab regardless, so a run finishing while the reviewer is reading
   // Published still refreshes the queue underneath them.
@@ -124,7 +124,7 @@ export function ReviewQueue() {
           </p>
         </div>
         {/* Who is signed in, and signing out, moved to `ReviewHeader` when
-            the desk gained its own chrome — repeating them here would be two
+            the desk gained its own chrome - repeating them here would be two
             sign-out buttons on one screen. */}
       </div>
 
@@ -145,7 +145,7 @@ export function ReviewQueue() {
             className={queueTab(status === tab.status)}
           >
             {tab.label}
-            {/* Only the open tab's count is known — the queue is fetched one
+            {/* Only the open tab's count is known - the queue is fetched one
                 status at a time. Showing all four would mean four requests on
                 every console load, or a count endpoint that does not exist. */}
             {status === tab.status && data ? (
@@ -192,7 +192,7 @@ const RUN_POLL_MS = 5_000;
 /**
  * When "a couple of minutes" stops being true.
  *
- * Generous on purpose — synthesis alone is a model call, and four scholarly
+ * Generous on purpose - synthesis alone is a model call, and four scholarly
  * APIs sit in front of it behind a throttle. This is the point at which a
  * reassuring message would start misinforming, not the point at which the run
  * is late.
@@ -217,7 +217,7 @@ function useInFlightRuns(): PipelineRun[] {
   const { data } = useQuery({
     queryKey: consoleKeys.runs,
     queryFn: () => fetchRuns(),
-    // Live state, unlike the rest of the console — the global 60s staleTime
+    // Live state, unlike the rest of the console - the global 60s staleTime
     // would otherwise serve a cached snapshot of a run that has since finished.
     staleTime: 0,
     refetchInterval: (query) =>
@@ -227,7 +227,7 @@ function useInFlightRuns(): PipelineRun[] {
   // A run leaving the in-flight set is the moment its draft becomes reviewable.
   // The queue has a 60s staleTime and no polling of its own, so without this
   // the spinner would vanish and the row it stood in for would not appear until
-  // the reviewer reloaded the page — the exact gap this feature exists to close.
+  // the reviewer reloaded the page - the exact gap this feature exists to close.
   const watching = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!data) return;
@@ -246,7 +246,7 @@ function useInFlightRuns(): PipelineRun[] {
  * The poll alone is not enough. A queued run that no worker ever claims returns
  * byte-identical JSON every time; react-query's structural sharing keeps the
  * same object and nothing re-renders, so an elapsed-time message computed in
- * render would freeze at whatever it said on first paint — and that stalled run
+ * render would freeze at whatever it said on first paint - and that stalled run
  * is precisely the case the message exists to report.
  */
 function useTick(active: boolean, everyMs: number): void {
@@ -263,14 +263,14 @@ function useTick(active: boolean, everyMs: number): void {
  *
  * It carries the topic rather than a placeholder headline, because the topic is
  * what the reviewer typed and is the only thing that identifies which of
- * several runs this is. There is no verdict, grade or discard action — none of
+ * several runs this is. There is no verdict, grade or discard action - none of
  * them exist yet, and stubbing them greyed-out would imply the row is a draft
  * in a worse state rather than one that has not been written.
  *
  * `aria-live` without `role="status"`, which would replace the row's own
  * `listitem` role and drop it out of the list for anyone navigating by one.
  * `polite` because the thing it announces is the note changing under a run that
- * has stopped behaving — worth hearing at a pause, not worth an interruption.
+ * has stopped behaving - worth hearing at a pause, not worth an interruption.
  */
 function PendingRunRow({ run }: { run: PipelineRun }) {
   return (
@@ -292,7 +292,7 @@ function PendingRunRow({ run }: { run: PipelineRun }) {
  * "A couple of minutes" is true of a healthy run and a lie about a stalled one,
  * and the distinction is not hypothetical here: compose starts the API without
  * the worker (CLAUDE.md), so "queued and nothing is consuming the queue" is a
- * state reached routinely — and a spinner promising minutes would be the only
+ * state reached routinely - and a spinner promising minutes would be the only
  * thing on screen getting it wrong. Past the threshold the message says which
  * of the two it is, because "queued" and "running" have different causes and
  * different fixes.
@@ -302,7 +302,7 @@ function runNote(run: PipelineRun): string {
 
   if (elapsed > SLOW_RUN_AFTER_MS) {
     return run.status === "queued"
-      ? "Still queued — no worker has picked this up yet."
+      ? "Still queued: no worker has picked this up yet."
       : "Still working. This one is taking longer than usual.";
   }
 
@@ -318,7 +318,7 @@ function runNote(run: PipelineRun): string {
 /**
  * The reject reason a queue-row discard sends.
  *
- * `RejectRequest.reason` is `min_length=1`, and the queue no longer asks — so
+ * `RejectRequest.reason` is `min_length=1`, and the queue no longer asks - so
  * this says where the rejection came from rather than inventing a reason nobody
  * gave. Anything that reads reasons for prompt-fixing signal can skip it on
  * sight, which a blank string would not allow.
@@ -328,7 +328,7 @@ const QUEUE_DISCARD_REASON = "Discarded from the queue without a reason.";
 /**
  * One queue row, with its discard action.
  *
- * The action sits *beside* the link rather than inside it — a button nested in
+ * The action sits *beside* the link rather than inside it - a button nested in
  * an anchor is invalid markup and swallows the click on some browsers.
  *
  * Discard is a rejection, not a delete. There is no DELETE on articles by
@@ -339,7 +339,7 @@ const QUEUE_DISCARD_REASON = "Discarded from the queue without a reason.";
  *
  * It does not ask for a reason. The queue is where a reviewer clears rows they
  * have already judged from the row itself, and a modal prompt per row turned
- * that into a typing exercise — the reasons it collected were placeholders, not
+ * that into a typing exercise - the reasons it collected were placeholders, not
  * signal. The reason a rejection *is* worth writing down gets typed on the
  * review screen, next to the draft it is about.
  */
@@ -404,7 +404,7 @@ function QueueRow({ item, tab }: { item: QueueItem; tab: ArticleStatus }) {
 /**
  * Queue a topic for generation.
  *
- * Returns 202 — generation takes minutes — so this confirms submission rather
+ * Returns 202 - generation takes minutes - so this confirms submission rather
  * than waiting for a draft. The confirmation says plainly that nothing it
  * produces can publish itself.
  */
@@ -449,7 +449,7 @@ function NewRunForm() {
       <textarea
         value={blurb}
         onChange={(event) => setBlurb(event.target.value)}
-        placeholder="Optional marketing copy — claims are extracted only from what it actually says"
+        placeholder="Optional marketing copy. Claims are extracted only from what it actually says"
         aria-label="Marketing copy to extract claims from"
         rows={2}
         className={NEW_RUN_BLURB_FIELD}
@@ -457,7 +457,7 @@ function NewRunForm() {
 
       {submit.isSuccess ? (
         // The queue below now shows the run generating, so this no longer has
-        // to promise that something will happen — only the part the row cannot
+        // to promise that something will happen - only the part the row cannot
         // say, which is what happens when it finishes.
         <p className={NEW_RUN_CONFIRMATION}>
           Queued. Nothing it produces publishes without your approval.

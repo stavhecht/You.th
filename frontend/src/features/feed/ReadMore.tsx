@@ -1,9 +1,9 @@
 /**
- * "Read more on this" — three articles under the one just read.
+ * "Read more on this" - three articles under the one just read.
  *
  * Same subject first, then anything else, which is the comp's ordering and is
  * also the honest one: these are *related*, not recommended. Nothing here is
- * personalised and nothing is ranked by engagement — it is a subject match and
+ * personalised and nothing is ranked by engagement - it is a subject match and
  * recency, and the standfirst says so.
  *
  * Reuses the feed query rather than adding a related-articles endpoint. The
@@ -60,7 +60,7 @@ export function ReadMore({
     <section className={RECS_SECTION}>
       <h2 className={RECS_TITLE}>Read more on this</h2>
       <p className={RECS_STANDFIRST}>
-        Different studies, same shelf — these ask a different research question.
+        Different studies, same shelf. These ask a different research question.
       </p>
 
       <div className={RECS_GRID}>

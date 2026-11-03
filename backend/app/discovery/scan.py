@@ -82,7 +82,6 @@ class ScanReport:
     mode: DiscoveryScanMode
     applied: bool
 
-    seeds_queried: int = 0
     records_seen: int = 0
     descriptors_seen: int = 0
     kind_counts: dict[DiscoveryDescriptorKind, int] = field(default_factory=dict)
@@ -340,7 +339,7 @@ async def run_scan(
         for bucket in windows:
             if bootstrap and on_progress is not None:
                 on_progress(f"  -- {bucket.start} -> {bucket.end}")
-            batch, queried = await harvest_window(
+            batch, _ = await harvest_window(
                 harvester,
                 seeds,
                 bucket,
@@ -349,7 +348,6 @@ async def run_scan(
                 notes=report.notes,
             )
             records.extend(batch)
-            report.seeds_queried = max(report.seeds_queried, queried)
 
     kinds, names = classify_all(
         records, frequency_ceiling=settings.discovery_document_frequency_ceiling
@@ -465,9 +463,7 @@ async def run_scan(
             await session.rollback()
             return report
 
-        report.candidates_proposed = await service.propose(
-            scan.id, report.candidates, window
-        )
+        report.candidates_proposed = await service.propose(report.candidates, window)
         report.candidates_expired = (
             await service.expire_absent(
                 [(c.substance_ui, c.outcome_ui) for c in report.candidates]
@@ -481,10 +477,8 @@ async def run_scan(
         await service.finish_scan(
             scan,
             status=DiscoveryScanStatus.SUCCEEDED,
-            seeds_queried=report.seeds_queried,
             records_seen=report.records_seen,
             descriptors_seen=report.descriptors_seen,
-            candidates_emitted=report.candidates_proposed,
         )
         await session.commit()
 

@@ -1,4 +1,4 @@
-"""Public search (migration 0006), against a real database.
+"""Public search (0001_initial.sql), against a real database.
 
 What a fake session cannot show: that ``approve()`` indexes what the reviewer
 approved through the SQL function the backfill used, that a draft never

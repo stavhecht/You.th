@@ -19,11 +19,11 @@
  * this file: the public group gets `SiteHeader` and the mobile tab bar, the
  * review group brings its own header, and no public surface links to it. The
  * gate itself is unchanged and is still the only thing that matters for access
- * — a URL is not a secret, `RequireAuth` and the server's bearer check are what
+ * - a URL is not a secret, `RequireAuth` and the server's bearer check are what
  * keep readers out.
  *
  * Public routes never import from `features/console`, and the review desk never
- * renders public chrome — the same separation the backend has between
+ * renders public chrome - the same separation the backend has between
  * `api/public` and `api/console`.
  */
 
@@ -49,7 +49,7 @@ import { YouRoute } from "./routes/you";
  * The review desk is lazy-loaded, and that is a correctness point rather than a
  * micro-optimisation: it carries the TipTap editor, which is most of the
  * bundle. Statically importing it would ship the whole editor to every public
- * reader — which is exactly what ArticleContent.tsx exists to avoid, so
+ * reader - which is exactly what ArticleContent.tsx exists to avoid, so
  * importing it here would quietly undo that decision.
  */
 const ReviewRoutes = lazy(() => import("./routes/review"));

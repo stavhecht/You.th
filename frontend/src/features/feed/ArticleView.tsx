@@ -3,7 +3,7 @@
  *
  * One column at 800px, where the previous design used two with the evidence
  * pinned in a sidebar. The sidebar answered "what is this resting on?" without
- * scrolling, and that question still has to be answerable mid-paragraph — but
+ * scrolling, and that question still has to be answerable mid-paragraph - but
  * the citation chips are what answer it now, each opening its own paper in
  * place. At this measure a 320px sidebar would leave the prose too narrow to be
  * the thing the page is for, so the sources moved to a panel at the end and the
@@ -11,7 +11,7 @@
  * than beside it.
  *
  * The disclaimer is rendered from a server-provided constant and is not
- * conditional on anything — it is the one element that must appear on every
+ * conditional on anything - it is the one element that must appear on every
  * article regardless of verdict, and it is deliberately not model output.
  */
 
@@ -79,7 +79,7 @@ export function ArticleView() {
     queryFn: () => fetchArticle(slug),
     enabled: Boolean(slug),
     // A 404 here means "not published", which will not become true by
-    // retrying — and retrying an unpublished slug is how a draft-preview
+    // retrying - and retrying an unpublished slug is how a draft-preview
     // channel accidentally gets built.
     retry: (count, err) =>
       !(err instanceof ApiError && err.status === 404) && count < 2,
@@ -87,7 +87,7 @@ export function ArticleView() {
 
   // One map for both the chips and the list, above the early returns because it
   // is a hook. Deriving it twice would be two objects rather than two
-  // numberings — but a reader checking a chip against the list is the whole use
+  // numberings - but a reader checking a chip against the list is the whole use
   // of a citation, so it is worth being literal about there being one.
   const numbers = useMemo(() => citationNumbers(article?.sources ?? []), [article?.sources]);
 
@@ -116,7 +116,7 @@ export function ArticleView() {
         `navigate(-1)` rather than a link to `/`, so a reader who arrived from a
         narrowed feed goes back to that feed rather than to an unfiltered one
         they then have to narrow again. Falls through to the feed when there is
-        no history to go back to — a shared link opened in a new tab.
+        no history to go back to - a shared link opened in a new tab.
       */}
       <button
         onClick={() => (window.history.length > 1 ? navigate(-1) : navigate("/"))}
@@ -132,7 +132,7 @@ export function ArticleView() {
             <span className={RETRACTION_BANNER_TEXT}>
               A paper cited below has been withdrawn by the journal that
               published it since this article was written. The article is under
-              review and has not been updated yet — weigh the verdict
+              review and has not been updated yet, so weigh the verdict
               accordingly. The affected source is marked in the list.
             </span>
           </aside>
@@ -157,7 +157,7 @@ export function ArticleView() {
           <span className={ARTICLE_BYLINE_SEP}>|</span>
           {/*
             Derived from the body on this page rather than sent by the API, so
-            it describes the document the reader was actually given — including
+            it describes the document the reader was actually given - including
             anything a reviewer cut before publishing. See lib/readingTime.ts.
           */}
           <span className={ARTICLE_BYLINE_LIFT}>
@@ -218,7 +218,7 @@ export function ArticleView() {
   );
 }
 
-/** "4 sources cited" — the byline's evidence line, in the reader's terms. */
+/** "4 sources cited" - the byline's evidence line, in the reader's terms. */
 function sourceSummary(total: number): string {
   if (total === 0) return "No study tests this claim";
   return `${total} ${total === 1 ? "source" : "sources"} cited`;

@@ -8,14 +8,14 @@
  * on.
  *
  * The design comp lays the feed out with plain CSS `column-count`, which is the
- * simpler mechanism and produces the same picture — but CSS columns render every
+ * simpler mechanism and produces the same picture - but CSS columns render every
  * tile in the document, so it is the one part of the comp not carried over
  * literally. The measurements are: ~190px columns, 14px gutter, which lands at
  * six columns on the 1240px measure and reflows down to two on a phone.
  *
  * Note for a future Next.js port (DESIGN.md §3.1): `masonic` measures DOM
  * nodes, so it is client-only. It would need `dynamic(..., { ssr: false })`
- * with a static grid as the server-rendered fallback — which is also the better
+ * with a static grid as the server-rendered fallback - which is also the better
  * mobile layout, so the fallback is not wasted work.
  */
 
@@ -110,7 +110,7 @@ export function MasonryFeed({
         overscanBy={2}
         // A list, not masonic's default "grid": a grid role promises rows,
         // cells and arrow-key navigation, and masonic renders gridcells with
-        // no rows — invalid ARIA (axe: aria-required-children/-parent), read by
+        // no rows - invalid ARIA (axe: aria-required-children/-parent), read by
         // screen readers as a broken table. A feed of tiles is a list.
         role="list"
         // Keyed by slug so masonic reuses cells across page appends rather
@@ -142,7 +142,7 @@ function FeedSkeleton() {
 /**
  * Nothing to show, and the three reasons are not interchangeable.
  *
- * A search matched nothing published — neither the words, anywhere in an
+ * A search matched nothing published - neither the words, anywhere in an
  * approved article, nor a title spelled like them (see `useFeed`). A filter
  * matched nothing published. Or the feed itself is empty, which on a
  * human-reviewed publication is a normal early state rather than a failure.

@@ -1,5 +1,5 @@
 /**
- * Names for the console's styling — queue, review screen, sources panel, login.
+ * Names for the console's styling - queue, review screen, sources panel, login.
  *
  * The shared control shapes stay in `controls.ts`: `FIELD`, `PRIMARY`,
  * `SECONDARY` and `SECTION_LABEL` are the pieces whose *consistency* is a
@@ -15,7 +15,7 @@ import { FIELD, PRIMARY, SECONDARY } from "./controls";
 
 /* ── shared console chrome ──────────────────────────────────────────────── */
 
-/** Wider than the public measure — the queue is a working surface, not prose. */
+/** Wider than the public measure - the queue is a working surface, not prose. */
 export const CONSOLE_PAGE = "mx-auto max-w-console px-gutter pb-[90px]";
 
 /**
@@ -76,13 +76,13 @@ export function queueTab(current: boolean): string {
   }`;
 }
 
-/** Only the open tab's count is known — the queue is fetched one status at a time. */
+/** Only the open tab's count is known - the queue is fetched one status at a time. */
 export const TAB_COUNT = "ml-1.5 font-normal text-ink-4";
 
 /**
  * The row carries the verdict mark and the grade bar at once, because triage is
  * really the question "which of these is a confident verdict on thin evidence?"
- * — and that is a question about the pair.
+ * - and that is a question about the pair.
  */
 export function queueRow(subjectBorderLeft: string): string {
   return `grid grid-cols-1 items-start gap-4 border-b border-l-[3px] border-rule-soft py-[18px] pl-[15px] pr-0.5 sm:grid-cols-[minmax(0,1fr)_200px] sm:gap-[26px] ${subjectBorderLeft}`;
@@ -98,7 +98,7 @@ export const QUEUE_VALIDATION_BADGE = "font-body text-micro leading-none text-in
 export const WEAK_EVIDENCE_FLAG =
   "border border-accent px-[7px] py-1 font-body text-label font-semibold normal-case leading-none tracking-normal text-accent-ink";
 
-/** An article title, so Archivo — the same face the tile and the page use. */
+/** An article title, so Archivo - the same face the tile and the page use. */
 export const QUEUE_ROW_HEADLINE =
   "mt-[9px] text-pretty font-ui text-row font-semibold text-ink";
 export const QUEUE_ROW_META = "mt-1 font-body text-meta text-ink-3";
@@ -107,7 +107,7 @@ export const QUEUE_ROW_ASIDE = "flex items-start justify-between gap-3";
 export const QUEUE_ROW_GRADE = "flex flex-col items-start gap-[7px]";
 export const QUEUE_ROW_GRADE_LABEL = "font-body text-micro text-ink-3";
 
-/** Discard is a rejection, not a delete — there is no DELETE on articles. */
+/** Discard is a rejection, not a delete - there is no DELETE on articles. */
 export const DISCARD_BUTTON =
   "shrink-0 border border-rule-soft p-1.5 text-ink-3 transition-colors hover:border-ink hover:text-accent-ink disabled:opacity-45";
 
@@ -117,7 +117,7 @@ export const DISCARD_BUTTON =
  * The placeholder row for a draft still being generated.
  *
  * Same rule, padding and left-rule *width* as `queueRow`, so it sits in the
- * list rather than on top of it — but the left rule is the hairline rather than
+ * list rather than on top of it - but the left rule is the hairline rather than
  * `queueRow`'s structural `border-l-rule`, and there is no aside. Both are the
  * same statement: this row has no verdict, no grade and nothing to act on, and
  * stubbing those greyed-out would read as a draft in a bad state rather than
@@ -134,7 +134,7 @@ export const PENDING_RUN_ROW =
  * in for. Nothing is being stood in for here: generation takes minutes, the row
  * is reporting that work is under way elsewhere, and a pulsing grey block would
  * read as a draft that failed to load. `motion-reduce` slows the rotation
- * rather than stopping it — a frozen spinner reads as a hung job, which is the
+ * rather than stopping it - a frozen spinner reads as a hung job, which is the
  * one thing this row must not say by accident.
  */
 export const PENDING_RUN_SPINNER =
@@ -142,12 +142,12 @@ export const PENDING_RUN_SPINNER =
 
 /**
  * Deliberately the same treatment as the verdict wording it will be replaced
- * by — the row swaps for a real one in place, and a kicker that changed size or
+ * by - the row swaps for a real one in place, and a kicker that changed size or
  * weight at that moment would read as the list reflowing rather than resolving.
  */
 export const PENDING_RUN_KICKER = QUEUE_VERDICT_WORDING;
 
-/** The topic, at row weight — it is what the reviewer typed, not a headline. */
+/** The topic, at row weight - it is what the reviewer typed, not a headline. */
 export const PENDING_RUN_TOPIC =
   "mt-[9px] text-pretty font-heading text-row font-semibold text-ink-2";
 export const PENDING_RUN_NOTE = "mt-1 font-body text-meta text-ink-3";
@@ -175,7 +175,7 @@ export const BACK_TO_QUEUE =
  * Solid accent is the only fill in the console and `controls.ts` reserves it
  * for the one button that publishes. A filled button up here would compete
  * with Approve from the place a reviewer's hand rests *before* they have read
- * anything — which is the same argument that keeps Approve itself out of this
+ * anything - which is the same argument that keeps Approve itself out of this
  * bar. A hairline box in the queue's own micro-caps: visible, pressable,
  * unmistakably not the decision.
  */
@@ -183,8 +183,8 @@ export const TOP_BAR_ACTION =
   "whitespace-nowrap border border-rule px-2.5 py-1.5 font-body text-micro font-semibold uppercase leading-none tracking-[0.11em] text-ink-2 transition-colors hover:border-ink hover:text-ink disabled:cursor-not-allowed disabled:opacity-45";
 
 /**
- * Editor left, evidence right. Side by side is the requirement — the reviewer
- * cross-checks one against the other continuously — and the page scrolls with
+ * Editor left, evidence right. Side by side is the requirement - the reviewer
+ * cross-checks one against the other continuously - and the page scrolls with
  * the evidence column pinned rather than two panes scrolling independently, so
  * the wheel is never trapped in whichever pane the cursor is over.
  */
@@ -204,7 +204,7 @@ export const DRAFT_META = "font-body text-meta text-ink-3";
  * Read-only: the headline is not part of the autosave contract.
  *
  * `font-ui` because it is an article title, and a reviewer should be reading it
- * in the face it publishes in — see `styles/youth.css`.
+ * in the face it publishes in - see `styles/youth.css`.
  */
 export const DRAFT_HEADLINE =
   "mt-[18px] border-b-2 border-rule-soft pb-3 font-ui text-subhead font-extrabold text-ink";
@@ -214,7 +214,7 @@ export const SIDEBAR_SOURCES = "mt-6";
 
 /**
  * The decision controls sit at the bottom of the evidence column, under what
- * they follow from. Putting Approve in the top bar — the reflex — places it
+ * they follow from. Putting Approve in the top bar - the reflex - places it
  * where a reviewer's hand rests *before* they have read anything.
  */
 export const DECISION_BLOCK = "mt-6 border-t-2 border-rule pt-[13px]";
@@ -223,7 +223,7 @@ export const REJECT_REASON_FIELD = `${FIELD} mt-2.5 py-2.5 text-meta`;
 export const REJECT_BUTTON = `${SECONDARY} mt-2 w-full`;
 export const REASON_MISSING_ALERT = "mt-2.5 font-body text-micro text-accent-ink";
 
-/** Carries the server's detail verbatim — a 409 names which handles broke. */
+/** Carries the server's detail verbatim - a 409 names which handles broke. */
 export const ACTION_ERROR_ALERT =
   "mt-2.5 border-l-2 border-accent bg-accent-wash px-[11px] py-[9px] font-body text-micro font-semibold leading-[1.45] text-accent-ink";
 export const DECISION_NOTE = "mt-[11px] font-body text-micro text-ink-3";
@@ -259,7 +259,7 @@ export const PANEL_SOURCE_LIST = "mt-2.5 flex list-none flex-col gap-3 p-0";
 
 /**
  * Two independent signals on one row. `focused` washes the row the reviewer
- * just clicked through to; uncited sources are dimmed but never hidden —
+ * just clicked through to; uncited sources are dimmed but never hidden,
  * what the model left out is the failure mode human review exists to catch.
  */
 export function panelSourceRow(focused: boolean, wasCited: boolean): string {
@@ -311,15 +311,15 @@ export const WEAK_EVIDENCE_WARNING =
 /**
  * One rounded card on the paper, vertically centred.
  *
- * The card is the You.th panel — same radius and same surface as the source
- * block on an article — because a reviewer arriving here should recognise the
+ * The card is the You.th panel - same radius and same surface as the source
+ * block on an article - because a reviewer arriving here should recognise the
  * product before they recognise the tool. What tells them which one they are on
  * is the accent kicker and the bar above, not a different set of shapes.
  *
  * `min-h` rather than a fixed height so a visible-keyboard viewport on a phone
  * scrolls instead of clipping the submit button.
  */
-// 68px is `spacing.header` in tailwind.config.ts — the bar this page sits
+// 68px is `spacing.header` in tailwind.config.ts - the bar this page sits
 // under. Written as a literal because a custom property would be a second
 // place to keep the number, and the config is already the first.
 export const LOGIN_PAGE =
@@ -357,7 +357,7 @@ export const FIELD_LABEL =
  *
  * The `.ProseMirror-selectednode` rule is what makes an image or a video block
  * feel like an object. They are atoms: a click selects the whole thing and
- * Backspace removes it — but only if the reviewer can see that it is selected,
+ * Backspace removes it - but only if the reviewer can see that it is selected,
  * and a block with no visible selection state reads as an un-deletable
  * fixture.
  *
@@ -365,7 +365,7 @@ export const FIELD_LABEL =
  * floated beside the last beat hangs out of the bottom of the editing panel
  * and over whatever follows it.
  *
- * The `h2` rule mirrors `PROSE_HEADING` on the public side — same face, same
+ * The `h2` rule mirrors `PROSE_HEADING` on the public side - same face, same
  * weight, same asymmetric margin. This editor is at a narrower measure than the
  * article, so the two cannot be identical, but a section heading has to *read*
  * as one here or the reviewer is judging a structure they cannot see. Same
@@ -398,7 +398,7 @@ export const TOOLBAR_DIVIDER = "mx-1.5 h-4 w-px bg-rule-soft";
 /**
  * The frame inside a media node view.
  *
- * The *layout* — the float and the width — is not here. TipTap's React
+ * The *layout* - the float and the width - is not here. TipTap's React
  * renderer wraps a node view in an element of its own, and that element is the
  * one sitting in the editor's flow, so it is the one that has to float. It
  * gets `mediaWrapClass()` from `lib/media.ts` through the node's `attrs`
@@ -421,7 +421,7 @@ export const EDITOR_IMAGE = "block h-auto w-full border border-rule-soft";
 /**
  * The video is a 16:9 still, not a player.
  *
- * The frame matches the shape that publishes — a reviewer sizing a video needs
+ * The frame matches the shape that publishes - a reviewer sizing a video needs
  * to see the rectangle a reader will get, and the old thumbnail-and-label card
  * was a different shape at a fixed size. A live iframe is still out: inside a
  * contenteditable it swallows every click, so the node could never be selected
@@ -446,7 +446,7 @@ export const EDITOR_VIDEO_ID =
  * A bar over the selected block, not more buttons in the main toolbar.
  *
  * The controls are where the reviewer's attention already is, and the toolbar
- * stays as short as it was — six permanently-inert buttons would be worse than
+ * stays as short as it was - six permanently-inert buttons would be worse than
  * no buttons. `-top-*` lifts it clear of the frame; it is `absolute` so it
  * never changes the size the reviewer is trying to judge.
  */
@@ -464,7 +464,7 @@ export function mediaControlButton(active: boolean): string {
 export const MEDIA_WIDTH_READOUT =
   "min-w-[38px] text-center font-body text-[11px] font-semibold tabular-nums leading-none text-ink-3";
 
-/** Destructive, so it is the accent — the same red as everything that acts. */
+/** Destructive, so it is the accent - the same red as everything that acts. */
 export const MEDIA_REMOVE_BUTTON =
   "px-2 py-1.5 font-body text-[11px] font-semibold leading-none text-accent-ink transition-colors hover:bg-accent-wash";
 
@@ -473,7 +473,7 @@ export const MEDIA_REMOVE_BUTTON =
  *
  * Only on hover or selection: a permanent handle on every picture turns the
  * draft into a page of controls. `cursor-nwse-resize` is what tells a reviewer
- * this is a resize rather than a second drag target — dragging the picture
+ * this is a resize rather than a second drag target - dragging the picture
  * itself moves it between paragraphs.
  */
 export const MEDIA_RESIZE_HANDLE =
@@ -493,8 +493,8 @@ export function saveIndicator(failed: boolean): string {
 /*
  * The console's first overlay, and the reason it earns one: the reviewer's
  * question is "how will this look on the feed", and a tile alone in a sidebar
- * cannot answer it. Scale is comparative — a headline that clamps at three
- * lines, a picture that reads at 190px, a verdict kicker that holds its own —
+ * cannot answer it. Scale is comparative - a headline that clamps at three
+ * lines, a picture that reads at 190px, a verdict kicker that holds its own,
  * and all of that is only legible beside other tiles. So the overlay clears
  * the review screen and rebuilds a few cells of the real feed around it.
  */
@@ -518,7 +518,7 @@ export const PREVIEW_CLOSE =
  *
  * The tile's own regenerate lives here rather than in the editor's toolbar
  * because this is the only screen where its effect is visible, and it wears
- * `TOP_BAR_ACTION` — the same hairline box the review bar's actions use, and
+ * `TOP_BAR_ACTION` - the same hairline box the review bar's actions use, and
  * pointedly not the accent fill `controls.ts` reserves for Approve. A filled
  * button inside a preview would be the loudest thing on a screen whose whole
  * job is to show the reviewer something quietly.
@@ -528,7 +528,7 @@ export const PREVIEW_ACTIONS = "flex items-baseline gap-3";
 /**
  * The feed's own measure: `MasonryFeed` runs `columnWidth={190}` at
  * `columnGutter={14}`. Written as literals because the masonry's numbers are
- * the original and a shared constant would be a second place to keep them —
+ * the original and a shared constant would be a second place to keep them,
  * but they must agree, since a tile previewed at 260px clamps its headline
  * differently from the one that ships, and that difference is the whole point
  * of looking.
@@ -545,7 +545,7 @@ export const PREVIEW_GRID =
 /**
  * The reviewer's own tile, marked so it is findable among the neighbours.
  *
- * Outlined, never filled — the same call `WEAK_EVIDENCE_FLAG` makes. Solid
+ * Outlined, never filled - the same call `WEAK_EVIDENCE_FLAG` makes. Solid
  * accent is reserved for the button that publishes, and while a label cannot
  * literally be clicked instead of Approve, spending the console's one fill on
  * decoration is how that reservation stops meaning anything.
@@ -574,7 +574,7 @@ export const CANDIDATES_PANEL = "mt-5 border border-rule-soft bg-surface";
  * The header holds two controls, so it is a row rather than one big button.
  *
  * It was a single full-width toggle until Run scan joined it, and a button
- * inside a button is not a thing HTML has — the disclosure had to give up the
+ * inside a button is not a thing HTML has - the disclosure had to give up the
  * whole row to gain a sibling.
  */
 export const CANDIDATES_HEADER = "flex w-full items-center gap-2 px-4 py-3";
@@ -582,7 +582,7 @@ export const CANDIDATES_HEADER = "flex w-full items-center gap-2 px-4 py-3";
 /**
  * The disclosure: an arrow and the title, and no surface of its own.
  *
- * No fill and no hover wash on purpose — this panel already sits on `surface`
+ * No fill and no hover wash on purpose - this panel already sits on `surface`
  * inside `ground`, and a third tone on the header would read as a nested card.
  * The arrow rotating is the whole affordance, which is enough because the state
  * it reports is visible directly beneath it.
@@ -601,8 +601,8 @@ export function candidatesChevron(open: boolean): string {
 /**
  * The count, as a mark rather than a sentence.
  *
- * Accent fill — the console's one fill, otherwise reserved for the button that
- * publishes — because this is the only other thing on the desk asking to be
+ * Accent fill - the console's one fill, otherwise reserved for the button that
+ * publishes - because this is the only other thing on the desk asking to be
  * noticed from across the room. It is rendered *only* when there is something
  * to count: a circled 0 is a badge saying nothing is here, which is worse than
  * no badge at all.
@@ -667,7 +667,7 @@ export const CANDIDATES_ERROR = "px-4 py-3 font-body text-micro text-accent-ink"
 
 /*
  * The research agent's panel. The same frame, header and rows as the trend
- * candidates panel above — both are "topics proposed for a draft" — plus an
+ * candidates panel above - both are "topics proposed for a draft" - plus an
  * options row and a quieter list of what was considered and turned away.
  */
 
@@ -681,7 +681,7 @@ export const RESEARCH_SELECT = `${FIELD} w-auto py-1 text-micro`;
 
 export const RESEARCH_CATEGORY = "inline-flex items-center gap-1 text-ink-3";
 
-/** "Also considered" — a label, not a control, above the discarded list. */
+/** "Also considered" - a label, not a control, above the discarded list. */
 export const RESEARCH_SUBHEAD =
   "border-t border-rule-soft px-4 pb-1 pt-3 font-body text-[11px] font-bold uppercase tracking-[0.08em] text-ink-4";
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Run every two minutes by launchd as com.evidwell.llama-server.watchdog
+# Run every two minutes by launchd as com.youth.llama-server.watchdog
 # (installed by manage.sh).
 #
 # llama-server can be running, answer /health with "ok", and fail every
@@ -16,9 +16,9 @@
 # failure usually still succeeds on its third attempt.
 set -u
 
-LABEL="${SERVER_LABEL:-com.evidwell.llama-server}"
+LABEL="${SERVER_LABEL:-com.youth.llama-server}"
 URL="${LLAMACPP_URL:-http://127.0.0.1:8080}"
-LOG_DIR="${LOG_DIR:-$HOME/Library/Logs/evidwell}"
+LOG_DIR="${LOG_DIR:-$HOME/Library/Logs/youth}"
 FAILURES_BEFORE_RESTART="${FAILURES_BEFORE_RESTART:-2}"
 # Warm, the probe answers in ~1 s. The first one after a long idle took 23 s
 # (2026-10-15) while macOS paged the weights back in.
@@ -107,7 +107,7 @@ if [ "$(wc -l <"$RESTARTS" | tr -d ' ')" -ge "$MAX_RESTARTS_PER_HOUR" ]; then
   if [ ! -f "$GAVE_UP" ]; then
     touch "$GAVE_UP"
     log "not restarting: $MAX_RESTARTS_PER_HOUR restarts in the last hour did not fix it; see $LOG_DIR/llama-server.log"
-    notify "llama-server is still failing after $MAX_RESTARTS_PER_HOUR restarts. See ~/Library/Logs/evidwell."
+    notify "llama-server is still failing after $MAX_RESTARTS_PER_HOUR restarts. See ~/Library/Logs/youth."
   fi
   exit 0
 fi

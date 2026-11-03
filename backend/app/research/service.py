@@ -384,7 +384,6 @@ async def record_observations(
                 "trend_status": (
                     candidate.trend_status.value if candidate.trend_status else None
                 ),
-                "scoring_version": scores.version,
                 "proposed": candidate.status
                 in (ResearchCandidateStatus.SELECTED, ResearchCandidateStatus.PROMOTED),
                 "metrics": metrics.model_dump(mode="json"),
@@ -421,9 +420,7 @@ class PostgresTopicStore:
     async def known(self, since: datetime) -> list[KnownTopic]:
         async with self._factory() as session:
             rows = await session.execute(
-                select(ResearchTopic).where(
-                    ResearchTopic.last_seen_at >= since, ResearchTopic.merged_into.is_(None)
-                )
+                select(ResearchTopic).where(ResearchTopic.last_seen_at >= since)
             )
             return [
                 KnownTopic(
@@ -468,12 +465,11 @@ class PostgresTopicStore:
                     ResearchTopic.topic_key,
                     ResearchTopic.id,
                     ResearchTopic.first_seen_at,
-                    ResearchTopic.merged_into,
                 )
             )
             rows = result.all()
-            target = {key: merged or topic_id for key, topic_id, _, merged in rows}
-            first_seen = {key: seen for key, _, seen, _ in rows}
+            target = {key: topic_id for key, topic_id, _ in rows}
+            first_seen = {key: seen for key, _, seen in rows}
             observed = await session.execute(
                 select(
                     ResearchTopicObservation.topic_id,

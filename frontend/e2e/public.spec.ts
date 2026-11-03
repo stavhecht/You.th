@@ -1,6 +1,6 @@
 /**
  * The public site as a signed-out reader uses it: the feed, an article, search,
- * browsing by subject, and every standing page — on desktop, and the feed on a
+ * browsing by subject, and every standing page - on desktop, and the feed on a
  * phone.
  */
 import { DRAFTS, PUBLISHED, expect, test } from "./fixtures";

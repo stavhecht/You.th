@@ -1,5 +1,5 @@
 /**
- * Names for the public feed's styling — hero, tiles, the article page and its
+ * Names for the public feed's styling - hero, tiles, the article page and its
  * source list.
  *
  * Grouped by surface, in reading order, so this file can be scanned the way the
@@ -9,19 +9,19 @@
  *
  * - **The measures are arguments.** `max-w-article` (800px) is the article
  *   page, and the prose now fills it rather than sitting in a narrower column
- *   inside it — one measure, not two. That is a voice decision, not a layout
+ *   inside it - one measure, not two. That is a voice decision, not a layout
  *   one: the picture and the body run the full width of the page the headline
  *   sits on.
  *
  *   They were 760px and `max-w-[64ch]`, then 800px around a 600px column.
  *   `max-w-prose` still exists at 760px and still frames the short public
- *   pages — see `tailwind.config.ts`. What has to be watched when this moves
+ *   pages - see `tailwind.config.ts`. What has to be watched when this moves
  *   is the character count, not the pixel: see PROSE_MEASURE.
  * - **`shadow-panel` and `shadow-pop` are the only shadows in the system.** Both
  *   belong to things that float over the page. Nothing resting on the page gets
  *   one; the tiles use radius and a scrim instead.
  * - **Tile text is white, not ink.** It sits over a photograph nobody controls,
- *   so it is the one place in the product where a fixed colour beats a token —
+ *   so it is the one place in the product where a fixed colour beats a token,
  *   see `.ew-tile-scrim` in `styles/youth.css`.
  */
 
@@ -58,7 +58,7 @@ export const HERO_TOGGLE =
  * This was the product's one Playfair element, and it no longer needs a font of
  * its own: Instrument Serif is now the interface face, and a display serif at
  * 60px is what it is drawn for. So the flourish stays and the second file does
- * not. It is set at 400 because that is the only weight the family ships —
+ * not. It is set at 400 because that is the only weight the family ships,
  * `font-bold` here would ask the browser to smear the outline.
  *
  * Sits at 70% opacity over the footage rather than at full white: the statement
@@ -78,7 +78,7 @@ export const FEED_COUNT = "font-body text-[12.5px] text-ink-3";
 
 export const FEED_ACTIONS = "flex flex-wrap items-center gap-2";
 
-/** A pill that clears or toggles something. Outlined — never the accent fill. */
+/** A pill that clears or toggles something. Outlined - never the accent fill. */
 export const PILL_BUTTON =
   "inline-flex items-center gap-2 rounded-full border border-rule bg-transparent px-3.5 py-[7px] font-body text-[10.5px] font-semibold uppercase leading-none tracking-[0.12em] text-ink transition-colors hover:border-ink";
 
@@ -104,7 +104,7 @@ export const SECTION_LABEL =
 
 /**
  * A text action drawn as an accent underline rather than a button. Used where
- * the action is an escape hatch — clear a filter, go back — and a filled button
+ * the action is an escape hatch - clear a filter, go back - and a filled button
  * would compete with the content it sits beside.
  */
 export const ACCENT_TEXT_ACTION =
@@ -113,8 +113,8 @@ export const ACCENT_TEXT_ACTION =
 /* ── the feed tile ──────────────────────────────────────────────────────── */
 
 /**
- * One tile. The aspect ratio is set inline per card — see `tileRatio` in
- * `ArticleCard.tsx` — because it varies, which is what gives the masonry its
+ * One tile. The aspect ratio is set inline per card - see `tileRatio` in
+ * `ArticleCard.tsx` - because it varies, which is what gives the masonry its
  * rhythm.
  */
 export const TILE = "relative overflow-hidden rounded-tile bg-tile";
@@ -131,7 +131,7 @@ export const TILE_IMAGE = "h-full w-full object-cover";
 export const TILE_TYPESET =
   "flex h-full w-full flex-col justify-end gap-2 p-4";
 /**
- * An article's title, so `font-ui` — see the type block in `styles/youth.css`.
+ * An article's title, so `font-ui` - see the type block in `styles/youth.css`.
  * The tile headline is the smallest type in the product that has to be read
  * rather than glanced at, and at 11.5–15px over a photograph the serif's
  * modulation is the first thing to go.
@@ -157,7 +157,7 @@ export const TILE_HEADLINE =
  * The Save control, floated over the tile.
  *
  * `z-[4]` puts it above both the scrim and the link overlay, which is what
- * makes it pressable at all — everything below it is one big anchor.
+ * makes it pressable at all - everything below it is one big anchor.
  */
 /**
  * A heart, not a word: red when saved. The backdrop is the same either way, so
@@ -206,7 +206,7 @@ export function articleKicker(subjectText: string): string {
 }
 
 /**
- * The article's own title — the one heading that stays on Archivo, and the one
+ * The article's own title - the one heading that stays on Archivo, and the one
  * element on the page that is centred.
  *
  * Centred *alone*, deliberately: the kicker, lede, byline and verdict bar stay
@@ -220,21 +220,21 @@ export const ARTICLE_TITLE =
 export const ARTICLE_LEDE =
   "mt-5 text-pretty font-body text-[23px] leading-[1.45] text-ink-2";
 
-/** The byline strip — pipe-separated facts, not a table. */
+/** The byline strip - pipe-separated facts, not a table. */
 export const ARTICLE_BYLINE =
   "mt-6 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 pb-4 font-body text-[12px] text-ink-3";
 export const ARTICLE_BYLINE_STRONG = "font-semibold text-ink";
 export const ARTICLE_BYLINE_SEP = "text-ink-4";
 
 /**
- * The two byline facts about *this page* — how long it takes to read and that a
- * person signed it off — stepped up to full ink, but only on the dark theme.
+ * The two byline facts about *this page* - how long it takes to read and that a
+ * person signed it off - stepped up to full ink, but only on the dark theme.
  *
  * The **only** `dark:` variant in the app, and it is deliberate rather than a
  * crack in the token system: everything else flips because its token flips, and
  * that is still the rule. This one asks for a different *relationship* to the
- * byline in each theme — the same step up that reads as emphasis on the dark
- * ground is heavier than the byline wants on the light one — and a token cannot
+ * byline in each theme - the same step up that reads as emphasis on the dark
+ * ground is heavier than the byline wants on the light one - and a token cannot
  * express "one ramp step on one theme and none on the other".
  *
  * Safe because `dark:` is configured as `html[data-theme="dark"]`
@@ -258,8 +258,8 @@ export const VERDICT_GLOSS_TEXT =
  *
  * Placed first because it changes how the rest of the page should be read, and
  * a reader who stops after the verdict must still have seen it. It uses the
- * accent ink and a heavy left rule — the same restraint as the rest of the
- * design, one step louder — because this is the only element on a public page
+ * accent ink and a heavy left rule - the same restraint as the rest of the
+ * design, one step louder - because this is the only element on a public page
  * that says our own article may be wrong.
  */
 export const RETRACTION_BANNER =
@@ -288,7 +288,7 @@ export const FOLDER_SELECT =
 export const FOLDER_SELECT_CHEVRON =
   "pointer-events-none absolute right-[17px] top-1/2 h-[7px] w-[7px] -translate-y-[70%] rotate-45 border-b-[1.6px] border-r-[1.6px] border-ink-3";
 
-/** The filled action. Ink, not accent — the accent belongs to the console. */
+/** The filled action. Ink, not accent - the accent belongs to the console. */
 export const PRIMARY_PILL =
   "rounded-full border-0 bg-invert px-5 py-3 font-body text-[11px] font-bold uppercase leading-none tracking-[0.12em] text-invert-fg transition-colors hover:bg-accent-ink disabled:opacity-50";
 export const SECONDARY_PILL =
@@ -323,12 +323,12 @@ export const SKELETON_PARAGRAPH = "h-24 rounded-field bg-surface-2";
 /* ── article prose and citation chips ───────────────────────────────────── */
 
 /**
- * The body column: **the article frame's full width** — 800px less the 28px
+ * The body column: **the article frame's full width** - 800px less the 28px
  * gutters, so ~744px of type, which is ~111 characters a line at `text-prose`
  * (20px Instrument Serif).
  *
  * The count is measured, not estimated, and it is the number to watch here, not
- * the pixel. Instrument Serif averages **5.71px a character at 17px** — run the
+ * the pixel. Instrument Serif averages **5.71px a character at 17px** - run the
  * font's advance widths over a paragraph of real article prose and divide. That
  * is ~0.34em, far narrower than a text serif, because it is a display face
  * doing a body job. Two numbers in this file were wrong because nobody had run
@@ -338,7 +338,7 @@ export const SKELETON_PARAGRAPH = "h-24 rounded-field bg-surface-2";
  *     the *wrapper's* zero and the wrapper inherits 15px while the paragraphs
  *     are larger, so the unit was measuring the wrong font.
  *   - 520px was then written down as "~82 characters, the top of the
- *     comfortable range". It was ~91 — already past it.
+ *     comfortable range". It was ~91 - already past it.
  *
  * The column then sat at 600px / ~89 characters for a while, with `text-prose`
  * raised to 20px to hold that count. Filling the frame takes it to ~111, which
@@ -358,14 +358,14 @@ export const PROSE_PARAGRAPH =
  * A section title inside the article.
  *
  * `font-ui` because it is a *title*, and titles in this product are the one
- * place the sans is used — `ARTICLE_TITLE` is the same face. A serif subhead at
+ * place the sans is used - `ARTICLE_TITLE` is the same face. A serif subhead at
  * this size sits too close to the serif body to break it up, which is the whole
  * job of the element.
  *
  * The asymmetric margin is the point: a heading belongs to the prose beneath
  * it, so the space above it is nearly three times the space below. Set flush
  * with `text-ink` against the body's `text-ink-2`, so the hierarchy is carried
- * by weight and colour rather than by size alone — it must read as a step below
+ * by weight and colour rather than by size alone - it must read as a step below
  * the 32–50px `h1` without competing with it.
  */
 export const PROSE_HEADING =
@@ -405,7 +405,7 @@ export const POPOVER_UNRESOLVED = "mt-2 block font-body text-meta text-ink-3";
  * picture that escapes it announces itself as the more important thing on the
  * page.
  *
- * The width and the wrap come from `.ew-media` in `styles/youth.css` — the same
+ * The width and the wrap come from `.ew-media` in `styles/youth.css` - the same
  * classes the console's editor uses, which is what makes the reviewer's layout
  * something they can actually see before approving it. Everything inside those
  * classes stops applying below 640px, so a floated picture becomes a full-width
@@ -423,7 +423,7 @@ export const ARTICLE_IMAGE = "block h-auto w-full rounded-tile";
  * An embedded player is roughly a megabyte of Google's JavaScript, executed on
  * every reader of every article that has one, to render a rectangle most of
  * them will not press. The still frame is one image request, and the iframe
- * arrives on the click that asks for it — which is also the click that makes
+ * arrives on the click that asks for it - which is also the click that makes
  * being tracked by YouTube something the reader chose.
  */
 export const VIDEO_FRAME =
@@ -454,7 +454,7 @@ export const VIDEO_CAPTION = "mt-2 font-body text-micro text-ink-3";
  *
  * The previous design pinned them beside the prose, which answered "what is
  * this resting on?" without scrolling. This one answers it at the end, and the
- * citation chips are what serve the mid-article question — each one opens the
+ * citation chips are what serve the mid-article question - each one opens the
  * paper it points at in place. On this measure a 320px sidebar would leave the
  * prose too narrow to be the thing the page is for.
  */
@@ -479,14 +479,14 @@ export function sourceRow(active: boolean): string {
 
 export const SOURCE_ROW_HEAD = "flex items-baseline gap-2.5";
 
-/** The handle, as a pill — the same shape as the chip in the prose. */
+/** The handle, as a pill - the same shape as the chip in the prose. */
 export const SOURCE_HANDLE =
   "flex-none rounded-full border border-rule-soft px-2 py-0.5 font-body text-[10.5px] font-bold leading-none tracking-[0.06em] text-accent-ink";
 export const SOURCE_TITLE_LINK =
   "text-pretty font-body text-[13px] leading-[1.5] text-ink-2 hover:text-accent-ink";
 
 /**
- * Weak study types are drawn in the accent ink — the one place colour touches
+ * Weak study types are drawn in the accent ink - the one place colour touches
  * evidence, and it flags the *source*, never the verdict.
  */
 export function sourceStudyType(weak: boolean): string {

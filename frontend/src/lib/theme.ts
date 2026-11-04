@@ -5,7 +5,7 @@
  * resolves through a custom property that flips on that attribute, so switching
  * costs one attribute write and no re-render of anything but the toggle.
  *
- * First paint is handled by the inline script in `index.html`, not here — an
+ * First paint is handled by the inline script in `index.html`, not here - an
  * effect runs after paint and would flash the light ground. This module owns
  * the same storage key and must stay in step with it.
  *
@@ -46,7 +46,7 @@ export function useTheme(): { theme: Theme; toggle: () => void } {
   const [theme, setTheme] = useState<Theme>("light");
 
   // Adopt whatever the pre-paint script already decided, rather than deciding
-  // again — re-deriving it here could disagree with what is on screen.
+  // again - re-deriving it here could disagree with what is on screen.
   useEffect(() => {
     const attr = document.documentElement.getAttribute("data-theme");
     setTheme(attr === "dark" ? "dark" : attr === "light" ? "light" : read());

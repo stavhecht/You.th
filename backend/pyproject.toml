@@ -1,5 +1,5 @@
 [project]
-name = "evidwell-backend"
+name = "youth-backend"
 version = "0.1.0"
 description = "Evidence-checked wellness content — API and generation pipeline"
 requires-python = ">=3.12"

@@ -9,7 +9,7 @@
  *
  * **It claims no conformance level, on purpose.** Everything listed under
  * "what we have done" was checked on 2026-10-13 and is recorded in
- * COMPLIANCE_IMPLEMENTATION.md — an automated axe-core scan of every public
+ * COMPLIANCE_IMPLEMENTATION.md - an automated axe-core scan of every public
  * page in both themes, plus keyboard checks. That is not an IS 5568 audit: no
  * screen reader was used and many success criteria need a person to judge.
  * Saying "conforms to IS 5568 at AA" before an auditor has said so would be a
@@ -57,7 +57,7 @@ export function AccessibilityRoute() {
       <p className={LEGAL_P}>
         <Fill>
           Result of the accessibility audit: who carried it out, when, the level
-          reached, and any parts that do not yet conform — or, until then: &ldquo;The
+          reached, and any parts that do not yet conform, or, until then: &ldquo;The
           site has not yet been audited by an accessibility auditor.&rdquo;
         </Fill>
       </p>

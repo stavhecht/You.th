@@ -2,7 +2,7 @@
  * One tile in the masonry feed.
  *
  * Every field here is derived server-side from the approved article
- * (services/card.py) — there is no card-specific model output, and the picture
+ * (services/card.py) - there is no card-specific model output, and the picture
  * is the article's own first image rather than a separately-chosen thumbnail.
  * That is what guarantees a tile cannot promise something the article walks
  * back.
@@ -12,7 +12,7 @@
  * implementation departs from it: a feed of health claims where the judgment is
  * only visible after a click is a feed that has made the click the point. The
  * kicker line therefore reads `SUPPORTED · Topical`, with the verdict's scope
- * limit under it and the headline last — the same reading order the previous
+ * limit under it and the headline last - the same reading order the previous
  * design used, and the same honest half first.
  */
 
@@ -111,7 +111,7 @@ export function ArticleCard({ card }: { card: FeedCard }) {
 
       {/*
         The whole tile is the link, laid under the scrim so a press anywhere on
-        the picture opens the article — everything except the Save button, which
+        the picture opens the article - everything except the Save button, which
         sits above it. The headline is the accessible name; nothing else in here
         needs to be reachable on its own.
       */}
@@ -135,7 +135,7 @@ export function ArticleCard({ card }: { card: FeedCard }) {
               an oversight. The mark is drawn in the ink ramp; over a scrimmed
               photograph the ink is invisible and a white version would be a
               second mark meaning the same thing in a different colour. The
-              wording carries it here — which it can, because on a tile the
+              wording carries it here - which it can, because on a tile the
               verdict is a word rather than a value to compare across a row.
             */}
             <div className={TILE_KICKER}>
@@ -157,7 +157,7 @@ export function ArticleCard({ card }: { card: FeedCard }) {
 
 /**
  * `<time>` rather than a plain string, so the machine-readable date survives
- * formatting — this is the element a future Article JSON-LD block reads from.
+ * formatting - this is the element a future Article JSON-LD block reads from.
  */
 export function PublishedDate({ iso }: { iso: string }) {
   const date = new Date(iso);

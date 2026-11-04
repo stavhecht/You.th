@@ -5,9 +5,8 @@ state what a product or trend claims, what the research actually shows, and a pl
 verdict — every factual sentence carrying a citation to a real paper, every article approved
 by a human before publication.
 
-**The product is You.th; the repository, the Python package and the database are still named
-`evidwell`.** The rename was a design change, not a migration: renaming a package, a DSN and a
-table prefix buys nothing a reader ever sees and breaks every local environment that exists.
+**The product is You.th; the repository, the Python package, the database and the containers
+use the slug `youth`**, because a dot cannot appear in a package name or a DSN.
 
 **Status:** implemented and verified against a live Postgres 16 + pgvector — 490 tests pass with
 zero skips, both migrations apply cleanly, and every endpoint has been exercised end to end.
@@ -141,7 +140,7 @@ is a string a stranger can send someone, and an unknown value reads as "no filte
 both the safe interpretation and the one that keeps a mistyped link working.
 
 **Search is server-side over the whole approved article, with a typo fallback that says what
-it is.** `GET /feed?q=` (migration 0006, `FeedService.search`). It was client-side over loaded
+it is.** `GET /feed?q=` (`0001_initial.sql`, `FeedService.search`). It was client-side over loaded
 pages until 2026-10-14, because the only server search on offer was a `LIKE` over card columns
 that would silently miss every article's body. Now `approve()` writes a weighted tsvector —
 headline, product and ingredients; then qualifier, summary, claims and excerpt; then the body's
@@ -443,7 +442,7 @@ autosave and again at approve.
 The three things that follow from storing data rather than a stylesheet:
 
 - **The same classes render both sides.** `mediaWrapClass()` in `lib/media.ts` produces the
-  `.ew-media` classes that `styles/evidwell.css` defines, and the console editor and the
+  `.ew-media` classes that `styles/youth.css` defines, and the console editor and the
   published article both use them. That identity is the only way "the reviewer approves what
   publishes" is true of layout and not just of words.
 - **It collapses on a phone.** The float and the width live inside one `@media (min-width:
@@ -1752,8 +1751,9 @@ Full DDL: `backend/migrations/0001_initial.sql`. Shape:
   §3.2.
 - **`reader_folders`** / **`reader_saves`** — one shelf per folder. See below for the two
   constraints that carry the behaviour.
-- **`contact_requests`** — `kind`, `email`, `link`, `note`, `status`, `handled_by`,
-  `handled_at`. Written unauthenticated, read only in the console.
+- **`contact_requests`** — `kind`, `name`, `email`, `link`, `note`, `created_at`. Written
+  unauthenticated, emailed to the editorial inbox, read only in the console. It had a
+  handling state (`status`, `handled_by`, `handled_at`) until the 2026-11-03 squash: nothing set it.
 
 **Two card columns are derived, and one enum is not.** `card_image` / `card_image_alt` are
 materialised at publish time from the first `image` node in the approved body, by the same rule
@@ -1818,10 +1818,6 @@ article cannot accumulate a copy per folder. And the foreign key is composite,
 your own folder" a database fact rather than a check every route has to remember. Both are
 tested against a live database in `test_reader_accounts.py`, because a fake session cannot
 demonstrate either.
-
-`contact_requests` carries a CHECK in the same shape as the one behind invariant #1: a row
-whose status claims a human dealt with it has to name the human, so reopening a request must
-clear `handled_by` and `handled_at` or the row is refused.
 
 **There is deliberately no HNSW index on the vectors** — `sources.embedding` then,
 `source_chunks.embedding` since chunking arrived, for the same reason. An earlier draft of the schema
@@ -1898,7 +1894,7 @@ process, Vite dev server. Everything runs on one machine, and with the Ollama de
 no API keys at all.
 
 **The API is containerised; the worker and the migrations are not.** `backend/Dockerfile` is a
-two-stage build — toolchain and a venv in the builder, `libpq5` and a non-root `evidwell` user
+two-stage build — toolchain and a venv in the builder, `libpq5` and a non-root `youth` user
 in the runtime — and `docker compose up backend` serves it on :8000 against the `db` service.
 What it deliberately leaves out is as much of the design as what it includes:
 

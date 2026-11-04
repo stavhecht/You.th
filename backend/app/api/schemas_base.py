@@ -27,13 +27,27 @@ from pydantic.alias_generators import to_camel
 #: `ada@example.com ` cannot become two accounts.
 #:
 #: 254 is the RFC 5321 ceiling on a full address.
+#:
+#: The shape: an ASCII local part of the characters mail providers accept
+#: (letters outside English are refused on purpose),
+#: with no leading, trailing or doubled dot; domain labels of letters, digits and
+#: inner hyphens; a top-level domain of 2+ letters (or punycode). It refuses the
+#: typos that only bounce later, such as `ada@gmail`, `ada@@x.com`, `ada.@x.com`,
+#: `ada@x..com` and `ada@x.c`. Pydantic matches the pattern on the *raw* input,
+#: before stripping and lowercasing, hence `A-Z` and the `\s*` at both ends.
+#: Not `(?i)`: its Unicode case folding lets `ſ` match `s` and `K` (Kelvin) `k`.
+#: `frontend/src/lib/email.ts` mirrors it so the form says so before sending.
+EMAIL_PATTERN = (
+    r"^\s*[a-zA-Z0-9_!#$%&'*+/=?^`{|}~-]+(\.[a-zA-Z0-9_!#$%&'*+/=?^`{|}~-]+)*"
+    r"@([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+([a-zA-Z]{2,}|[xX][nN]--[a-zA-Z0-9-]+)\s*$"
+)
 EmailAddress = Annotated[
     str,
     StringConstraints(
         strip_whitespace=True,
         to_lower=True,
         max_length=254,
-        pattern=r"^[^@\s]+@[^@\s.]+(\.[^@\s.]+)+$",
+        pattern=EMAIL_PATTERN,
     ),
 ]
 

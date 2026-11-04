@@ -7,7 +7,7 @@ import { BrowserRouter } from "react-router-dom";
  * Fonts are bundled, not fetched from Google Fonts.
  *
  * The `<link>` to fonts.googleapis.com sent every visitor's IP address to
- * Google on first paint, before they had done anything — a disclosure with no
+ * Google on first paint, before they had done anything - a disclosure with no
  * purpose the reader asked for (COMPLIANCE_AUDIT.md F8). Served from our own
  * origin, the bytes are the same and nobody else learns who is reading.
  *

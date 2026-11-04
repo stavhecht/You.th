@@ -1,7 +1,7 @@
 """Research runs against real Postgres: constraints, single-flight, claim, checkpoint,
 and the trend history (topics, observations, feed state).
 
-Needs a live database with 0005 applied, and skips silently without one — see
+Needs a live database with the schema applied, and skips silently without one — see
 the note in ``test_db_invariants.py``. **A skipped run verifies none of this.**
 
 The checkpoint and claim tests commit through a session factory, as the worker
@@ -47,7 +47,7 @@ async def factory() -> AsyncIterator[async_sessionmaker[AsyncSession]]:
             await connection.execute(sa.text("SELECT 1 FROM research_topics LIMIT 1"))
     except Exception:
         await engine.dispose()
-        pytest.skip(f"no database with research_runs and 0005 applied at {DATABASE_URL}")
+        pytest.skip(f"no database with research_runs applied at {DATABASE_URL}")
     yield async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
     await engine.dispose()
 
@@ -295,7 +295,7 @@ async def test_undecided_candidates_of_old_runs_are_pruned_and_decisions_kept(
             await db.commit()
 
 
-# --- trend search (0005) -------------------------------------------------------
+# --- trend search -------------------------------------------------------
 
 
 async def test_two_active_runs_are_refused_by_the_index_itself(session: AsyncSession) -> None:
@@ -392,8 +392,7 @@ async def test_history_pruning_keeps_what_is_still_referenced(
         await db.execute(sa.text(
             "INSERT INTO research_topic_observations (topic_id, research_run_id, observed_at, "
             "window_start, window_end, stories, independent_publishers, data_coverage, "
-            "scoring_version, metrics, scores) VALUES (:t, :r, :at, :at, :at, 1, 1, 0.7, "
-            "'trend-v1', '{}', '{}')"
+            "metrics, scores) VALUES (:t, :r, :at, :at, :at, 1, 1, 0.7, '{}', '{}')"
         ), {"t": ids[old], "r": run_id, "at": long_ago})
         db.add(ResearchCandidate(
             id=str(uuid.uuid4()), research_run_id=run_id, canonical_topic="x", queries=[],

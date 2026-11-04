@@ -1,5 +1,5 @@
 /**
- * The evidence grade — nine rungs, weakest first, filled to the strongest
+ * The evidence grade - nine rungs, weakest first, filled to the strongest
  * study type actually retrieved.
  *
  * This is the *warrant* for the verdict, and it is a separate signal on purpose:
@@ -9,7 +9,7 @@
  * allowed to be (invariant #3, `evidence/grading.py`); showing the bar is what
  * makes that cap legible rather than mysterious.
  *
- * Filled segments are ink and unfilled are the hairline rule — no colour here
+ * Filled segments are ink and unfilled are the hairline rule - no colour here
  * either, for the reasons in VerdictMark.tsx.
  */
 

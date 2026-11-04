@@ -2,12 +2,12 @@
  * The feed's narrowing, read from and written to the URL.
  *
  * One module owns the parameter names, so the header that writes `?q=` and the
- * feed that reads it cannot drift apart — the failure mode being a search box
+ * feed that reads it cannot drift apart - the failure mode being a search box
  * that appears to do nothing.
  *
  * Everything here lives in the query string rather than in React state because
  * all of it is worth bookmarking, sharing and reaching with the back button.
- * The drawer's open/closed deliberately does not — it is ephemeral UI state
+ * The drawer's open/closed deliberately does not - it is ephemeral UI state
  * nobody wants a history entry for, so `SiteHeader` keeps it in a `useState`
  * and passes it down. Putting it in this hook would give every caller its own
  * disconnected copy.
@@ -32,7 +32,7 @@ export interface BrowseState {
   subject: Subject | null;
   /** True when the reader has asked for the plain chronological feed. */
   plain: boolean;
-  /** Any narrowing at all — drives the "Clear" affordance. */
+  /** Any narrowing at all - drives the "Clear" affordance. */
   filtered: boolean;
   setVerdict: (verdict: Verdict | null) => void;
   setSubject: (subject: Subject | null) => void;

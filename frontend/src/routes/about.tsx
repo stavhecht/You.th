@@ -2,7 +2,7 @@
  * About.
  *
  * The copy is the comp's, and the three numbered rules at the bottom are not
- * marketing — each one names a mechanism that exists in the code and can be
+ * marketing - each one names a mechanism that exists in the code and can be
  * checked:
  *
  *   1. every published article carries its sources (`article_sources`, and the
@@ -13,7 +13,7 @@
  *      system, and a test greps the AST to keep it that way (invariant #1)
  *
  * If any of those stops being true, this page becomes a false claim rather than
- * a stale one — which is the reason for spelling out which is which here.
+ * a stale one - which is the reason for spelling out which is which here.
  */
 
 import { Link } from "react-router-dom";

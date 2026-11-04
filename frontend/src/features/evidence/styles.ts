@@ -1,5 +1,5 @@
 /**
- * Names for the evidence axis's styling — the verdict mark, its wording, and
+ * Names for the evidence axis's styling - the verdict mark, its wording, and
  * the grade bar.
  *
  * Read `VerdictMark.tsx` before changing anything here. Every value in this
@@ -17,7 +17,7 @@ type MarkSize = "sm" | "card" | "lg";
 
 /**
  * `card` tracks `--ew-mark`, so verdict prominence across the whole feed
- * retunes from one token. `sm` and `lg` are fixed — dense console rows and the
+ * retunes from one token. `sm` and `lg` are fixed - dense console rows and the
  * article header have optical needs the feed token cannot serve.
  */
 const MARK_BOX: Record<MarkSize, string> = {
@@ -39,7 +39,7 @@ export const MARK_MIXED_FILL = "w-1/2 bg-ink";
 /** A quarter, on the floor: something exists, but small, indirect or off-endpoint. */
 export const MARK_WEAK = "flex items-end border-ink";
 export const MARK_WEAK_FILL = "h-[30%] w-full bg-ink";
-/** Empty, one ink step back — absence, not a fifth and worse verdict. */
+/** Empty, one ink step back - absence, not a fifth and worse verdict. */
 export const MARK_NO_EVIDENCE = "border-ink-3";
 
 /**
@@ -64,7 +64,7 @@ export function verdictWording(verdict: Verdict, size: MarkSize): string {
 }
 
 /**
- * The scope limit on a verdict — "for strength and lean mass". Lighter ink, but
+ * The scope limit on a verdict - "for strength and lean mass". Lighter ink, but
  * the same size as the wording it qualifies, because it is a limit rather than
  * a footnote.
  */

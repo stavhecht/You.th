@@ -13,7 +13,7 @@ export default defineConfig({
     // one reason: inside docker compose the API is `backend`, not localhost.
     proxy: { "/api": process.env.VITE_API_PROXY_TARGET ?? "http://localhost:8000" },
     // Bind mounts on Docker Desktop do not deliver inotify events reliably, so
-    // the container sets this and HMR keeps working. Off by default — polling
+    // the container sets this and HMR keeps working. Off by default - polling
     // burns CPU for nothing when the files are local.
     watch: process.env.VITE_DEV_POLL ? { usePolling: true, interval: 300 } : undefined,
   },

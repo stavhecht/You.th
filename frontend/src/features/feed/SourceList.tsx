@@ -4,14 +4,14 @@
  * Shows study type on every entry. That is not decoration: it is how a reader
  * calibrates a verdict for themselves rather than taking ours on trust, which
  * is the whole proposition of the product. Weak types are drawn in the accent
- * ink — the one place a colour appears on evidence, and it flags the *source*,
+ * ink - the one place a colour appears on evidence, and it flags the *source*,
  * never the verdict.
  *
  * Each entry carries `id="source-S1"` so the citation chips in the body can
  * anchor to it, and the row the reader just came from is washed with the accent
  * so the jump lands somewhere visible. The *label* on the entry is not that
  * handle: it is the reader's number, 1..n with no gaps, from the same map the
- * chips read — see `citations.ts`. The id keeps the handle because it is the
+ * chips read - see `citations.ts`. The id keeps the handle because it is the
  * identity, and because changing it would break every link already shared.
  */
 
@@ -132,7 +132,7 @@ export function SourceList({ sources, citations, numbers, activeHandle }: Props)
             {citations.map((citation) => (
               <li key={citation.claim} className={CITATION_MAP_ITEM}>
                 <span className={CITATION_MAP_CLAIM}>{citation.claim}</span>
-                {" — "}
+                {": "}
                 {citation.handles.map((handle, index) => (
                   <span key={handle}>
                     {index > 0 ? ", " : ""}

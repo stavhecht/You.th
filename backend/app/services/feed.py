@@ -65,7 +65,7 @@ _CARD_COLUMNS = (
     Article.id,
 )
 
-#: Must match ``articles_title_trgm_idx`` in migration 0006 expression for
+#: Must match ``articles_title_trgm_idx`` in 0001_initial.sql expression for
 #: expression, or the planner cannot use the index. The space is a literal, not
 #: a bound parameter, for the same reason.
 _TYPO_TITLE = Article.card_headline.op("||")(literal_column("' '")).op("||")(
@@ -91,7 +91,7 @@ def _similar_title(query: str) -> tuple[Any, Any]:
     by default) — whether the query resembles *some run of words* in the
     title, which is the question a misspelt search asks. Whole-string
     similarity (``%``) compares a one-word query against a whole headline and
-    scored a plain typo at 0.21; migration 0006 has the measurement.
+    scored a plain typo at 0.21; 0001_initial.sql has the measurement.
     """
     bound = literal(query, Text)
     return bound.op("<%")(_TYPO_TITLE), func.word_similarity(bound, _TYPO_TITLE)
@@ -223,7 +223,7 @@ class FeedService:
     ) -> tuple[list[dict[str, Any]], str | None, SearchMatch]:
         """Published cards matching ``query``, best match first.
 
-        Full text over ``search_document`` first (migration 0006 says what is
+        Full text over ``search_document`` first (0001_initial.sql says what is
         in it and why). Only when that finds **nothing** does it fall back to
         trigram word similarity over headline and product, which is what makes
         "magnesum" find magnesium. The third return value says which one

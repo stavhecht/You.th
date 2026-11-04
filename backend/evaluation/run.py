@@ -51,7 +51,7 @@ logger = logging.getLogger("evaluation")
 def _parse(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="python -m evaluation.run",
-        description="Evaluate the EvidWell article pipeline and research agent.",
+        description="Evaluate the You.th article pipeline and research agent.",
     )
     parser.add_argument(
         "--suite", default="all", help="suite name from config.yaml (default: all)"

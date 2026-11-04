@@ -10,25 +10,25 @@
  * **Collapsed by default.** Eight always-open rows push the review queue below
  * the fold, and the queue is why a reviewer opened this screen. The badge in
  * the header is enough to say "there is something here" without spending the
- * space to prove it — and it is drawn only when the count is non-zero, because
+ * space to prove it - and it is drawn only when the count is non-zero, because
  * a circled 0 is a mark that means "ignore me".
  *
  * **Run scan is here rather than only in cron.** A reviewer who has just
  * cleared the list should not wait until Monday to see whether anything moved.
- * It is safe to expose because a scan *proposes* — no model calls, no queued
- * run, no spend — so the money still sits behind Generate draft, one press
+ * It is safe to expose because a scan *proposes* - no model calls, no queued
+ * run, no spend - so the money still sits behind Generate draft, one press
  * further in. It is styled as the quietest control in the panel for the same
  * reason: it costs nothing of ours and several minutes of NCBI's.
  *
  * **Every row shows its arithmetic.** "17 papers, usually 3" is the claim; the
  * score is not shown at all. The ranking is built from constants that were
  * guessed before any real data existed, so a reviewer needs to be able to
- * disagree with it — and a bare score invites either belief or dismissal, never
+ * disagree with it - and a bare score invites either belief or dismissal, never
  * judgement. The study mix is there for the same reason: six case reports and
  * six randomised trials are the same surge and a very different proposition.
  *
  * Promoting spends a full generation run. Nothing it produces publishes without
- * an approval, so the button is `PRIMARY` rather than guarded — but it says so.
+ * an approval, so the button is `PRIMARY` rather than guarded - but it says so.
  */
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -99,11 +99,11 @@ function evidenceLine(candidate: DiscoveryCandidate): string {
   const papers = `${candidate.paperCount} paper${candidate.paperCount === 1 ? "" : "s"}`;
   const surge =
     candidate.baselineCount < 1
-      ? `${papers} — new to this corpus`
+      ? `${papers}, new to this corpus`
       : `${papers}, usually ${candidate.baselineCount.toFixed(1)} (${candidate.lift.toFixed(1)}x)`;
   // Only when the angle is narrower than the substance. Saying "8 papers · 8 on
-  // this angle" is noise, and it would make the one case that matters — a broad
-  // surge with a thin angle — look like every other row.
+  // this angle" is noise, and it would make the one case that matters - a broad
+  // surge with a thin angle - look like every other row.
   if (candidate.anglePaperCount && candidate.anglePaperCount < candidate.paperCount) {
     return `${surge} · ${candidate.anglePaperCount} on this angle`;
   }
@@ -220,7 +220,7 @@ function useTrendScan(): TrendScan | undefined {
   const { data } = useQuery({
     queryKey: consoleKeys.trendScan,
     queryFn: () => fetchTrendScan(),
-    // Live state, like the in-flight runs — the global staleTime would serve a
+    // Live state, like the in-flight runs - the global staleTime would serve a
     // snapshot of a scan that has since finished.
     staleTime: 0,
     refetchInterval: (query) =>
@@ -247,7 +247,7 @@ function useTrendScan(): TrendScan | undefined {
  * What the scan is doing, in one line.
  *
  * Reports records as well as proposals because zero proposals is an ordinary
- * fortnight — most weeks nothing accelerates — while zero records means the
+ * fortnight - most weeks nothing accelerates - while zero records means the
  * harvest itself came back empty, and a proposal count alone cannot tell a
  * reviewer which of those just happened.
  */
@@ -256,7 +256,7 @@ function scanLine(scan: TrendScan): string | null {
     return "Scanning PubMed. A few minutes; you can leave this page.";
   }
   if (scan.status === "failed") {
-    return `Scan failed — ${scan.error ?? "no reason given"}.`;
+    return `Scan failed: ${scan.error ?? "no reason given"}.`;
   }
   if (scan.status === "succeeded") {
     const head = `Scanned ${scan.recordsSeen} record${scan.recordsSeen === 1 ? "" : "s"}, refreshed ${scan.candidatesProposed} proposal${scan.candidatesProposed === 1 ? "" : "s"}.`;
@@ -267,7 +267,7 @@ function scanLine(scan: TrendScan): string | null {
   return null;
 }
 
-/** The server's own words where it has any — a 409 says a scan is already running. */
+/** The server's own words where it has any - a 409 says a scan is already running. */
 function describeError(failure: unknown): string {
   if (failure instanceof ApiError) {
     const detail = (failure.detail as { detail?: string } | undefined)?.detail;
@@ -303,7 +303,7 @@ export function TrendCandidates() {
   const count = data?.length ?? 0;
   const scanning = scan?.status === "running" || startScan.isPending;
   // A failed press outranks the last scan's result: it is the newer fact, and
-  // it is almost always the 409 — a scan already running in this process,
+  // it is almost always the 409 - a scan already running in this process,
   // started here or from another tab. `Request failed: 409` is not that
   // sentence, so the server's own words win where it has any.
   const pressFailed = startScan.isError ? describeError(startScan.error) : null;
@@ -378,7 +378,7 @@ export function TrendCandidates() {
             <p className={CANDIDATES_ERROR}>Could not load proposals.</p>
           ) : count === 0 ? (
             // Says which of the two silences this is. "Nothing here" would read
-            // as a broken panel, and an empty desk is the *ordinary* outcome —
+            // as a broken panel, and an empty desk is the *ordinary* outcome,
             // a floor, a quorum and a suppression rule exist to make it so.
             //
             // It no longer claims a cadence. It said "weekly" while nothing was

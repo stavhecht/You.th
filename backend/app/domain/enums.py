@@ -154,14 +154,6 @@ class ContactKind(StrEnum):
     OTHER = "other"
 
 
-class ContactStatus(StrEnum):
-    """Where a submission has got to in the console's inbox."""
-
-    NEW = "new"
-    ANSWERED = "answered"
-    CLOSED = "closed"
-
-
 class UserRole(StrEnum):
     ADMIN = "admin"
     REVIEWER = "reviewer"

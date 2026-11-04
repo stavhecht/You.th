@@ -28,7 +28,7 @@ from app.retrieval.throttle import (
 
 logger = logging.getLogger(__name__)
 
-USER_AGENT = "EvidWell/0.1 (evidence-checked wellness content)"
+USER_AGENT = "You.th/0.1 (evidence-checked wellness content)"
 
 #: Requests per second, per provider, per *process*.
 #:

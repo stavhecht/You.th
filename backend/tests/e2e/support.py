@@ -50,9 +50,9 @@ from app.retrieval.query_builder import TemplateQueryStrategy
 from app.retrieval.rerank import RerankConfig, SemanticReranker
 
 #: The end-to-end database: ``E2E_DATABASE_URL``, else the dev URL with the
-#: database renamed ``evidwell_test``. Never the dev database itself.
+#: database renamed ``youth_test``. Never the dev database itself.
 E2E_URL = os.environ.get("E2E_DATABASE_URL") or make_url(get_settings().database_url).set(
-    database="evidwell_test"
+    database="youth_test"
 ).render_as_string(hide_password=False)
 
 USAGE = TokenUsage(input_tokens=100, output_tokens=50)

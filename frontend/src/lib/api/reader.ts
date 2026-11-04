@@ -1,5 +1,5 @@
 /**
- * Reader account data access — sessions, interests, folders, saves.
+ * Reader account data access - sessions, interests, folders, saves.
  *
  * Framework-agnostic like the rest of `lib/api`: plain fetch and typed
  * contracts, no react, no router. The React bindings live in
@@ -76,7 +76,7 @@ export async function fetchMe(): Promise<Reader> {
 /**
  * Patch the profile. An omitted field is left alone.
  *
- * `interests: []` is therefore a real instruction — turn personalisation off —
+ * `interests: []` is therefore a real instruction - turn personalisation off,
  * and is distinct from not sending the field at all. Anything that "cleans"
  * empty arrays out of this payload breaks the only way to switch it back off.
  */
@@ -131,7 +131,7 @@ export async function fetchSaved(folderId?: string | null): Promise<SavedPage> {
   return apiFetch<SavedPage>(`/readers/saved${qs({ folderId })}`);
 }
 
-/** `{ slug: folderId }` — one request for a whole page of tiles. */
+/** `{ slug: folderId }` - one request for a whole page of tiles. */
 export async function fetchSavedIndex(): Promise<SavedIndex> {
   return apiFetch<SavedIndex>("/readers/saved/slugs");
 }
@@ -151,10 +151,10 @@ export async function unsaveArticle(slug: string): Promise<void> {
 }
 
 /**
- * "Let us know" — a claim to check or a topic to cover.
+ * "Let us know" - a claim to check or a topic to cover.
  *
  * Unauthenticated: a request is worth having from someone who never signs up.
- * 202, not 201 — the row exists, but the thing being asked for has not
+ * 202, not 201 - the row exists, but the thing being asked for has not
  * happened and may not.
  */
 export async function submitContact(payload: ContactSubmission): Promise<void> {

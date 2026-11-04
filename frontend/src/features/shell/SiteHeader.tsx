@@ -2,7 +2,7 @@
  * The public site bar: browse, search, wordmark, account, theme.
  *
  * Under the Next.js port this is the root `layout.tsx` for the `(public)` group
- * — and only that group. The review desk renders its own chrome, which is the
+ * - and only that group. The review desk renders its own chrome, which is the
  * structural half of moving it behind its own endpoint: the two surfaces now
  * share no header, so nothing on a reviewer's screen can be mistaken for the
  * public site and no public page advertises the desk.
@@ -66,10 +66,10 @@ export function SiteHeader() {
             <SearchField />
           </div>
 
-          <Link to="/" className={WORDMARK} aria-label="You.th — home">
+          <Link to="/" className={WORDMARK} aria-label="You.th home">
             {/*
               Width and height are both set so the bar does not reflow when the
-              image lands — the wordmark is the widest thing in the header and a
+              image lands - the wordmark is the widest thing in the header and a
               late layout shift moves every control beside it.
             */}
             <img
@@ -132,7 +132,7 @@ export function SiteHeader() {
  * entry per search rather than one per keystroke. It also means the feed
  * refetches once instead of on every character.
  *
- * Submitting from anywhere on the site lands on the feed — searching from an
+ * Submitting from anywhere on the site lands on the feed - searching from an
  * article should show results, not filter the article you are reading.
  */
 function SearchField() {
@@ -158,7 +158,7 @@ function SearchField() {
         name="q"
         type="search"
         // Keyed on the current query so the field re-syncs when the URL changes
-        // underneath it — clearing a search from the feed has to empty the box.
+        // underneath it - clearing a search from the feed has to empty the box.
         key={params.get("q") ?? ""}
         defaultValue={params.get("q") ?? ""}
         placeholder="Search article"

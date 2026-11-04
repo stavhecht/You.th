@@ -5,7 +5,7 @@
  * production bundle in dist/ never contains it. Run with `npm run test:e2e`.
  *
  * Isolated from the dev stack on purpose. Playwright starts its own API on
- * :8001 against the `evidwell_test` database (never `evidwell`) and serves the
+ * :8001 against the `youth_test` database (never `youth`) and serves the
  * production build on :4174, proxying /api to that API. `reuseExistingServer`
  * is off so a test can never land on a server holding real data. Before every
  * run, global-setup.ts reseeds the test database (see
@@ -13,14 +13,14 @@
  *
  * One worker, in order: the tests share one seeded database, and the approve
  * and sign-up flows change it. Each test touches different seeded rows, so the
- * order does not matter — but two of them at once would.
+ * order does not matter - but two of them at once would.
  */
 import { defineConfig, devices } from "@playwright/test";
 
 const python = process.env.E2E_PYTHON ?? "../backend/.venv/bin/python";
 const testDatabase =
   process.env.E2E_DATABASE_URL ??
-  "postgresql+asyncpg://evidwell:evidwell@localhost:5433/evidwell_test";
+  "postgresql+asyncpg://youth:youth@localhost:5433/youth_test";
 
 export default defineConfig({
   testDir: "./e2e",

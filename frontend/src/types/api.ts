@@ -2,7 +2,7 @@
  * Mirrors the backend response models.
  *
  * Hand-maintained for now. Once the API stabilises, generate these from the
- * OpenAPI schema FastAPI already produces — hand-written mirrors of a contract
+ * OpenAPI schema FastAPI already produces - hand-written mirrors of a contract
  * drift, and they drift silently, because TypeScript happily validates against
  * a stale definition.
  *
@@ -40,7 +40,7 @@ export type ArticleStatus =
  * What kind of thing is being assessed. Drives the one chromatic axis in the
  * design (see `features/evidence/subject.ts`).
  *
- * Set by a reviewer, never inferred — it cannot be derived from `product`,
+ * Set by a reviewer, never inferred - it cannot be derived from `product`,
  * which is free text, and a guessed subject would put a confident colour on an
  * unchecked classification. Still optional everywhere: an unclassified article
  * renders in ink, which is the design's resting state rather than a gap.
@@ -60,7 +60,7 @@ export type Subject =
  * TipTap document node.
  *
  * Structurally compatible with TipTap's own `JSONContent`, so documents pass
- * into the editor without a cast — but declared here rather than imported from
+ * into the editor without a cast - but declared here rather than imported from
  * `@tiptap/core`, so the public feed's renderer does not pull the editor
  * package into its bundle.
  */
@@ -86,7 +86,7 @@ export interface FeedCard {
   verdict: Verdict;
   verdictQualifier: string | null;
   /**
-   * The article's own first picture, derived at publish time — never a
+   * The article's own first picture, derived at publish time - never a
    * separately-uploaded thumbnail, so a tile cannot show something the article
    * does not. Null is the normal case, and the tile falls back to type.
    */
@@ -109,7 +109,7 @@ export interface SavedCard extends FeedCard {
  * uses. A shape of its own would let the two drift, and the drift is exactly
  * what the preview exists to catch.
  *
- * Derived server-side by the same `derive_card()` the publish path runs — see
+ * Derived server-side by the same `derive_card()` the publish path runs - see
  * `fetchCardPreview`.
  */
 export interface CardPreview extends FeedCard {
@@ -135,9 +135,9 @@ export interface GeneratedFrame {
 export type IllustrationFrame = "lead" | "cover";
 
 /**
- * Both frames after a regenerate — always both, whether or not both were drawn.
+ * Both frames after a regenerate - always both, whether or not both were drawn.
  *
- * `lead` goes into the document — the client swaps the editor's image node and
+ * `lead` goes into the document - the client swaps the editor's image node and
  * lets autosave persist it, so the new `src` passes the server's media check
  * like any other edit. `cover` is already recorded on the article and reaches
  * the feed tile only while `lead` is still the document's first picture.
@@ -158,7 +158,7 @@ export interface FeedPage {
   nextCursor: string | null;
   /**
    * Null for the feed. For a search: `text` when articles matched the words,
-   * `similar` when nothing did and these are titles spelled like the query —
+   * `similar` when nothing did and these are titles spelled like the query,
    * which the page has to say, because a close spelling can be wrong.
    */
   match: "text" | "similar" | null;
@@ -167,8 +167,8 @@ export interface FeedPage {
 /**
  * Published counts per subject and per verdict, for the browse drawer.
  *
- * Both maps are **sparse** — a key is absent when nothing is published under
- * it — so read them with a `?? 0`, never by assuming the enum is populated.
+ * Both maps are **sparse** - a key is absent when nothing is published under
+ * it - so read them with a `?? 0`, never by assuming the enum is populated.
  * They also do not sum to `total`: an unclassified article is counted in the
  * total and in no subject, which is why "Everything" is genuinely larger than
  * the five categories added up.
@@ -190,7 +190,7 @@ export interface Source {
   doi: string | null;
   /**
    * The literature has withdrawn this paper since the article cited it. Shown
-   * on the source itself, not only in the article banner — a reader who
+   * on the source itself, not only in the article banner - a reader who
    * scrolls to the citations should not have to infer which one it was.
    */
   retracted: boolean;
@@ -218,8 +218,8 @@ export interface Article {
   publishedAt: string;
   /**
    * A cited source has been retracted since publication. The article stays up
-   * and stays readable — one withdrawn source does not necessarily invalidate
-   * a conclusion, and a human decides — but the reader is told first.
+   * and stays readable - one withdrawn source does not necessarily invalidate
+   * a conclusion, and a human decides - but the reader is told first.
    */
   retractionNotice: boolean;
   disclaimer: string;
@@ -246,7 +246,7 @@ export interface ReviewSource extends Source {
   abstract: string;
   claim: string;
   citationCount: number | null;
-  /** False for sources retrieved but not cited — shown greyed, not hidden. */
+  /** False for sources retrieved but not cited - shown greyed, not hidden. */
   wasCited: boolean;
   relevanceScore: number | null;
   isWeakEvidence: boolean;
@@ -301,7 +301,7 @@ export interface ValidationReport {
   verdictCeiling: Verdict | null;
   failures: ValidationFailure[];
   /**
-   * Problems that did not block the draft but need a reviewer's eye — a
+   * Problems that did not block the draft but need a reviewer's eye - a
    * "no evidence" verdict that still cites studies, kept after one rewrite.
    * Absent on reports written before warnings existed.
    */
@@ -312,7 +312,7 @@ export interface ArticleDetail {
   id: string;
   /**
    * Where the article lives on the public feed once published. Sent for every
-   * draft — the slug is assigned at persist time — so the console gates the
+   * draft - the slug is assigned at persist time - so the console gates the
    * "view on the feed" link on `status`, not on this being set.
    */
   slug: string;
@@ -336,7 +336,7 @@ export interface ArticleDetail {
   pipelineRunId: string | null;
   /**
    * Set when a cited source has been retracted since this article was written.
-   * The article keeps its status — this raises it for a human, it does not
+   * The article keeps its status - this raises it for a human, it does not
    * withdraw it.
    */
   retractionFlaggedAt: string | null;
@@ -352,7 +352,7 @@ export interface ArticleDetail {
 export interface MediaUpload {
   /** Origin-relative, e.g. `/api/media/1f/2a….png`. Goes into the image node. */
   src: string;
-  /** Sniffed from the bytes — not the Content-Type the upload claimed. */
+  /** Sniffed from the bytes - not the Content-Type the upload claimed. */
   contentType: string;
   bytes: number;
 }
@@ -386,7 +386,7 @@ export interface StageRun {
   cacheWriteTokens: number;
   /**
    * Decimal USD, serialised as a string so it survives the trip without
-   * binary-float drift. **Null means unknown, not free** — the model is not in
+   * binary-float drift. **Null means unknown, not free** - the model is not in
    * the backend price table. Render it as "unknown"; a `?? 0` here would make
    * a newly-configured model look like a local one.
    */
@@ -398,7 +398,7 @@ export interface StageRun {
 /**
  * A generation run. Newest first from the API.
  *
- * `queued` and `running` are the only states the console renders — they are
+ * `queued` and `running` are the only states the console renders - they are
  * what stands between "Generate draft" and a row in the review queue, and
  * without them the reviewer stares at an unchanged queue for several minutes.
  */
@@ -419,7 +419,7 @@ export interface PipelineRun {
   cacheWriteTokens: number;
   /**
    * Decimal USD as a string, summed over the latest attempt's stages. Null if
-   * any stage that consumed tokens ran on an unpriced model — all-or-nothing,
+   * any stage that consumed tokens ran on an unpriced model - all-or-nothing,
    * because a partial sum is a plausible number that is wrong by an order of
    * magnitude. Same rule as above: null is unknown, not zero.
    */
@@ -443,7 +443,7 @@ export interface RunPage {
 // --- reader accounts -------------------------------------------------------
 //
 // The public side's own auth surface. A reader is not a `Reviewer` with fewer
-// permissions — it is a different table, a different token, and a type that
+// permissions - it is a different table, a different token, and a type that
 // carries no role at all, so no component can branch on one and be handed the
 // other.
 
@@ -481,14 +481,14 @@ export type ContactKind = "fact_check" | "topic" | "other";
 
 export interface ContactSubmission {
   kind: ContactKind;
-  name?: string | null;
+  name: string;
   email: string;
   link?: string | null;
   note: string;
 }
 
 /**
- * How a pipeline run's topic was chosen. Both are human decisions — this says
+ * How a pipeline run's topic was chosen. Both are human decisions - this says
  * which surface produced the string, not whether anyone approved it.
  */
 export type RunOrigin = "console" | "discovery";
@@ -504,7 +504,7 @@ export type DiscoveryCandidateStatus =
  *
  * Everything past `topic` exists to be shown. The ranking is built from
  * constants guessed before any real data existed, so a reviewer has to be able
- * to see *why* something is on the list — a bare score is either believed too
+ * to see *why* something is on the list - a bare score is either believed too
  * readily or ignored entirely.
  */
 export interface DiscoveryCandidate {
@@ -514,7 +514,7 @@ export interface DiscoveryCandidate {
   substanceName: string;
   outcomeName: string | null;
   score: number;
-  /** Distinct papers behind the substance's surge — what the lift measures. */
+  /** Distinct papers behind the substance's surge - what the lift measures. */
   paperCount: number;
   /**
    * Papers behind this specific angle. Equal to `paperCount` when the candidate
@@ -552,7 +552,7 @@ export interface TrendScan {
   recordsSeen: number;
   observationsWritten: number;
   candidatesProposed: number;
-  /** The scan's own remarks — a shallow baseline, a truncated seed. */
+  /** The scan's own remarks - a shallow baseline, a truncated seed. */
   notes: string[];
   /**
    * Trends found again and deliberately not re-proposed, each with why.
@@ -607,7 +607,7 @@ export interface ResearchRunRequest {
 export type TrendStatus = "emerging" | "accelerating" | "steady" | "declining" | "preliminary";
 
 /**
- * The stored scoring record, verbatim — so its keys are snake_case.
+ * The stored scoring record, verbatim - so its keys are snake_case.
  * `unavailable` lists components with no data; they are left out, never zeroed.
  *
  * Runs since the trend search split (`version` "trend-v1") score momentum,

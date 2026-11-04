@@ -1,5 +1,5 @@
 {
-  "name": "EvidWell - weekly research run",
+  "name": "You.th - weekly research run",
   "nodes": [
     {
       "id": "schedule",
@@ -32,7 +32,7 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.EVIDWELL_API_URL }}/api/automation/research/runs",
+        "url": "={{ $env.YOUTH_API_URL }}/api/automation/research/runs",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -172,7 +172,7 @@
       ],
       "parameters": {
         "method": "GET",
-        "url": "={{ $env.EVIDWELL_API_URL }}/api/automation/research/runs/{{ $('Start research run').item.json.body.id }}",
+        "url": "={{ $env.YOUTH_API_URL }}/api/automation/research/runs/{{ $('Start research run').item.json.body.id }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -236,7 +236,7 @@
       ],
       "parameters": {
         "method": "GET",
-        "url": "={{ $env.EVIDWELL_API_URL }}/api/automation/research/runs/{{ $('Start research run').item.json.body.id }}/result",
+        "url": "={{ $env.YOUTH_API_URL }}/api/automation/research/runs/{{ $('Start research run').item.json.body.id }}/result",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -350,7 +350,7 @@
         "url": "={{ $env.RESEARCH_NOTIFY_URL }}",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ text: 'EvidWell research run ' + $json.label + ': ' + $json.status + ', ' + $json.topics.length + ' trending topic(s): ' + $json.topics.map(t => t.topic + ' (' + t.trend_score + ', ' + t.trend_status + ', ' + t.status + ')').join('; '), run_id: $json.run_id, status: $json.status, topics: $json.topics.map(t => ({ topic: t.topic, category: t.category, trend_score: t.trend_score, trend_status: t.trend_status, status: t.status, evidence_gate: t.downstream.evidence_gate, supporting_sources: t.supporting_sources.length })) }) }}",
+        "jsonBody": "={{ JSON.stringify({ text: 'You.th research run ' + $json.label + ': ' + $json.status + ', ' + $json.topics.length + ' trending topic(s): ' + $json.topics.map(t => t.topic + ' (' + t.trend_score + ', ' + t.trend_status + ', ' + t.status + ')').join('; '), run_id: $json.run_id, status: $json.status, topics: $json.topics.map(t => ({ topic: t.topic, category: t.category, trend_score: t.trend_score, trend_status: t.trend_status, status: t.status, evidence_gate: t.downstream.evidence_gate, supporting_sources: t.supporting_sources.length })) }) }}",
         "options": {
           "response": {
             "response": {
@@ -535,5 +535,5 @@
     "executionOrder": "v1"
   },
   "active": false,
-  "id": "EvidWellWeeklyRun"
+  "id": "YouthWeeklyRun"
 }

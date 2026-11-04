@@ -15,11 +15,18 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, status
 
-from app.api.deps import ClientIpDep, ContactThrottleDep, SessionDep, too_many_attempts
+from app.api.deps import (
+    ClientIpDep,
+    ContactThrottleDep,
+    SessionDep,
+    SettingsDep,
+    too_many_attempts,
+)
 from app.api.public.schemas import ContactRequestIn
 from app.services.contact import ContactError, ContactService
+from app.services.notify import contact_email, notify_editors
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +39,8 @@ async def submit_contact(
     session: SessionDep,
     throttle: ContactThrottleDep,
     ip: ClientIpDep,
+    settings: SettingsDep,
+    background: BackgroundTasks,
 ) -> dict[str, str]:
     """Record a request for the editorial team.
 
@@ -47,6 +56,12 @@ async def submit_contact(
     retry_after = throttle.retry_after(ip=ip, email=payload.email)
     if retry_after is not None:
         raise too_many_attempts(retry_after, "Too many messages from here. Try again later.")
+    # Counted here, with no `await` between check and count: counted after the
+    # save, 50 parallel requests all passed the check before the first was
+    # counted, and each one was saved and emailed. Every attempt spends the
+    # budget, refused ones too; a person sending one message a week never
+    # reaches the limit.
+    throttle.record_failure(ip=ip, email=payload.email)
 
     try:
         request = await ContactService(session).submit(
@@ -61,8 +76,7 @@ async def submit_contact(
             status_code=status.HTTP_409_CONFLICT, detail=str(exc)
         ) from None
 
-    # Counted as a failure deliberately: a successful submission is exactly
-    # what a spammer repeats, so the budget has to be spent by the ones that
-    # work. A person sending one message a week never reaches the limit.
-    throttle.record_failure(ip=ip, email=payload.email)
+    # Runs after the response, and the session commits before it (SessionDep's
+    # scope="function"), so an email only ever describes a saved row.
+    background.add_task(notify_editors, contact_email(request, settings), settings)
     return {"id": request.id}

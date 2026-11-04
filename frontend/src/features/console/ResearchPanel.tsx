@@ -1,5 +1,5 @@
 /**
- * Trending topics from the research agent — the desk half of `app/research`.
+ * Trending topics from the research agent - the desk half of `app/research`.
  *
  * "Find trending topics" starts the same run n8n's weekly schedule starts. Its
  * first half, the Trend Search Agent, reads publisher feeds, Google Trends,
@@ -14,7 +14,7 @@
  * `TrendCandidates`:
  *
  * **Popularity and evidence are shown apart.** Each proposal says how the
- * topic is trending *and*, separately, what the literature holds — "search
+ * topic is trending *and*, separately, what the literature holds - "search
  * interest +100%" and "2 meta-analyses, 5 trials" are different claims, and a
  * single number would hide which one a topic rests on. The trend score has no
  * evidence in it at all; the evidence line is the gate it passed.
@@ -162,7 +162,7 @@ const STATUS_WORDS: Record<string, string> = {
   preliminary: "preliminary (no earlier period measured)",
 };
 
-/** How it is trending — status and outlets, then search, news and the web. */
+/** How it is trending - status and outlets, then search, news and the web. */
 function trendLine(candidate: ResearchCandidate): string {
   const parts: string[] = [];
   const { trend, news, web, metrics, trend_status } = candidate.signals;
@@ -200,7 +200,7 @@ function scoreLine(candidate: ResearchCandidate): string {
     data_coverage != null ? ` · ${Math.round(data_coverage * 100)}% of the score measured` : "";
   const sure = confidence ? `, ${confidence} confidence` : "";
   const label = version ? "Trend score" : "Score";
-  return `${label} ${Math.round(overall)} — ${parts.join(", ")}${missing}${measured}${sure}`;
+  return `${label} ${Math.round(overall)}: ${parts.join(", ")}${missing}${measured}${sure}`;
 }
 
 /** Only http(s) links reach an href: these titles and URLs came off the open web. */
@@ -376,7 +376,7 @@ function useLatestRun(): { run: ResearchRun | undefined; error: boolean } {
 function statusLine(run: ResearchRun): string {
   if (run.status === "queued" || run.status === "running") {
     const stage = STAGE_WORDS[run.stage ?? "queued"] ?? run.stage ?? "working";
-    return `Finding trending topics — ${stage}. This takes 10 to 20 minutes; you can leave this page.`;
+    return `Finding trending topics: ${stage}. This takes 10 to 20 minutes; you can leave this page.`;
   }
   if (run.status === "failed") {
     return `The last run failed: ${run.error?.message ?? "no reason given"}.`;
@@ -559,7 +559,7 @@ export function ResearchPanel() {
                     <span className={CANDIDATES_SUPPRESSED_WHY}>
                       {candidate.status === "shortlisted"
                         ? `passed the evidence check, outscored (${
-                            candidate.overall == null ? "—" : Math.round(candidate.overall)
+                            candidate.overall == null ? "-" : Math.round(candidate.overall)
                           })`
                         : candidate.discardReason}
                     </span>

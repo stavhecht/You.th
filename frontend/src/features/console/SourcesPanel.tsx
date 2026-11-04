@@ -1,5 +1,5 @@
 /**
- * The sources panel — "fast source access", the core review requirement.
+ * The sources panel - "fast source access", the core review requirement.
  *
  * The reviewer's job is to answer "does this article's evidence actually say
  * what it claims?" as fast as possible. Four design consequences:
@@ -13,7 +13,7 @@
  *    they belong at a glance, not behind a click.
  * 3. **Weak evidence flagged inline.** A confident verdict resting on two
  *    cell-culture studies has to be visible without opening anything. It is
- *    drawn in the accent ink — the one colour on the evidence axis, and it
+ *    drawn in the accent ink - the one colour on the evidence axis, and it
  *    marks the *source*, never the verdict.
  * 4. **Uncited sources shown, greyed, not hidden.** What the model chose to
  *    leave out is the failure mode human review exists to catch. If retrieval
@@ -21,7 +21,7 @@
  *    only place that becomes visible.
  *
  * Everything here comes from one request (`article_sources` joined to
- * `sources`, server-side) — no client-side resolution, no waterfall.
+ * `sources`, server-side) - no client-side resolution, no waterfall.
  */
 
 import { useEffect, useRef } from "react";
@@ -169,7 +169,7 @@ function SourceRow({
 }
 
 /**
- * Validation and evidence grade — the two facts that decide whether this draft
+ * Validation and evidence grade - the two facts that decide whether this draft
  * is publishable at all, above the sources they are computed from.
  *
  * A failing report is stated as a list of what broke, not as a colour: the
@@ -248,7 +248,7 @@ export function ValidationSummary({
  * Group by claim; cited sources first, then by handle number.
  *
  * Cited-first because those are what the reviewer is verifying. The uncited
- * ones still appear below, which is the point — but they should not push the
+ * ones still appear below, which is the point - but they should not push the
  * cited evidence out of view.
  */
 function groupByClaim(sources: ReviewSource[]): Record<string, ReviewSource[]> {

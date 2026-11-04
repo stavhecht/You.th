@@ -1,7 +1,7 @@
 /**
  * The review screen: editor and evidence side by side.
  *
- * This is where invariant #1 is actually exercised — the one place in the
+ * This is where invariant #1 is actually exercised - the one place in the
  * product where a human decides something goes live. Three things it must
  * never do:
  *
@@ -15,9 +15,9 @@
  *     a scavenger hunt.
  *
  * The layout is the page scrolling with the evidence column pinned, rather than
- * two independently scrolling panes. Side by side is the requirement — the
+ * two independently scrolling panes. Side by side is the requirement - the
  * reviewer cross-checks one against the other continuously, and a tabbed layout
- * turns every check into a context switch — but a pinned column gets that
+ * turns every check into a context switch - but a pinned column gets that
  * without trapping the wheel in whichever pane the cursor happens to be over.
  *
  * The decision controls sit at the bottom of that column, under the evidence
@@ -91,7 +91,7 @@ export function ReviewDetail() {
    * The flush is the same one `approve` does, for the same reason: the server
    * derives the tile from `edited_content`, so an unflushed edit would be
    * previewed as though it had not been made. Its result is deliberately not
-   * checked, unlike in `goBack` — leaving loses work, previewing loses nothing,
+   * checked, unlike in `goBack` - leaving loses work, previewing loses nothing,
    * and a failed save already blocks Approve and says so in the editor.
    */
   async function openPreview() {
@@ -155,7 +155,7 @@ export function ReviewDetail() {
   }
 
   const canApprove = article.status === "pending_review";
-  // Rejection is the only way a draft leaves the queue — there is no delete —
+  // Rejection is the only way a draft leaves the queue - there is no delete,
   // so it has to be reachable from validation_failed too, or those drafts have
   // no available action at all. They remain unapprovable.
   const canDiscard = canApprove || article.status === "validation_failed";
@@ -163,8 +163,8 @@ export function ReviewDetail() {
   /**
    * A draft the search came up empty on is not publishable from here.
    *
-   * `no_evidence` is a real verdict and the article is a well-formed one — it
-   * takes the ordinary path and passes validation on its merits — so nothing
+   * `no_evidence` is a real verdict and the article is a well-formed one - it
+   * takes the ordinary path and passes validation on its merits - so nothing
    * downstream refuses it. That is what makes the button the place to stop it:
    * the reviewer is the only one who can tell "we searched and the literature
    * is silent" from "this query never had a chance", and the second is by far
@@ -177,7 +177,7 @@ export function ReviewDetail() {
 
   /**
    * Leaving flushes first. Unmount flushes too, but that fires after the route
-   * has already changed — if the save then fails there is no screen left to
+   * has already changed - if the save then fails there is no screen left to
    * report it on, and the reviewer walks away believing an edit was kept.
    */
   async function goBack() {
@@ -194,7 +194,7 @@ export function ReviewDetail() {
   function onReject() {
     setActionError(null);
     if (!rejectReason.trim()) {
-      // Not a server rule — the reason is the single most useful artefact a
+      // Not a server rule - the reason is the single most useful artefact a
       // discarded draft leaves behind, because it is what the synthesis prompt
       // gets fixed from. Blocking here is cheaper than losing it.
       setReasonMissing(true);
@@ -211,7 +211,7 @@ export function ReviewDetail() {
           ← Queue
         </button>
         {/* Identity and sign-out live in `ReviewHeader` now that the desk
-            has its own chrome — two sign-out buttons on one screen is one
+            has its own chrome - two sign-out buttons on one screen is one
             more than a reviewer needs. */}
         <button
           onClick={() => void openPreview()}
@@ -230,7 +230,7 @@ export function ReviewDetail() {
         <section className={REVIEW_BODY_COLUMN}>
           <div className={DRAFT_STATUS_ROW}>
             <span className={SECTION_LABEL}>
-              {/* Matches the queue tab's wording — a reviewer arrives here by
+              {/* Matches the queue tab's wording - a reviewer arrives here by
                   clicking that tab, and two names for one state reads as two
                   states. See the note on `TABS` in ReviewQueue.tsx. */}
               {article.status === "validation_failed"
@@ -257,8 +257,8 @@ export function ReviewDetail() {
           </div>
 
           {/*
-            Read-only. The headline is not part of the autosave contract — that
-            endpoint takes a TipTap document and nothing else — so an editable
+            Read-only. The headline is not part of the autosave contract - that
+            endpoint takes a TipTap document and nothing else - so an editable
             field here would silently discard what was typed into it. Making it
             editable is an API change, not a styling one.
           */}
@@ -333,9 +333,9 @@ export function ReviewDetail() {
                 !canApprove
                   ? "Only drafts pending review can be published"
                   : foundNothing
-                    ? "No evidence was found for this draft — it cannot be published"
+                    ? "No evidence was found for this draft, so it cannot be published"
                     : blockedByUnsaved
-                      ? "Unsaved edits — resolve the save error first"
+                      ? "Unsaved edits: resolve the save error first"
                       : "Publish this article to the public feed"
               }
               className={APPROVE_BUTTON}
@@ -345,12 +345,12 @@ export function ReviewDetail() {
 
             {/* Named, so the button is not an abstract state change. This is
                 the only path to `published` in the system, and it puts the
-                article in front of every reader — worth saying in words. */}
+                article in front of every reader - worth saying in words. */}
             <p className={DECISION_NOTE}>
               {foundNothing && article.status !== "published" ? (
                 <>
                   Retrieval returned no usable sources, so there is nothing here
-                  for a reader to check. Reject it with a reason — that reason is
+                  for a reader to check. Reject it with a reason, because that reason is
                   what the query gets fixed from.
                 </>
               ) : article.status === "published" ? (

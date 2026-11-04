@@ -207,7 +207,7 @@ class PersistStage:
                         was_cited=entry.citation_handle in cited,
                         relevance_score=entry.final_score,
                         excerpts=excerpts.get(entry.source_id),
-                        # NULL when not appraised; see migration 0004.
+                        # NULL when not appraised; see 0001_initial.sql.
                         stance=ctx.stances.get(claim, {}).get(entry.source_id),
                     )
                 )

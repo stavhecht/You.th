@@ -11,7 +11,7 @@ framework cannot write that part; it only renders it when someone has.
 
 The markup follows the artifact page contract — no ``<html>``/``<head>`` of its
 own, every colour a token with a dark theme, nothing loaded but two Google
-fonts — so the file can be published as-is. Palette and type are EvidWell's
+fonts — so the file can be published as-is. Palette and type are You.th's
 own (``frontend/src/styles/youth.css``); the status colours are a fixed
 good/warning/critical set, always paired with a glyph and a word.
 """
@@ -660,14 +660,14 @@ def render(
         if skipped
         else ""
     )
-    return f"""<title>EvidWell Evaluation Report</title>
+    return f"""<title>You.th Evaluation Report</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Instrument+Serif&display=swap">
 <style>{_CSS}</style>
 <main class="page">
   <header class="masthead" id="summary">
-    <p class="eyebrow">EvidWell · article pipeline evaluation</p>
+    <p class="eyebrow">You.th · article pipeline evaluation</p>
     <h1>Evaluation report</h1>
     <div class="meta">
       <span>Run <b>{_e(results["started_at"][:16].replace("T", " "))} UTC</b></span>

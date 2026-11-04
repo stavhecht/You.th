@@ -1,5 +1,5 @@
 {
-  "name": "EvidWell - manual research run",
+  "name": "You.th - manual research run",
   "nodes": [
     {
       "id": "webhook",
@@ -13,7 +13,7 @@
       "webhookId": "3a7e9c1b-5d2f-4e8a-b6c4-1f0d2e3a4b5c",
       "parameters": {
         "httpMethod": "POST",
-        "path": "evidwell-research",
+        "path": "youth-research",
         "responseMode": "responseNode",
         "options": {}
       }
@@ -29,7 +29,7 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.EVIDWELL_API_URL }}/api/automation/research/runs",
+        "url": "={{ $env.YOUTH_API_URL }}/api/automation/research/runs",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -99,5 +99,5 @@
     "executionOrder": "v1"
   },
   "active": false,
-  "id": "EvidWellManualRun"
+  "id": "YouthManualRun"
 }

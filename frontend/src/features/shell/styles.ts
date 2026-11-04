@@ -14,7 +14,7 @@
  *   interface is set in Instrument Serif; the buttons in this bar, in the
  *   drawer and in the tab bar keep Archivo via `font-ui`, because they are
  *   10–12px tracked-out caps and a display serif gives up its shapes there.
- *   Article titles are the only other caller — see `styles/youth.css`.
+ *   Article titles are the only other caller - see `styles/youth.css`.
  * - **The logo is centred and the nav is not.** The bar is a three-column grid
  *   with the mark in the middle column, so the wordmark stays optically centred
  *   on the page regardless of how wide the two nav clusters grow.
@@ -24,8 +24,8 @@
  *   the window, content to the column.
  *
  * `ROUTE_MESSAGE` lives here rather than in either feature because all three
- * route-level waiting states — the lazy review boundary, the auth gate and the
- * review screen — render the same centred paragraph. They looked like three
+ * route-level waiting states - the lazy review boundary, the auth gate and the
+ * review screen - render the same centred paragraph. They looked like three
  * coincidentally-identical strings; they are one decision about how a route
  * says "not yet".
  */
@@ -52,16 +52,16 @@ export const WORDMARK = "block leading-none";
 /**
  * As tall as the bar: the full 68px `h-header` from `sm` up. The PNG is
  * cropped to the mark with a 2px margin, so that margin is all the breathing
- * room there is — any taller and the bar grows. Sized by height because height
+ * room there is - any taller and the bar grows. Sized by height because height
  * is the constraint.
  *
  * 52px on a phone (~149px wide), not 68: the outer grid columns share what the
  * mark leaves over, and the right one holds the avatar and theme toggle (~71px)
- * — a full-height mark (~195px) would push them into it on a 375px screen.
+ * - a full-height mark (~195px) would push them into it on a 375px screen.
  */
 export const WORDMARK_IMAGE = "youth-mark block h-[44px] w-auto max-w-none sm:h-[51px]";
 
-/** The hamburger — three rules, drawn rather than iconified. */
+/** The hamburger - three rules, drawn rather than iconified. */
 export const MENU_BUTTON =
   "flex flex-none items-center gap-2.5 border-0 bg-transparent p-1.5 text-ink transition-colors hover:text-accent-ink";
 export const MENU_BARS = "flex w-[17px] flex-col gap-[3px]";
@@ -71,13 +71,13 @@ export const MENU_BAR = "h-[2px] bg-current";
 export const SEARCH_FORM =
   "flex min-w-0 max-w-[240px] flex-1 items-center gap-2 rounded-full border border-rule-soft bg-surface px-3.5 py-2 focus-within:border-ink-3 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent-ink";
 export const SEARCH_ICON = "flex-none text-ink-3";
-/** A field, not a button — so it takes the interface serif like other prose. */
+/** A field, not a button - so it takes the interface serif like other prose. */
 export const SEARCH_INPUT =
   "w-full min-w-0 border-0 bg-transparent p-0 font-body text-[12.5px] text-ink outline-none placeholder:text-ink-4";
 
 /**
  * A rule that draws itself under the link from left to right on hover and
- * keyboard focus. `bg-current`, so it takes the link's own colour — ink for
+ * keyboard focus. `bg-current`, so it takes the link's own colour - ink for
  * About, accent for Join. Scaled rather than widened, so the animation is a
  * transform and never reflows the bar; under reduced motion it simply appears.
  */
@@ -95,7 +95,7 @@ export function navLink(isActive: boolean): string {
   return `${NAV_LINK} ${isActive ? "text-ink after:scale-x-100" : "text-ink-3 hover:text-ink"}`;
 }
 
-/** The one accented link in the bar — the account, which is the thing to do. */
+/** The one accented link in the bar - the account, which is the thing to do. */
 export const NAV_LINK_ACCENT = `${NAV_LINK} text-accent-ink hover:text-accent`;
 
 /** The avatar. Ink-filled, so it reads as a person rather than a control. */

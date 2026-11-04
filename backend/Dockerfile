@@ -29,8 +29,8 @@ WORKDIR /app
 RUN apt-get update && \
     apt-get install -y --no-install-recommends libpq5 && \
     rm -rf /var/lib/apt/lists/* && \
-    groupadd --gid 1000 evidwell && \
-    useradd  --uid 1000 --gid evidwell --no-create-home evidwell
+    groupadd --gid 1000 youth && \
+    useradd  --uid 1000 --gid youth --no-create-home youth
 
 COPY --from=builder /opt/venv /opt/venv
 COPY --from=builder /build/app ./app
@@ -43,7 +43,7 @@ ENV PATH="/opt/venv/bin:$PATH" \
 
 EXPOSE 8000
 
-USER evidwell
+USER youth
 
 # Uvicorn with a single worker by default; scale horizontally with replicas
 # rather than pre-fork workers — each worker holds its own asyncpg pool, so

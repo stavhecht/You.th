@@ -156,7 +156,7 @@ class PipelineWorker:
         try:
             return await research_service.claim_next(get_session_factory())
         except Exception:
-            # A missing table (0005 not applied) or a transient error must not
+            # A missing table (schema not applied) or a transient error must not
             # stop article runs from being claimed.
             logger.exception("could not check for queued research runs")
             return None

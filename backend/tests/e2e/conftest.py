@@ -1,6 +1,6 @@
 """The end-to-end suite's database, app client and pipeline runner.
 
-Runs against a **separate** database (``evidwell_test`` by default, or
+Runs against a **separate** database (``youth_test`` by default, or
 ``E2E_DATABASE_URL``), never the dev one, for two reasons:
 
 * every test starts from empty tables, so assertions can say "the feed holds
@@ -9,8 +9,8 @@ Runs against a **separate** database (``evidwell_test`` by default, or
   database and would otherwise claim a test run and generate it with the
   real model.
 
-Create it once with ``CREATE DATABASE evidwell_test`` and
-``DATABASE_URL=…/evidwell_test python -m scripts.migrate``. Skipped when absent.
+Create it once with ``CREATE DATABASE youth_test`` and
+``DATABASE_URL=…/youth_test python -m scripts.migrate``. Skipped when absent.
 """
 
 from __future__ import annotations

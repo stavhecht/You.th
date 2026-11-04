@@ -2,7 +2,7 @@
  * The editing surface for a picture or a video: resize, wrap, move, remove.
  *
  * One component serves both nodes because the frame, the controls and the
- * resize behaviour are identical and only the contents differ — a picture, or
+ * resize behaviour are identical and only the contents differ - a picture, or
  * a 16:9 still standing in for the player.
  *
  * The layout it edits is two numbers and a word (`width`, `align`), never CSS.
@@ -53,9 +53,9 @@ import {
 const WIDTH_STEP = 5;
 
 const WRAP_OPTIONS: { align: MediaAlign; label: string; title: string }[] = [
-  { align: "left", label: "◧ Left", title: "Float left — text wraps down the right" },
-  { align: "right", label: "◨ Right", title: "Float right — text wraps down the left" },
-  { align: "none", label: "≡ None", title: "Own block — text above and below" },
+  { align: "left", label: "◧ Left", title: "Float left: text wraps down the right" },
+  { align: "right", label: "◨ Right", title: "Float right: text wraps down the left" },
+  { align: "none", label: "≡ None", title: "Own block: text above and below" },
 ];
 
 export function ImageNodeView(props: ReactNodeViewProps) {
@@ -78,7 +78,7 @@ function MediaNodeView({
   const committedWidth = clampMediaWidth(node.attrs.width);
 
   // The width under the cursor right now. `null` means nothing is being
-  // dragged. Only the readout reads it — the block itself is resized by
+  // dragged. Only the readout reads it - the block itself is resized by
   // writing the custom property straight to the DOM during the drag, and the
   // attribute is committed once on release. Committing per frame would put
   // sixty entries in the undo stack and restart the 800ms autosave on each.
@@ -96,7 +96,7 @@ function MediaNodeView({
    * Resize by dragging the corner.
    *
    * The element that carries the width is the one TipTap's renderer wraps
-   * around this component (`.ew-media`), not the figure below — see
+   * around this component (`.ew-media`), not the figure below - see
    * `MediaNodes.ts`. Width is measured against the prose column, so the
    * percentage means what it says at any window size.
    *

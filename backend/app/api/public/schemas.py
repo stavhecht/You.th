@@ -241,9 +241,11 @@ class SavedPageOut(CamelModel):
 
 class ContactRequestIn(CamelModel):
     kind: ContactKind = ContactKind.OTHER
-    name: str | None = Field(default=None, max_length=80)
-    #: Required even though the form calls the name optional: without a way to
-    #: reply, a request we can answer is indistinguishable from one we cannot.
+    name: str = Field(min_length=1, max_length=80)
+    #: Without a way to reply, a request we can answer is indistinguishable
+    #: from one we cannot.
     email: EmailAddress
     link: str | None = Field(default=None, max_length=2000)
-    note: str = Field(min_length=1, max_length=4000)
+    #: May be empty when a link says it all; ``ContactService.submit`` refuses
+    #: a message with neither.
+    note: str = Field(default="", max_length=4000)

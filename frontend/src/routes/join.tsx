@@ -1,10 +1,10 @@
 /**
- * "Choose your feed" — sign up, or sign in.
+ * "Choose your feed" - sign up, or sign in.
  *
  * One screen for both, because the second one is a link away and a separate
  * `/login` route would be a page whose only content is two fields. The
  * interests are picked *before* the account exists and posted with it, so the
- * first feed a new reader sees is already ordered around what they asked for —
+ * first feed a new reader sees is already ordered around what they asked for,
  * which is the only thing that makes picking them feel like it did anything.
  *
  * The panel on the right says what an account does, in three claims that are
@@ -59,7 +59,7 @@ const INPUT_LABEL = `${FIELD_LABEL} pl-2`;
 const WHAT_IT_DOES = [
   {
     title: "Orders your feed",
-    body: "Your subjects move to the top. Nothing is hidden — the rest is still one scroll away.",
+    body: "Your subjects move to the top. Nothing is hidden. The rest is still one scroll away.",
   },
   {
     title: "Keeps your folders",
@@ -75,7 +75,7 @@ const WHAT_IT_DOES = [
  * What a new password must contain. The server refuses anything short of this
  * (`SignupRequest` in `backend/app/api/public/schemas.py`, `PASSWORD_RULES`);
  * the two lists must change together, or the form passes a password the server
- * refuses — or blocks one it would have taken.
+ * refuses - or blocks one it would have taken.
  */
 const PASSWORD_RULES: { label: string; met: (password: string) => boolean }[] =
   [
@@ -92,9 +92,9 @@ export function JoinRoute({ mode }: { mode: "signup" | "login" }) {
   const flash = useToast();
 
   const [interests, setInterests] = useState<Subject[]>([]);
-  // Unticked until the reader ticks it. A pre-ticked box is not consent —
+  // Unticked until the reader ticks it. A pre-ticked box is not consent,
   // not under Israel's anti-spam law (s.30A requires explicit consent) and not
-  // under the GDPR (CJEU, Planet49) — so a newsletter sent on it would be sent
+  // under the GDPR (CJEU, Planet49) - so a newsletter sent on it would be sent
   // to people who never asked. COMPLIANCE_AUDIT.md F5.
   const [newsletter, setNewsletter] = useState(false);
   const [password, setPassword] = useState("");
@@ -140,7 +140,7 @@ export function JoinRoute({ mode }: { mode: "signup" | "login" }) {
             ? `Your feed is ordered around ${interests.length} ${
                 interests.length === 1 ? "subject" : "subjects"
               }`
-            : "Welcome — your feed is everything, newest first",
+            : "Welcome, your feed is everything, newest first",
         );
       } else {
         await login(email, password);
@@ -305,7 +305,7 @@ export function JoinRoute({ mode }: { mode: "signup" | "login" }) {
                         {met ? "✓" : "·"}
                       </span>
                       {rule.label}
-                      <span className="sr-only">{met ? " — done" : ""}</span>
+                      <span className="sr-only">{met ? ", done" : ""}</span>
                     </li>
                   );
                 })}
@@ -330,7 +330,7 @@ export function JoinRoute({ mode }: { mode: "signup" | "login" }) {
                   className={CHECKBOX}
                 />
                 <span className={CHECKBOX_LABEL}>
-                  Put me on the weekly newsletter — one email, the studies that
+                  Put me on the weekly newsletter: one email, the studies that
                   landed that week.
                 </span>
               </label>
@@ -355,7 +355,7 @@ export function JoinRoute({ mode }: { mode: "signup" | "login" }) {
               // Art 13): what is collected, what for, and where the rest is.
               <p className={COLLECTION_NOTICE}>
                 We use your email, name and password to run your account, and your
-                subjects and saves to order your feed — nothing else, and we never
+                subjects and saves to order your feed, nothing else, and we never
                 sell them. You can download or delete it all from your profile.
                 By creating an account you agree to the{" "}
                 <Link to="/terms" className="underline">
@@ -423,7 +423,7 @@ function RevealToggle({ shown, onToggle }: { shown: boolean; onToggle: () => voi
 /**
  * Turn a failed request into something a person can act on.
  *
- * The 401 stays vague on purpose — the server refuses to say whether the email
+ * The 401 stays vague on purpose - the server refuses to say whether the email
  * or the password was wrong, and repeating that distinction here would give
  * back the account enumeration the equal-timing login exists to prevent. The
  * 409 is the opposite: signup cannot hide that an address is taken, because

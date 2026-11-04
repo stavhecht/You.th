@@ -5,7 +5,7 @@
  * `<Outlet/>` becoming `{children}`.
  *
  * Rendered as a layout route rather than above `<Routes>` so the review desk
- * does not inherit it — the header is the public site's, and a reviewer working
+ * does not inherit it - the header is the public site's, and a reviewer working
  * through a queue should not be looking at a search box for articles they have
  * not published yet.
  */
@@ -24,7 +24,7 @@ export function PublicLayout() {
    * Scroll to the top on navigation.
    *
    * The browser restores scroll position on Back, which is right, but a fresh
-   * push keeps whatever offset the previous page had — so opening an article
+   * push keeps whatever offset the previous page had - so opening an article
    * from halfway down the feed lands you halfway down the article. Keyed on
    * `pathname` only, deliberately: the search string changes when a filter is
    * applied, and yanking the reader to the top for that would be hostile.

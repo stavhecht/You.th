@@ -830,8 +830,7 @@ sunscreen prevents skin cancer while "Reduced melanoma after regular sunscreen u
 outside the 22 sources the model was shown.** Traced 2026-11-07: second of 51 by similarity (0.863), 18th after the bonuses, 0.013 under
 the top-12 cut, behind sun-behaviour reviews at ~0.78, because a review earns 0.15 to a trial's 0.08 and a 2011 paper no recency. Ranking
 was left alone: one case. `claim_not_backed` now skips a sentence with "others" in it, which is wt_061's only change on replay.
-**What followed changed extraction and every search for an unmapped name; its retrieval suites are measured (below), its articles not
-yet.** Extraction now keeps who and what-versus in the claim, writes two things as "A or B", and uses a paper's short name (251 saved
+**What followed changed extraction and every search for an unmapped name; its retrieval suites and one fresh pilot are measured (below).** Extraction now keeps who and what-versus in the claim, writes two things as "A or B", and uses a paper's short name (251 saved
 questions, ~7 s each, no population invented). **PubMed drops the quotes from a phrase it has not indexed** and searches loose words,
 unknown ones dropped: `"glazed-donut skin"` found 1,059,975 papers, on skin, and the singular/plural forms triggered it (`"simplified
 skincares"`, 125,885). So names are tagged (`_name_term`): `"a b"[tiab]`, plus the words apart when two are 4+ letters, since a tagged
@@ -848,7 +847,7 @@ in full text** (`providers.py`). Re-run on the 60 cases that had changed: wellne
 off-topic per case 6.84 → 1.98 (3.73), MRR 79.3% → 90.4%; retrieval suite off-topic 3.19 → 0.38. Gold papers ranked on those cases
 6 → 6 and 4 → 3; wt_052 lost its gold trial ("Cold Showering") only because the name rule cut "with cold water" from "ending a shower
 with cold water", leaving the subject "ending a shower", and full text had found it by luck. Both full suites need a re-run, since the
-OpenAlex change touches every case. Still bad either way: wt_077 (ankle or wrist weights), wt_094 (glazed-donut skin). The wordings in `MESH_HINTS` for ice baths, alcohol
+OpenAlex change touches every case. Still bad either way: wt_077 (ankle or wrist weights), wt_094 (glazed-donut skin). **Fresh 19-case pilot on all of it, 2026-11-08 (`--mode live`, report `20261108-093913`, no provider outages): correct answers 15 of 19 (78.9%, was 13), verdicts 16, certainty 14 (was 12), citation correctness 86.1% (under its 90%), hallucination 0, groundedness 97.9%, ~9 h with one timeout re-run.** Wrong: wt_023b (GLP-1 side effects, `weak`, judged 5/5), wt_082 (`mixed`, "not yet fully supported" still unread by `claim_not_backed`), wt_087 (sunscreen, the trial still outside the top 12), wt_098 (rosemary, `supported`). 85% needs two more. The wordings in `MESH_HINTS` for ice baths, alcohol
 reduction, lemon water and glucose monitors were written on evaluation cases. **A prompt example gets copied**: "yoga before bed" turned
 melatonin's "sleep latency" into "fall asleep faster" (basic_005), and a stretching one added an injury claim.
 **OpenAlex's key buys $1 a day, 10 credits a search, so ~1,000 searches, reset at midnight UTC, and suites whose terms changed spend it

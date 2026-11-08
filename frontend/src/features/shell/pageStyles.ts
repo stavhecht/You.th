@@ -203,7 +203,7 @@ export const COLLECTION_NOTICE =
   "mt-3.5 font-body text-[11.5px] leading-[1.5] text-ink-3";
 
 export const SITE_FOOTER =
-  "mx-auto flex max-w-page flex-wrap items-center gap-x-5 gap-y-2 border-t border-rule-soft px-gutter py-6 font-body text-[11px] uppercase tracking-[0.12em] text-ink-3";
+  "mx-auto flex w-full max-w-page flex-wrap items-center gap-x-5 gap-y-2 border-t border-rule-soft px-gutter py-6 font-body text-[11px] uppercase tracking-[0.12em] text-ink-3";
 export const SITE_FOOTER_LINK = "transition-colors hover:text-ink";
 
 /* --- "Your data" on /you --------------------------------------------------- */

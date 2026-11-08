@@ -12,6 +12,7 @@ precisely why this package does not reuse ``CandidatePaper``.
 from __future__ import annotations
 
 from datetime import date
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -86,7 +87,7 @@ class ScoredCandidate(BaseModel):
     #: A handful of PMIDs so a reviewer can check the claim in one click.
     top_pmids: list[str] = Field(default_factory=list)
 
-    def rationale(self, window_start: date, window_end: date) -> dict:
+    def rationale(self, window_start: date, window_end: date) -> dict[str, Any]:
         """The JSONB blob stored on the candidate row.
 
         ``paper_count`` and ``angle_paper_count`` are duplicated in here on

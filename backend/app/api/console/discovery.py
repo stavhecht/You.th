@@ -29,6 +29,7 @@ from app.api.deps import (
 )
 from app.db import get_session_factory
 from app.discovery.manual import ScanAlreadyRunning, manual_scan
+from app.discovery.topics import topic_question
 from app.domain.enums import (
     DiscoveryCandidateStatus,
     DiscoveryScanStatus,
@@ -59,6 +60,7 @@ def _candidate_out(
     return DiscoveryCandidateOut(
         id=candidate.id,
         topic=candidate.topic,
+        question=topic_question(substance, outcome),
         substance_ui=candidate.substance_ui,
         substance_name=substance,
         outcome_name=outcome,

@@ -29,7 +29,7 @@
  * guarantee has broken, and a reader is the wrong person to find that out from.
  */
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 
 import { STUDY_TYPE_LABELS } from "@/features/evidence/labels";
 import { citationLabel } from "./citations";
@@ -285,6 +285,16 @@ function CitationChip({
   onCite?: (handle: string) => void;
 }) {
   const container = useRef<HTMLSpanElement>(null);
+  const popover = useRef<HTMLSpanElement>(null);
+
+  // A chip can sit anywhere on the line, so slide the card back onto the screen
+  // before it paints. shortcut: not redone on rotate while open; reopening fixes it.
+  useLayoutEffect(() => {
+    const card = popover.current;
+    if (!card) return;
+    const overflow = card.getBoundingClientRect().right - (document.documentElement.clientWidth - 8);
+    if (overflow > 0) card.style.left = `${-overflow}px`;
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -324,7 +334,7 @@ function CitationChip({
       </a>
 
       {open ? (
-        <span className={SOURCE_POPOVER}>
+        <span ref={popover} className={SOURCE_POPOVER}>
           <span className={POPOVER_KICKER}>
             {`Source ${label}`}
             {source ? ` · ${STUDY_TYPE_LABELS[source.studyType]}` : ""}

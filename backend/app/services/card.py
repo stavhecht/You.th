@@ -45,10 +45,10 @@ class DerivedCard:
 
 def derive_card(
     headline: str,
-    body_doc: dict,
+    body_doc: dict[str, Any],
     verdict: Verdict,
     *,
-    generated: dict | None = None,
+    generated: dict[str, Any] | None = None,
 ) -> DerivedCard:
     """Compute the card from the approved article content.
 
@@ -78,7 +78,7 @@ def derive_card(
     )
 
 
-def _paired_cover(generated: dict | None, lead_in_doc: str | None) -> str | None:
+def _paired_cover(generated: dict[str, Any] | None, lead_in_doc: str | None) -> str | None:
     """The portrait cover, but only while it is still paired with the lead.
 
     The rule this function exists to keep true is that a feed tile cannot show
@@ -119,7 +119,7 @@ def _paired_cover(generated: dict | None, lead_in_doc: str | None) -> str | None
     return src
 
 
-def _lead_image(doc: dict) -> tuple[str | None, str | None]:
+def _lead_image(doc: dict[str, Any]) -> tuple[str | None, str | None]:
     """The first image node's ``src``, or ``(None, None)``.
 
     Same rule as every other field here: the card shows what the article shows,

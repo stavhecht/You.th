@@ -84,12 +84,12 @@ def _clean_doi(doi: str | None) -> str | None:
 
 #: PubMed field tags in the pipeline's terms, which Europe PMC does not use.
 _PUBMED_FIELD_TAG_RE = re.compile(
-    r"\[(?:mesh|mh|tiab|ti|ab|pt|majr)(?::noexp)?\]", re.IGNORECASE
+    r"\[(?:mesh|mh|tiab|ti|ab|pt|majr|sh)(?::noexp)?\]", re.IGNORECASE
 )
 
 
 def europe_pmc_query(terms: str) -> str:
-    """PubMed-syntax terms as a Europe PMC query: field tags removed."""
+    """PubMed-syntax terms with the field tags removed, for the providers that have none."""
     return " ".join(_PUBMED_FIELD_TAG_RE.sub("", terms).split())
 
 
@@ -122,7 +122,7 @@ class EuropePMCProvider:
         return hits
 
     async def search(self, query: SearchQuery) -> list[CandidatePaper]:
-        """Title-and-abstract search, falling back to full text when that is empty.
+        """Title-and-abstract search, never full text.
 
         The pipeline's terms are PubMed syntax. Europe PMC has no ``[MeSH]`` or
         ``[tiab]`` tags (it ignores them and searches the phrase), so they are
@@ -130,14 +130,13 @@ class EuropePMCProvider:
         searches the *full text* of open-access papers. Measured 2026-10-01:
         creatine + sleep matched 13,693 papers in full text, led by brain-imaging
         studies where creatine is a measured metabolite, against 336 in title
-        and abstract. The scoped search can come back empty for a narrow term
-        ("zone 2 training": 0, against 20 in full text), and only then is the
-        full text searched — RANK's similarity scoring is what filters that.
+        and abstract. An empty scoped search used to retry in full text, for
+        "zone 2 training" (0 against 20); with names searched as words too it
+        finds 13 scoped, and the retry filled the wellness suite's ranked lists
+        with passing mentions (2026-11-08). Empty is the honest answer.
         """
         plain = europe_pmc_query(query.terms)
         payload = await self._search(f"TITLE_ABS:({plain})", query)
-        if not payload.get("resultList", {}).get("result"):
-            payload = await self._search(plain, query)
 
         papers: list[CandidatePaper] = []
         for record in payload.get("resultList", {}).get("result", []):
@@ -288,10 +287,16 @@ class OpenAlexProvider:
             filters.append(f"from_publication_date:{query.min_year}-01-01")
         if query.reviews_only:
             filters.append("type:review")
+        # Tagged terms wreck its search ("alcohol reduction" and blood pressure: 4 unrelated
+        # papers against 8,407, 2026-11-07), and plain ``search`` also reads full text
+        # ("bulletproof coffee": 497 works with gun adverts, 5 in title and abstract,
+        # 2026-11-08). A comma would end the filter, and MeSH names carry them.
+        plain = europe_pmc_query(query.terms).replace(",", " ")
+        filters.append(f"title_and_abstract.search:{' '.join(plain.split())}")
 
         params: dict[str, Any] = {
-            "search": query.terms,
             "filter": ",".join(filters),
+            "sort": "relevance_score:desc",
             "per-page": min(query.max_results, 50),
         }
         if self._mailto:

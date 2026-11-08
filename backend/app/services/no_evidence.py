@@ -52,7 +52,8 @@ MAX_CLAIM_BEAT_SENTENCES = 4
 #: as a singular product, and these strings are shared by both.
 SUMMARY = (
     "No published studies matching these claims met our evidence criteria. "
-    "That is a gap in the research, not a finding against the claims."
+    "That is not a finding against the claims, and our search may have missed studies "
+    "that describe them in other words."
 )
 
 BEAT_2_EVIDENCE = (
@@ -63,10 +64,12 @@ BEAT_2_EVIDENCE = (
 #: The load-bearing sentence in the whole module. "No evidence for" and
 #: "evidence against" are different statements, and a reader who takes the
 #: first for the second has been misled by an article that was accurate.
+#: It also never says "not studied": wt_025's search for one seven-word phrase found
+#: nothing and said so, while PubMed held 147 papers on lemon water (2026-11-07).
 BEAT_3_BOTTOM_LINE = (
-    "No evidence found is not the same as evidence of no effect — the question "
-    "has simply not been studied yet. Treat confident marketing claims with "
-    "corresponding caution."
+    "No evidence found is not the same as evidence of no effect: the question may "
+    "be unstudied, or studied under words our search did not use. Treat confident "
+    "marketing claims with corresponding caution."
 )
 
 

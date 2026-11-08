@@ -20,7 +20,9 @@ import contextlib
 import logging
 import signal
 import time
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
+from functools import partial
 from typing import Any
 
 from sqlalchemy import func, or_, select, update
@@ -28,8 +30,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.db import dispose_engine, get_session_factory
-from app.domain.enums import RunStatus
-from app.domain.models import PipelineRun, PipelineStageRun
+from app.domain.enums import ResearchRunStatus, RunStatus
+from app.domain.models import CollectionRun, PipelineRun, PipelineStageRun, ResearchRun
+from app.llm.factory import llamacpp_make_room
+from app.llm.readiness import model_down
 from app.logging_setup import configure_logging
 from app.pipeline.orchestrator import (
     PipelineOrchestrator,
@@ -38,8 +42,18 @@ from app.pipeline.orchestrator import (
 )
 from app.research import service as research_service
 from app.research.runner import execute_research_run
+from app.social import service as collection_service
+from app.social.runner import execute_collection_run
 
 logger = logging.getLogger(__name__)
+
+
+def _claimable(now: datetime) -> tuple[Any, ...]:
+    """A queued article run past any retry backoff."""
+    return (
+        PipelineRun.status == RunStatus.QUEUED,
+        or_(PipelineRun.next_attempt_at.is_(None), PipelineRun.next_attempt_at <= now),
+    )
 
 
 class PipelineWorker:
@@ -60,7 +74,12 @@ class PipelineWorker:
         stale_after: timedelta = timedelta(minutes=2),
         sweep_interval: float = 60.0,
         max_attempts: int = 3,
+        model_down: Callable[[], Awaitable[str | None]] | None = None,
+        model_wait: float = 30.0,
     ) -> None:
+        self._model_down = model_down
+        self._model_wait = model_wait
+        self._holding_for_model = False
         self._poll_interval = poll_interval
         self._heartbeat_interval = heartbeat_interval
         self._stale_after = stale_after
@@ -96,13 +115,28 @@ class PipelineWorker:
                 except Exception:
                     logger.exception("could not sweep stale runs; retrying next sweep")
 
+            available = await self._model_available()
+
             # Research runs first, and in this process rather than their own:
             # both kinds count papers against NCBI's per-IP ceiling, and one
             # process running one thing at a time is what keeps the throttle's
             # budget true. See research/runner.py.
-            research = await self._claim_research_run()
+            research = await self._claim_research_run() if available else None
             if research is not None:
                 await self._run_research(*research, settings=settings)
+                continue
+
+            # Then collection runs (social listening, product discovery): the
+            # same reasons — their reader calls must not share the GPU with a
+            # pipeline run, and the weekly one counts PubMed papers too.
+            collection = await self._claim_collection_run(model_free_only=not available)
+            if collection is not None:
+                await self._run_collection(*collection, settings=settings)
+                continue
+
+            if not available:
+                with contextlib.suppress(TimeoutError):
+                    await asyncio.wait_for(self._shutdown.wait(), timeout=self._model_wait)
                 continue
 
             try:
@@ -152,6 +186,46 @@ class PipelineWorker:
 
         logger.info("worker stopped")
 
+    async def _model_available(self) -> bool:
+        """False while queued work needs a model server that is not answering.
+
+        Attempts are counted at claim, so holding the claim is what spends none.
+        A server dying *during* a run still costs that run an attempt, on purpose:
+        refunding it would give a request that crashes the server endless retries.
+
+        Probes only with work waiting: a probe is a real completion, and an idle
+        worker sending them would keep the model's weights paged in. If the check
+        itself breaks the worker carries on as it did before the check existed.
+        """
+        if self._model_down is None:
+            return True
+        try:
+            needed = await self._has_work_needing_a_model()
+            reason = await self._model_down() if needed else None
+        except Exception:
+            logger.exception("could not check the model server; not holding work")
+            return True
+        if reason and not self._holding_for_model:
+            logger.warning("holding queued work, no attempts spent: %s", reason)
+        elif self._holding_for_model and not reason:
+            logger.info("no longer holding queued work for the model server")
+        self._holding_for_model = reason is not None
+        return reason is None
+
+    async def _has_work_needing_a_model(self) -> bool:
+        async with get_session_factory()() as session:
+            for query in (
+                select(ResearchRun.id).where(ResearchRun.status == ResearchRunStatus.QUEUED),
+                select(CollectionRun.id).where(
+                    CollectionRun.status == "queued",
+                    CollectionRun.kind.not_in(collection_service.MODEL_FREE_KINDS),
+                ),
+                select(PipelineRun.id).where(*_claimable(datetime.now(UTC))),
+            ):
+                if (await session.execute(query.limit(1))).first() is not None:
+                    return True
+        return False
+
     async def _claim_research_run(self) -> tuple[str, str] | None:
         try:
             return await research_service.claim_next(get_session_factory())
@@ -164,7 +238,9 @@ class PipelineWorker:
     async def _run_research(self, run_id: str, label: str, *, settings: Any) -> None:
         logger.info("claimed research run %s", label)
         factory = get_session_factory()
-        heartbeat = asyncio.create_task(self._beat_research(run_id))
+        heartbeat = asyncio.create_task(
+            self._beat_service(research_service.beat, run_id, "research")
+        )
         try:
             await execute_research_run(run_id, settings, factory)
         finally:
@@ -172,16 +248,44 @@ class PipelineWorker:
             with contextlib.suppress(asyncio.CancelledError):
                 await heartbeat
 
-    async def _beat_research(self, run_id: str) -> None:
-        """The research run's heartbeat. Same rule as ``_beat``: never raises."""
+    async def _claim_collection_run(
+        self, *, model_free_only: bool = False
+    ) -> tuple[str, str, str] | None:
+        try:
+            return await collection_service.claim_next(
+                get_session_factory(), model_free_only=model_free_only
+            )
+        except Exception:
+            logger.exception("could not check for queued collection runs")
+            return None
+
+    async def _run_collection(
+        self, run_id: str, label: str, kind: str, *, settings: Any
+    ) -> None:
+        logger.info("claimed collection run %s", label)
+        factory = get_session_factory()
+        heartbeat = asyncio.create_task(
+            self._beat_service(collection_service.beat, run_id, "collection")
+        )
+        try:
+            await execute_collection_run(run_id, label, kind, settings, factory)
+        finally:
+            heartbeat.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await heartbeat
+
+    async def _beat_service(
+        self, beat: Callable[[Any, str], Awaitable[None]], run_id: str, what: str
+    ) -> None:
+        """A research or collection run's heartbeat. Same rule as ``_beat``: never raises."""
         while True:
             await asyncio.sleep(self._heartbeat_interval)
             try:
-                await research_service.beat(get_session_factory(), run_id)
+                await beat(get_session_factory(), run_id)
             except asyncio.CancelledError:
                 raise
             except Exception:
-                logger.warning("heartbeat for research run %s failed", run_id, exc_info=True)
+                logger.warning("heartbeat for %s run %s failed", what, run_id, exc_info=True)
 
     async def _beat(self, run_id: str) -> None:
         """Report the run alive until cancelled.
@@ -260,13 +364,7 @@ class PipelineWorker:
         async with factory() as session:
             result = await session.execute(
                 select(PipelineRun)
-                .where(
-                    PipelineRun.status == RunStatus.QUEUED,
-                    or_(
-                        PipelineRun.next_attempt_at.is_(None),
-                        PipelineRun.next_attempt_at <= now,
-                    ),
-                )
+                .where(*_claimable(now))
                 .order_by(PipelineRun.created_at)
                 .limit(1)
                 .with_for_update(skip_locked=True)
@@ -310,6 +408,10 @@ class PipelineWorker:
             await research_service.recover_stale(factory, self._stale_after)
         except Exception:
             logger.exception("could not sweep stale research runs")
+        try:
+            await collection_service.recover_stale(factory, self._stale_after)
+        except Exception:
+            logger.exception("could not sweep stale collection runs")
         async with factory() as session:
             stale = (
                 await session.execute(
@@ -446,6 +548,7 @@ async def main() -> None:
         stale_after=timedelta(seconds=settings.worker_stale_after_seconds),
         sweep_interval=settings.worker_sweep_interval_seconds,
         max_attempts=settings.pipeline_max_attempts,
+        model_down=partial(model_down, settings, make_room=llamacpp_make_room(settings)),
     )
 
     loop = asyncio.get_running_loop()

@@ -54,6 +54,7 @@ from app.domain.enums import (
     DiscoveryDescriptorKind,
     DiscoveryScanMode,
     DiscoveryScanStatus,
+    StudyType,
 )
 from app.retrieval.factory import (
     PUBMED_ANONYMOUS_RPS,
@@ -259,7 +260,7 @@ def aggregate(
     still one paper's worth of evidence.
     """
     papers: dict[str, set[str]] = defaultdict(set)
-    types: dict[str, list] = defaultdict(list)
+    types: dict[str, list[StudyType]] = defaultdict(list)
     cooccurrence: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
 
     for record in records:

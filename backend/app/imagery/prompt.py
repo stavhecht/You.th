@@ -888,6 +888,7 @@ def build_prompt(
     else:
         chosen, confident = infer_motif_subject(fallback, ingredients), False
 
+    motifs: tuple[str, ...] | None
     if confident and chosen in _PEOPLE_MOTIFS:
         path, motifs = _WITH_PEOPLE, _PEOPLE_MOTIFS[chosen]
     else:

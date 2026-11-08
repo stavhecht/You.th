@@ -494,7 +494,7 @@ export function saveIndicator(failed: boolean): string {
  * The console's first overlay, and the reason it earns one: the reviewer's
  * question is "how will this look on the feed", and a tile alone in a sidebar
  * cannot answer it. Scale is comparative - a headline that clamps at three
- * lines, a picture that reads at 190px, a verdict kicker that holds its own,
+ * lines, a picture that reads at 200px, a verdict kicker that holds its own,
  * and all of that is only legible beside other tiles. So the overlay clears
  * the review screen and rebuilds a few cells of the real feed around it.
  */
@@ -526,8 +526,8 @@ export const PREVIEW_CLOSE =
 export const PREVIEW_ACTIONS = "flex items-baseline gap-3";
 
 /**
- * The feed's own measure: `MasonryFeed` runs `columnWidth={190}` at
- * `columnGutter={14}`. Written as literals because the masonry's numbers are
+ * The feed's narrowest desktop measure: `MasonryFeed` runs `columnWidth={200}` at
+ * `columnGutter={14}`, stretching wider on a wider window. Written as literals because the masonry's numbers are
  * the original and a shared constant would be a second place to keep them,
  * but they must agree, since a tile previewed at 260px clamps its headline
  * differently from the one that ships, and that difference is the whole point
@@ -540,7 +540,7 @@ export const PREVIEW_ACTIONS = "flex items-baseline gap-3";
  * in `styles/youth.css`.
  */
 export const PREVIEW_GRID =
-  "ew-type-feed mt-4 grid grid-cols-[repeat(auto-fill,190px)] justify-center gap-[14px]";
+  "ew-type-feed mt-4 grid grid-cols-[repeat(auto-fill,200px)] justify-center gap-[14px]";
 
 /**
  * The reviewer's own tile, marked so it is findable among the neighbours.

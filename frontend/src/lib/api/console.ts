@@ -7,6 +7,11 @@ import type {
   ArticleDetail,
   ArticleStatus,
   CardPreview,
+  CollectionKind,
+  CollectionRun,
+  Product,
+  RelatedItem,
+  SocialListeningResult,
   GeneratedImagery,
   IllustrationFrame,
   DiscoveryCandidate,
@@ -37,6 +42,11 @@ export const consoleKeys = {
   /** Research runs, newest first; and one run with its candidates. */
   researchRuns: ["console", "research-runs"] as const,
   researchRun: (id: string) => ["console", "research-run", id] as const,
+  /** Collection runs (social listening, product discovery), newest first. */
+  collectionRuns: ["console", "collection-runs"] as const,
+  socialResult: ["console", "social-result"] as const,
+  products: ["console", "products"] as const,
+  related: (kind: string, id: string) => ["console", "related", kind, id] as const,
 };
 
 /**
@@ -321,4 +331,50 @@ export async function dismissResearchCandidate(id: string, reason: string): Prom
     method: "POST",
     body: JSON.stringify({ reason }),
   });
+}
+
+// --- social listening and product discovery -----------------------------------
+
+/**
+ * Queue a collection run now (the scheduler also queues them when due). It
+ * spends YouTube quota and local model time, never a draft. 409 while one of
+ * the same kind is queued or running.
+ */
+export async function startCollectionRun(kind: CollectionKind): Promise<CollectionRun> {
+  return apiFetch("/console/collection/runs", {
+    method: "POST",
+    body: JSON.stringify({ kind }),
+  });
+}
+
+export async function fetchCollectionRuns(limit = 10): Promise<CollectionRun[]> {
+  return apiFetch(`/console/collection/runs${qs({ limit })}`);
+}
+
+/** The latest weekly social run's proposals; a 404 means there is none yet. */
+export async function fetchSocialResult(): Promise<SocialListeningResult> {
+  return apiFetch("/console/social/result");
+}
+
+export async function promoteSocialCandidate(id: string): Promise<{ id: string }> {
+  return apiFetch(`/console/social/candidates/${id}/promote`, { method: "POST" });
+}
+
+export async function dismissSocialCandidate(id: string, reason: string): Promise<void> {
+  return apiFetch(`/console/social/candidates/${id}/dismiss`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  });
+}
+
+export async function fetchProducts(limit = 30): Promise<Product[]> {
+  return apiFetch(`/console/products${qs({ limit })}`);
+}
+
+/** Items from the other discovery systems, each with its own system's numbers. */
+export async function fetchRelated(
+  kind: "social_topic" | "product",
+  id: string,
+): Promise<RelatedItem[]> {
+  return apiFetch(`/console/intel/related${qs({ kind, id })}`);
 }

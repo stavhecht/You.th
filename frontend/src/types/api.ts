@@ -510,6 +510,8 @@ export type DiscoveryCandidateStatus =
 export interface DiscoveryCandidate {
   id: string;
   topic: string;
+  /** The same topic as a question, for the desk. A promotion generates from `topic`. */
+  question: string;
   substanceUi: string;
   substanceName: string;
   outcomeName: string | null;
@@ -747,4 +749,130 @@ export interface ResearchRun {
   finishedAt: string | null;
   /** Filled on the single-run read, empty on the list. */
   candidates: ResearchCandidate[];
+}
+
+// --- social listening and product discovery ----------------------------------
+
+export type CollectionKind = "social_daily" | "social_weekly" | "product_discovery";
+
+/** Never read a status other than SUCCESS or EMPTY as "nothing happened". */
+export type CollectionStatus =
+  | "SUCCESS"
+  | "EMPTY"
+  | "UNAVAILABLE"
+  | "RATE_LIMITED"
+  | "ERROR"
+  | "NOT_CONFIGURED";
+
+export interface SourceStatus {
+  status: CollectionStatus;
+  detail: string | null;
+  calls: number;
+  items: number;
+  failures: { call: string; status: CollectionStatus; detail: string }[];
+}
+
+export interface CollectionRun {
+  id: string;
+  label: string;
+  kind: CollectionKind;
+  status: "queued" | "running" | "completed" | "failed";
+  collectionStatus: Record<string, SourceStatus>;
+  stats: Record<string, unknown>;
+  notes: string[];
+  error: { message: string } | null;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+}
+
+/** An item from another discovery system, with that system's own numbers. */
+export interface RelatedItem {
+  kind: "research_topic" | "social_topic" | "mesh_substance" | "product";
+  id: string;
+  label: string;
+  relation: string;
+  matched_by: string;
+  own: Record<string, unknown>;
+}
+
+/** snake_case: the module's output schema, like the trend search's result. */
+export interface SocialWindow {
+  start: string;
+  end: string;
+  covered: boolean;
+  covered_days: number;
+  uploads: number | null;
+  creators: number | null;
+  truncated: boolean;
+}
+
+export interface SocialTopicResult {
+  candidate_id: string;
+  topic_id: string;
+  label: string;
+  /** What an article would answer; null until written, when the label stands in. */
+  question: string | null;
+  category: string;
+  rank: number;
+  status: "proposed" | "promoted" | "dismissed";
+  metrics: {
+    windows: SocialWindow[];
+    upload_growth: number | null;
+    creator_growth: number | null;
+    acceleration: number | null;
+    median_views_per_day: number | null;
+    view_velocity: number | null;
+    velocity_posts: number;
+    engagement_rate: number | null;
+    engagement_posts: number;
+    independent_creators: number;
+    platforms: string[];
+  };
+  momentum: { status: string; reason: string };
+  evidence: {
+    status: string;
+    source: string | null;
+    counts: { total: number; recent: number; reviews_or_meta: number; rcts: number } | null;
+    reason: string | null;
+    /** The search counted: the article pipeline's own query for the question. */
+    query: string | null;
+  };
+  supporting_posts: {
+    url: string;
+    title: string;
+    creator: string | null;
+    published_at: string | null;
+    views: number | null;
+  }[];
+  limitations: string[];
+}
+
+export interface SocialListeningResult {
+  run_id: string;
+  status: string;
+  completed_at: string | null;
+  collection: {
+    latest_daily: Record<string, SourceStatus> | null;
+    latest_daily_at: string | null;
+  };
+  topics: SocialTopicResult[];
+  notes: string[];
+}
+
+export interface Product {
+  id: string;
+  brand: string;
+  name: string;
+  category: string;
+  status: "uncertain" | "corroborated" | "confirmed";
+  launchStatus: "none" | "claimed" | "corroborated" | "confirmed";
+  officialUrl: string | null;
+  fdaReference: { k_number: string; applicant: string; decision_date: string | null } | null;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  independentSources: number;
+  mentions: number;
+  weeks: { start: string; covered: boolean; mentions: number | null }[];
+  recent: { url: string; publisher: string | null; mention_kind: string; quote: string }[];
 }

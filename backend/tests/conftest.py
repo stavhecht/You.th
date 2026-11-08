@@ -23,6 +23,8 @@ os.environ.setdefault("JWT_SECRET", "test-secret-that-is-at-least-32-characters-
 # each API test started a real PubMed scan writing to the dev database. The
 # scheduler's own tests pass `discovery_scan_enabled` explicitly.
 os.environ.setdefault("DISCOVERY_SCAN_ENABLED", "false")
+# Same reason: the collection scheduler would queue runs in the dev database.
+os.environ.setdefault("COLLECTION_SCHEDULE_ENABLED", "false")
 
 from app.domain.contracts import (
     ArticleBody,

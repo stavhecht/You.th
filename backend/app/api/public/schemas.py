@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -105,7 +105,7 @@ class ArticleOut(CamelModel):
     ingredients: list[str]
     #: TipTap document. Citation nodes carry ``sourceIds`` matching
     #: ``SourceOut.citation_handle``.
-    content: dict
+    content: dict[str, Any]
     sources: list[SourceOut]
     citations: list[CitationOut]
     evidence_grade: StudyType

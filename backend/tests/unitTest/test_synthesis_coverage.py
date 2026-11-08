@@ -33,7 +33,7 @@ from app.domain.contracts import (
     ValidationFailure,
     ValidationReport,
 )
-from app.domain.enums import SourceApi, StudyType, Verdict
+from app.domain.enums import SourceApi, Stance, StudyType, Verdict
 from app.llm.base import LLMError, LLMResult, TokenUsage
 from app.pipeline.stages import PipelineContext
 from app.pipeline.steps.synthesize import (
@@ -483,3 +483,142 @@ async def test_a_revision_that_errors_keeps_the_failed_draft() -> None:
     assert result.draft == first
     assert result.validation is not None and not result.validation.passed
     assert "ollama timed out" in result.metrics["synthesize"]["revision_failed"]
+
+
+# ---------------------------------------------------------------------------
+# Sources APPRAISE labelled off-topic
+# ---------------------------------------------------------------------------
+
+
+def _labelled(n_sources: int, off_topic: int) -> PipelineContext:
+    """Sources S1..S`n_sources`; the *last* `off_topic` were labelled off-topic.
+
+    The rest stay unlabelled: a missing label means nobody looked, which must
+    count as a source the draft could have used.
+    """
+    labels = {f"id-{i + 1}": Stance.OFF_TOPIC for i in range(n_sources - off_topic, n_sources)}
+    return _context(n_sources).model_copy(update={"stances": {"reduces stress": labels}})
+
+
+async def test_off_topic_sources_do_not_trigger_a_re_prompt() -> None:
+    """The measured failure: a smart-ring article re-prompted over twelve sources,
+    eleven of them off the question, grew a section on VO2max and pregnancy."""
+    client = RecordingClient(_draft(cites=1))
+
+    await SynthesizeStage(client).run(_labelled(12, off_topic=11))  # type: ignore[arg-type]
+
+    assert client.calls == [None]
+
+
+async def test_coverage_is_counted_over_the_sources_that_bear_on_a_claim() -> None:
+    """Six of twelve are relevant and the draft used five: 5/6 clears the bar,
+    where 5/12 would have re-prompted."""
+    client = RecordingClient(_draft(cites=5))
+
+    await SynthesizeStage(client).run(_labelled(12, off_topic=6))  # type: ignore[arg-type]
+
+    assert client.calls == [None]
+
+
+async def test_relevant_sources_left_unused_still_trigger_it() -> None:
+    client = RecordingClient(_draft(cites=2), _draft(cites=7))
+
+    await SynthesizeStage(client).run(_labelled(9, off_topic=2))  # type: ignore[arg-type]
+
+    assert len(client.calls) == 2
+
+
+async def test_a_few_relevant_sources_left_unused_still_trigger_it() -> None:
+    """wt_098, rosemary and hair: twelve sources, seven labelled off-topic, two of
+    the other five cited. Whether there is plenty is asked of all twelve, because
+    a wrong label must not cost a 191-word draft its second look."""
+    client = RecordingClient(_draft(cites=2), _draft(cites=5))
+
+    await SynthesizeStage(client).run(_labelled(12, off_topic=7))  # type: ignore[arg-type]
+
+    assert len(client.calls) == 2
+
+
+async def test_nothing_relevant_means_nothing_to_ask_for() -> None:
+    client = RecordingClient(_draft(cites=8))
+
+    await SynthesizeStage(client).run(_labelled(12, off_topic=12))  # type: ignore[arg-type]
+
+    assert client.calls == [None]
+
+
+async def test_the_re_prompt_never_names_an_off_topic_source() -> None:
+    client = RecordingClient(_draft(cites=2))
+
+    await SynthesizeStage(client).run(_labelled(9, off_topic=2))  # type: ignore[arg-type]
+
+    note = client.calls[1]
+    assert note is not None
+    assert "S7" in note, "an unused relevant source is what it asks about"
+    assert "S8" not in note and "S9" not in note
+
+
+async def test_the_re_prompt_does_not_ask_for_sources_that_bear_on_nothing() -> None:
+    """It used to say "if a source does not bear on any claim, say so and cite it
+    there", which is an instruction to write the padding section."""
+    client = RecordingClient(_draft(cites=2))
+
+    await SynthesizeStage(client).run(_context(13))  # type: ignore[arg-type]
+
+    assert "cite it there" not in (client.calls[1] or "")
+
+
+async def test_a_second_draft_is_judged_only_on_the_relevant_sources() -> None:
+    """Citing more off-topic papers is not an improvement worth keeping."""
+    first = _draft(cites=2)  # S1, S2: both relevant
+    padded = _output(
+        "Trial one found this [S1].",
+        [
+            ArticleSection(
+                heading="What the other sources measured",
+                body="One measured VO2max [S7]. One measured pregnancy [S8]. One, sleep [S9].",
+            )
+        ],
+    )
+    client = RecordingClient(first, padded)
+
+    result = await SynthesizeStage(client).run(_labelled(9, off_topic=3))  # type: ignore[arg-type]
+
+    assert len(client.calls) == 2
+    assert result.draft == first
+
+
+async def test_a_source_relevant_to_one_of_its_claims_still_counts() -> None:
+    """Off-topic for one claim, on-topic for another: it can still be used."""
+    context = _context(6)
+    papers = context.ranked["reduces stress"]
+    context = context.model_copy(
+        update={
+            "ranked": {"reduces stress": papers, "improves sleep": papers},
+            "stances": {
+                "reduces stress": {paper.source_id: Stance.OFF_TOPIC for paper in papers}
+            },
+        }
+    )
+    client = RecordingClient(_draft(cites=1), _draft(cites=6))
+
+    await SynthesizeStage(client).run(context)  # type: ignore[arg-type]
+
+    assert len(client.calls) == 2
+
+
+async def test_without_labels_it_behaves_as_it_did() -> None:
+    """APPRAISE off or failed: no labels, so every source still counts."""
+    client = RecordingClient(_draft(cites=2), _draft(cites=13))
+
+    await SynthesizeStage(client).run(_context(13))  # type: ignore[arg-type]
+
+    assert len(client.calls) == 2
+
+
+async def test_how_many_were_set_aside_is_recorded() -> None:
+    client = RecordingClient(_draft(cites=1))
+
+    result = await SynthesizeStage(client).run(_labelled(12, off_topic=11))  # type: ignore[arg-type]
+
+    assert result.metrics["synthesize"]["sources_labelled_off_topic"] == 11

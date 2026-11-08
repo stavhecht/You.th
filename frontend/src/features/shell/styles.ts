@@ -42,9 +42,9 @@ export const SITE_HEADER = "sticky top-0 z-40 border-b border-rule-soft bg-groun
  * centre. Full width, not `max-w-page`: the clusters sit at the window's edges.
  */
 export const HEADER_BAR =
-  "grid h-header w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-6 px-gutter";
+  "grid h-header w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-gutter sm:gap-6";
 
-export const HEADER_LEFT = "flex min-w-0 items-center gap-3.5";
+export const HEADER_LEFT = "flex min-w-0 items-center gap-1.5 sm:gap-3.5";
 export const HEADER_RIGHT = "flex flex-none items-center justify-end gap-3";
 
 /** The wordmark. `youth-mark` is what inverts it on the dark theme. */
@@ -55,11 +55,12 @@ export const WORDMARK = "block leading-none";
  * room there is - any taller and the bar grows. Sized by height because height
  * is the constraint.
  *
- * 52px on a phone (~149px wide), not 68: the outer grid columns share what the
- * mark leaves over, and the right one holds the avatar and theme toggle (~71px)
- * - a full-height mark (~195px) would push them into it on a 375px screen.
+ * Up to 44px on a phone (~126px wide), shrinking with the window: the outer grid
+ * columns share what the mark leaves over, and each holds about 71px of controls,
+ * so at a fixed 44px the mark ran into them on a 320px screen.
  */
-export const WORDMARK_IMAGE = "youth-mark block h-[44px] w-auto max-w-none sm:h-[51px]";
+export const WORDMARK_IMAGE =
+  "youth-mark block h-[clamp(36px,11.4vw,44px)] w-auto max-w-none sm:h-[51px]";
 
 /** The hamburger - three rules, drawn rather than iconified. */
 export const MENU_BUTTON =
@@ -67,13 +68,19 @@ export const MENU_BUTTON =
 export const MENU_BARS = "flex w-[17px] flex-col gap-[3px]";
 export const MENU_BAR = "h-[2px] bg-current";
 
-/** Search. A pill on the surface, so it reads as a field and not as a button. */
+/**
+ * Search. A pill on the surface, so it reads as a field and not as a button.
+ *
+ * Below `sm` there is no room for a field, so the pill is a 36px circle with the
+ * input laid over it, invisible. A tap focuses the input, and `focus-within`
+ * opens the pill across the bar; losing focus closes it. No state to keep in step.
+ */
 export const SEARCH_FORM =
-  "flex min-w-0 max-w-[240px] flex-1 items-center gap-2 rounded-full border border-rule-soft bg-surface px-3.5 py-2 focus-within:border-ink-3 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent-ink";
+  "flex min-w-0 max-w-[240px] flex-1 items-center gap-2 rounded-full border border-rule-soft bg-surface px-3.5 py-2 focus-within:border-ink-3 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent-ink max-sm:relative max-sm:size-9 max-sm:flex-none max-sm:justify-center max-sm:px-0 max-sm:py-0 max-sm:focus-within:absolute max-sm:focus-within:inset-x-3 max-sm:focus-within:top-3 max-sm:focus-within:z-10 max-sm:focus-within:h-11 max-sm:focus-within:w-auto max-sm:focus-within:max-w-none max-sm:focus-within:justify-start max-sm:focus-within:px-3.5";
 export const SEARCH_ICON = "flex-none text-ink-3";
 /** A field, not a button - so it takes the interface serif like other prose. */
 export const SEARCH_INPUT =
-  "w-full min-w-0 border-0 bg-transparent p-0 font-body text-[12.5px] text-ink outline-none placeholder:text-ink-4";
+  "w-full min-w-0 border-0 bg-transparent p-0 font-body text-[12.5px] text-ink outline-none placeholder:text-ink-4 max-sm:absolute max-sm:inset-0 max-sm:opacity-0 max-sm:focus:static max-sm:focus:opacity-100";
 
 /**
  * A rule that draws itself under the link from left to right on hover and

@@ -151,7 +151,8 @@ function CandidateRow({ candidate }: { candidate: DiscoveryCandidate }) {
   return (
     <div className={CANDIDATE_ROW}>
       <div className={CANDIDATE_MAIN}>
-        <p className={CANDIDATE_TOPIC}>{candidate.topic}</p>
+        <p className={CANDIDATE_TOPIC}>{candidate.question}</p>
+        <p className={CANDIDATE_MIX}>{candidate.topic}</p>
         <p className={CANDIDATE_EVIDENCE}>{evidenceLine(candidate)}</p>
         {mixLine(candidate.studyMix) ? (
           <p className={CANDIDATE_MIX}>{mixLine(candidate.studyMix)}</p>
@@ -192,7 +193,7 @@ function CandidateRow({ candidate }: { candidate: DiscoveryCandidate }) {
             value={reason}
             onChange={(event) => setReason(event.target.value)}
             placeholder="Why not? Shown in the next scan's report."
-            aria-label={`Reason for dismissing ${candidate.topic}`}
+            aria-label={`Reason for dismissing ${candidate.question}`}
           />
           <button type="submit" className={SECONDARY} disabled={!reason.trim() || busy}>
             Save

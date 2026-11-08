@@ -24,6 +24,87 @@ test("nothing on the public site links to the desk", async ({ page }) => {
   await expect(page.locator('a[href^="/review"]')).toHaveCount(0);
 });
 
+test("the social panel names a failed weekly run and fetches relations on demand", async ({
+  page,
+}) => {
+  const failed = {
+    id: "00000000-0000-0000-0000-000000000001",
+    label: "social_weekly_crashed",
+    kind: "social_weekly",
+    status: "failed",
+    collectionStatus: {},
+    stats: {},
+    notes: [],
+    error: { message: "worker stopped reporting" },
+    createdAt: "2026-11-05T10:00:00Z",
+    startedAt: null,
+    finishedAt: null,
+  };
+  const window = {
+    start: "2026-10-29T00:00:00Z",
+    end: "2026-11-05T00:00:00Z",
+    covered: true,
+    covered_days: 7,
+    uploads: 4,
+    creators: 3,
+    truncated: false,
+  };
+  const topic = {
+    candidate_id: "00000000-0000-0000-0000-000000000002",
+    topic_id: "00000000-0000-0000-0000-000000000003",
+    label: "Creatine for sleep",
+    question: "Does creatine help sleep?",
+    category: "supplements",
+    rank: 1,
+    status: "proposed",
+    metrics: {
+      windows: [window, window, window],
+      median_views_per_day: null,
+      view_velocity: null,
+      velocity_posts: 0,
+      engagement_rate: null,
+      engagement_posts: 0,
+    },
+    momentum: { status: "steady", reason: "3 creators both weeks" },
+    evidence: { status: "not_checked", source: null, counts: null, reason: null, query: null },
+    supporting_posts: [],
+    limitations: ["popularity is not evidence"],
+  };
+  let relatedAsked = 0;
+  await page.route("**/api/console/collection/runs*", (route) => route.fulfill({ json: [failed] }));
+  await page.route("**/api/console/social/result", (route) =>
+    route.fulfill({
+      json: { run_id: "x", status: "completed", collection: {}, topics: [topic], notes: [] },
+    }),
+  );
+  await page.route("**/api/console/intel/related*", (route) => {
+    relatedAsked += 1;
+    return route.fulfill({
+      json: [
+        {
+          kind: "product",
+          id: "p1",
+          label: "Oura Ring 4",
+          relation: "named_in_posts",
+          matched_by: "named in the same posts",
+          own: { status: "confirmed", launch_status: "none" },
+        },
+      ],
+    });
+  });
+
+  await signIn(page);
+  await expect(page.getByText("The last weekly analysis failed: worker stopped reporting")).toBeVisible();
+
+  await page.getByRole("button", { name: "Social & products" }).click();
+  await expect(page.getByText("Does creatine help sleep?")).toBeVisible();
+  expect(relatedAsked).toBe(0);
+
+  await page.getByRole("button", { name: "Related", exact: true }).click();
+  await expect(page.getByText(/Oura Ring 4/)).toBeVisible();
+  expect(relatedAsked).toBe(1);
+});
+
 test("a reviewer publishes a draft and readers can then read it", async ({ page }) => {
   await signIn(page);
   await page.getByRole("link", { name: new RegExp(DRAFTS.magnesium.replace("?", "\\?")) }).click();

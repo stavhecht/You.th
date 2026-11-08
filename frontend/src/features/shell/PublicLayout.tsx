@@ -34,7 +34,9 @@ export function PublicLayout() {
   }, [pathname]);
 
   return (
-    <>
+    // Full window height so the footer and tab bar sit at the bottom of a short
+    // page. `clip`, not `hidden`, because `hidden` would break the sticky header.
+    <div className="flex min-h-[100dvh] flex-col overflow-x-clip">
       {/* First focusable element on every public page: jumps past the site
           bar (menu, search, nav, theme) to the page itself. WCAG 2.4.1, and
           the first thing an IS 5568 audit tries with a keyboard. Hidden until
@@ -45,7 +47,7 @@ export function PublicLayout() {
       <SiteHeader />
       {/* tabIndex -1 so the skip link moves keyboard focus here, not just the
           scroll position; no outline, because nothing here is a control. */}
-      <div id="content" tabIndex={-1} className="outline-none">
+      <div id="content" tabIndex={-1} className="flex-1 outline-none">
         <Outlet />
       </div>
       {/* Above the tab bar, which is sticky to the bottom on phones, so the
@@ -59,6 +61,6 @@ export function PublicLayout() {
         <Link to="/accessibility" className={SITE_FOOTER_LINK}>Accessibility</Link>
       </footer>
       <MobileTabBar />
-    </>
+    </div>
   );
 }

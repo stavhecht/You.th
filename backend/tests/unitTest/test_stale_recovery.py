@@ -490,7 +490,14 @@ async def test_the_sweep_repeats_rather_than_running_only_at_boot(
             worker.request_shutdown()
         await original()
 
+    # This database may be the dev one: a real claim would execute somebody's queued run.
+    async def claim_nothing(**_: object) -> None:
+        return None
+
     worker._recover_stale_runs = counting  # type: ignore[method-assign]
+    worker._claim_research_run = claim_nothing  # type: ignore[method-assign]
+    worker._claim_collection_run = claim_nothing  # type: ignore[method-assign]
+    worker._claim_next_run = claim_nothing  # type: ignore[method-assign]
 
     await asyncio.wait_for(worker.run_forever(), timeout=5)
 

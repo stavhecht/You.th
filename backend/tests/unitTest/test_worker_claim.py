@@ -158,3 +158,30 @@ async def test_a_waiting_run_does_not_block_a_ready_one(
 
 async def test_nothing_queued_returns_none(db: async_sessionmaker[AsyncSession]) -> None:
     assert await PipelineWorker()._claim_next_run() is None
+
+
+async def _nothing_else_queued(session: AsyncSession) -> bool:
+    research = await session.scalar(
+        sa.text("SELECT count(*) FROM research_runs WHERE status = 'queued'")
+    )
+    collection = await session.scalar(
+        sa.text("SELECT count(*) FROM collection_runs WHERE status = 'queued'")
+    )
+    return not research and not collection
+
+
+async def test_a_run_in_backoff_is_not_work_for_the_model(
+    db: async_sessionmaker[AsyncSession],
+) -> None:
+    """Nothing can be claimed yet, so there is nothing to probe the server for."""
+    async with db() as session:
+        if not await _nothing_else_queued(session):
+            pytest.skip("other run kinds queued")
+    worker = PipelineWorker()
+    assert await worker._has_work_needing_a_model() is False
+
+    await _queue(db, "backing-off", next_attempt_at=datetime.now(UTC) + timedelta(minutes=5))
+    assert await worker._has_work_needing_a_model() is False
+
+    await _queue(db, "ready")
+    assert await worker._has_work_needing_a_model() is True

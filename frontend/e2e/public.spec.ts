@@ -89,3 +89,41 @@ test("an article fits a phone screen @phone", async ({ page }) => {
   );
   expect(overflow, "no sideways scrolling").toBeLessThanOrEqual(0);
 });
+
+test("search opens and works on a phone @phone", async ({ page }) => {
+  await page.goto("/");
+  const search = page.getByLabel("Search published articles");
+  await search.tap();
+  await expect(search).toBeFocused();
+  expect((await search.boundingBox())!.width, "room to type").toBeGreaterThan(150);
+  await search.fill("creatine");
+  await search.press("Enter");
+  await expect(page).toHaveURL(/q=creatine/);
+  await expect(card(page, PUBLISHED.creatine)).toBeVisible();
+});
+
+test("a citation card stays on a phone screen @phone", async ({ page }) => {
+  // The seeded articles carry no citations, so add some, at varied line positions.
+  await page.route(/\/api\/articles\//, async (route) => {
+    const article = await (await route.fetch()).json();
+    const words = (count: number) => ({ type: "text", text: "word ".repeat(count) });
+    const cite = (handle: string) => ({ type: "citation", attrs: { sourceIds: [handle] } });
+    article.content.content.push({
+      type: "paragraph",
+      content: [words(1), cite("S1"), words(3), cite("S2"), words(5), cite("S3"), words(7), cite("S4")],
+    });
+    await route.fulfill({ json: article });
+  });
+  await page.goto("/");
+  await card(page, PUBLISHED.creatine).click();
+  const chips = page.getByRole("link", { name: /^Source / });
+  await expect(chips).toHaveCount(4);
+  const width = page.viewportSize()!.width;
+  for (let index = 0; index < 4; index += 1) {
+    await chips.nth(index).tap();
+    const box = await page.getByText(/^Source S\d/).locator("..").boundingBox();
+    expect(box!.x, "left edge").toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width, "right edge").toBeLessThanOrEqual(width);
+    await chips.nth(index).tap();
+  }
+});

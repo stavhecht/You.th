@@ -181,6 +181,8 @@ class RunOrigin(StrEnum):
     DISCOVERY = "discovery"
     #: A reviewer promoting a topic the research agent proposed (research_runs).
     RESEARCH = "research"
+    #: A reviewer promoting a social-listening topic (social_candidates).
+    SOCIAL = "social"
 
 
 class ResearchRunMode(StrEnum):

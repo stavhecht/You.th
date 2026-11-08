@@ -18,7 +18,7 @@ import re
 from app.research.contracts import EvidenceCounts
 from app.research.providers.base import EvidenceQuery, ProviderUnavailable
 from app.retrieval.base import ProviderError
-from app.retrieval.providers import EuropePMCProvider
+from app.retrieval.providers import EuropePMCProvider, europe_pmc_query
 from app.retrieval.pubmed import REVIEW_FILTER, PubMedProvider
 
 _RCT_FILTER = '"randomized controlled trial"[pt]'
@@ -89,8 +89,14 @@ class EuropePMCEvidenceProvider:
         self._epmc = europe_pmc
 
     async def profile(self, query: EvidenceQuery) -> EvidenceCounts:
-        terms = europe_pmc_terms(query)
-        since = query.recent_since.isoformat()
+        return await self._profile(europe_pmc_terms(query), query.recent_since.isoformat())
+
+    async def profile_terms(self, terms: str, recent_since: str) -> EvidenceCounts:
+        """Counts for the pipeline's PubMed terms, in titles and abstracts: unscoped,
+        Europe PMC searches full text and over-counts ~40x (``EuropePMCProvider.search``)."""
+        return await self._profile(f"TITLE_ABS:({europe_pmc_query(terms)})", recent_since)
+
+    async def _profile(self, terms: str, since: str) -> EvidenceCounts:
         try:
             total = await self._epmc.count(terms)
             recent = (

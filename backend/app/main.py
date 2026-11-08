@@ -29,6 +29,7 @@ from app.api.console import media as console_media
 from app.api.console import pipeline as console_pipeline
 from app.api.console import research as console_research
 from app.api.console import review as console_review
+from app.api.console import social as console_social
 from app.api.public import contact as public_contact
 from app.api.public import feed as public_feed
 from app.api.public import media as public_media
@@ -40,6 +41,7 @@ from app.logging_setup import configure_logging
 from app.security.auth import AuthError
 from app.services.reader import ReaderError
 from app.services.review import ReviewError
+from app.social.schedule import CollectionScheduler
 
 logger = logging.getLogger(__name__)
 
@@ -70,9 +72,14 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
     # two runners would be two guards. See `discovery/schedule.py`.
     scheduler = ScanScheduler(settings, get_session_factory())
     scheduler.start()
+    # Queues the daily social collection and the weekly social and product
+    # runs when due; the worker executes them. See `social/schedule.py`.
+    collections = CollectionScheduler(settings, get_session_factory())
+    collections.start()
     try:
         yield
     finally:
+        await collections.stop()
         await scheduler.stop()
         await dispose_engine()
 
@@ -130,6 +137,7 @@ def create_app() -> FastAPI:
                     console_discovery):
         app.include_router(console.router, prefix="/api/console")
     app.include_router(console_research.router, prefix="/api/console")        # research
+    app.include_router(console_social.router, prefix="/api/console")          # social, products
     # n8n. Shared-secret auth, and 404 throughout while no token is configured.
     app.include_router(automation.router, prefix="/api")                       # n8n
 

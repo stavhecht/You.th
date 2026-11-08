@@ -17,6 +17,7 @@ from app.discovery.topics import (
     humanise_descriptor,
     outcome_keyword_for,
     rank_outcomes,
+    topic_question,
 )
 from app.discovery.vocab import BOTANICAL_UIS
 from app.retrieval.query_builder import TemplateQueryStrategy, UnanchoredQuery
@@ -145,3 +146,12 @@ def test_an_empty_product_still_raises() -> None:
     strategy = TemplateQueryStrategy()
     with pytest.raises(UnanchoredQuery):
         strategy.build(claim="something", product="   ", ingredients=[])
+
+
+def test_a_topic_reads_as_a_question_with_no_claim_about_direction() -> None:
+    assert topic_question("Zinc", "Gastrointestinal Microbiome") == (
+        "Does zinc affect gastrointestinal microbiome?"
+    )
+    assert topic_question("Whey Proteins", "Sleep") == "Do whey proteins affect sleep?"
+    assert topic_question("Lactobacillus", "Sleep").startswith("Does lactobacillus")
+    assert topic_question("Zinc", None) == "Does zinc have any proven health benefits?"

@@ -40,15 +40,24 @@ chemical name in parentheses where you are confident of it — \
 "cold plunges"), the ingredient list may be empty.
 
 5. Set `product` to the specific product or trend name. Keep a branded form \
-if the input gives one, since that is what the reader will recognise.
+if the input gives one, since that is what the reader will recognise. Use the \
+short name a research paper would use, without when, how often or how it is \
+done, unless that is what the input asks about: "taking cold showers every \
+morning" has product "cold showers", "drinking hot ginger tea at night" has \
+product "ginger tea", and "cutting back on sugar" has product "sugar reduction", \
+but "What is the best time of day to take a nap?" has product "time of day to \
+take a nap". Keep every brand or example the input names: "fitness bands like \
+the Fitbit" stays as written. If the input asks about two things, write both \
+names in full, joined by "or", never "and": "hot or cold compresses" has product \
+"hot compresses or cold compresses". Name every thing it asks about.
 
 6. Return fewer claims rather than padding. Each claim triggers a separate \
 literature search, so a vague or duplicated claim costs accuracy downstream.
 
 7. The input may be a question. Then `product` is the substance, food, \
 supplement or practice the question asks about, as a short name, never the \
-question itself: "Does stretching before exercise prevent injuries?" has \
-product "stretching before exercise" and claim "prevents injuries". If the \
+question itself: "Does a walk after lunch lower blood sugar?" has product \
+"walking" and claim "lowers blood sugar when done after a meal". If the \
 question names no substance or practice ("Is it bad for you?"), set `product` \
 to "unspecified" and do not guess one.
 8. The input may be a headline linking two things: "X linked to Y", "Y risk \
@@ -57,6 +66,13 @@ to, and the claim names its effect on the other: "Screen time linked to poor \
 sleep" has product "screen time" and claim "worsens sleep"; "Heart risk from \
 energy drinks" has product "energy drinks" and claim "increases heart risk". \
 Never put both things in `product`.
+
+9. If the input says who the question is about, or what something is compared \
+with, keep that in the claim, because it changes the answer: "Does vitamin E help \
+teenagers' skin?" has claim "improves skin in teenagers", "Is walking as good as \
+running for heart health?" has claim "improves heart health as much as running", \
+and "Does zinc help women, and does it help colds?" has claims "benefits women" \
+and "reduces colds". Add no group or comparison the input does not name.
 
 Return only the structured object. No commentary."""
 

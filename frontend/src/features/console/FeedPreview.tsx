@@ -18,7 +18,7 @@
  * `QueryClientProvider > BrowserRouter` above everything.
  *
  * **Neighbours come from the live feed.** Scale is comparative. Whether a
- * headline survives three lines of clamp, whether a picture reads at 190px,
+ * headline survives three lines of clamp, whether a picture reads at 200px,
  * whether the verdict kicker holds against a photograph - none of that is
  * answerable from a tile on its own, which is why this is an overlay showing a
  * few cells of the real grid rather than a swatch in the sidebar.

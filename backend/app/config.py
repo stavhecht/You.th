@@ -512,6 +512,38 @@ class Settings(BaseSettings):
     #: `search.list` calls a run may make (100 quota units each, of a default
     #: 10,000 a day). Statistics lookups cost 1 unit and are not counted here.
     youtube_max_searches_per_run: int = 10
+
+    # --- social listening and product discovery (app/social, app/products) ---
+    #: The collection scheduler (API process) enqueues a daily social
+    #: collection, a weekly social analysis and a weekly product discovery when
+    #: each is due. Enqueue only: the worker runs them.
+    collection_schedule_enabled: bool = True
+    #: Daily `search.list` calls for social listening (100 units each). Shares the
+    #: key's 10,000-unit day with the trend search (~1,010 a run), so keep the
+    #: sum well under it: a spent quota would make the trend search's YouTube
+    #: source fail and lower its scores' data coverage.
+    social_youtube_max_searches_per_day: int = 15
+    #: Posts published within this many days have their counters re-read daily.
+    social_track_days: int = 21
+    #: Raw posts not refreshed for this long are deleted, with their observations.
+    #: YouTube's developer policies allow at most 30 days. 28 because the prune runs
+    #: only with the daily collection: at 30, a post could reach almost 31.
+    social_retention_days: int = 28
+    #: Reader-model batches (20 texts each) a weekly run may spend; the rest wait.
+    social_max_reading_batches: int = 10
+    social_max_candidates: int = 10
+    #: A topic needs this many posts in the current week to be proposed.
+    social_min_posts: int = 3
+    #: A dismissed topic is not re-proposed within this many days unless its
+    #: independent creators have doubled. A promoted one is never re-proposed.
+    social_dismiss_cooloff_days: int = 28
+    #: Top social candidates per week that get a PubMed evidence count.
+    social_evidence_top: int = 5
+    #: News searches product discovery may make per run (one per category).
+    product_max_news_queries: int = 12
+    #: Official-page and FDA lookups per product discovery run.
+    product_max_confirmations: int = 10
+
     #: Candidates nobody promoted or dismissed are deleted this long after their
     #: run finished. Novelty reads only decided candidates, so undecided ones
     #: from an old run are never read again — and a run writes ~45 of them.
@@ -780,6 +812,16 @@ class Settings(BaseSettings):
                 f"must be at least {history_needed}: repeat suppression, novelty and "
                 "trend status read that far back"
             )
+        # Three equal analytics windows must fit inside what is kept, and what
+        # is kept must respect YouTube's 30-day storage limit, with room for the
+        # prune to run only about daily.
+        if not 21 <= self.social_retention_days <= 28:
+            raise ValueError(
+                f"social_retention_days ({self.social_retention_days}) must be 21-28: the "
+                "analytics compare three 7-day windows, and YouTube allows 30 days"
+            )
+        if self.social_track_days > self.social_retention_days:
+            raise ValueError("social_track_days must not exceed social_retention_days")
         return self
 
     def validate_embedding_dim(self, provider_dimension: int) -> None:

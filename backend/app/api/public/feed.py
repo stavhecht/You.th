@@ -67,7 +67,9 @@ async def get_feed(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Malformed cursor"
             ) from None
-        return FeedPageOut(items=found, next_cursor=next_cursor, match=match)
+        return FeedPageOut.model_validate(
+            {"items": found, "next_cursor": next_cursor, "match": match}
+        )
 
     interests: list[Subject] = []
     if reader is not None and personalise:
@@ -83,7 +85,7 @@ async def get_feed(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Malformed cursor"
         ) from None
-    return FeedPageOut(items=items, next_cursor=next_cursor)
+    return FeedPageOut.model_validate({"items": items, "next_cursor": next_cursor})
 
 
 @router.get("/feed/facets", response_model=FeedFacetsOut)

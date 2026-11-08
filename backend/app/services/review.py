@@ -46,7 +46,12 @@ class ReviewService:
         self._session = session
 
     async def save_edits(
-        self, article_id: str, content: dict, reviewer_id: str, *, base: Any = _UNCHECKED
+        self,
+        article_id: str,
+        content: dict[str, Any],
+        reviewer_id: str,
+        *,
+        base: Any = _UNCHECKED,
     ) -> None:
         """Autosave the editor's content into ``edited_content``.
 
@@ -320,7 +325,9 @@ class ReviewService:
         await self._session.flush()
         logger.info("article %s rejected by reviewer %s", article_id, reviewer_id)
 
-    async def _assert_citations_still_resolve(self, article_id: str, content: dict) -> None:
+    async def _assert_citations_still_resolve(
+        self, article_id: str, content: dict[str, Any]
+    ) -> None:
         """Every handle in the edited body must still map to a linked source."""
         emitted = cited_handles_in_doc(content)
         if not emitted:

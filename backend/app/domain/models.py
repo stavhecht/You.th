@@ -19,6 +19,7 @@ from typing import Any
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     ARRAY,
+    BigInteger,
     Boolean,
     Date,
     DateTime,
@@ -225,8 +226,8 @@ class Article(Base):
 
     #: Immutable. A DB trigger rejects any UPDATE that changes it — do not
     #: attempt to write it after PersistStage.
-    original_content: Mapped[dict] = mapped_column(JSONB, nullable=False)
-    edited_content: Mapped[dict | None] = mapped_column(NullableJSONB)
+    original_content: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    edited_content: Mapped[dict[str, Any] | None] = mapped_column(NullableJSONB)
 
     card_headline: Mapped[str | None] = mapped_column(Text)
     card_excerpt: Mapped[str | None] = mapped_column(Text)
@@ -253,13 +254,13 @@ class Article(Base):
     #: ``NullableJSONB``, not bare ``JSONB``. It matters here specifically:
     #: ``derive_card`` tests this value for truthiness, and the JSON literal
     #: ``null`` a bare column would store is a dict-shaped truthy value in SQL.
-    generated_imagery: Mapped[dict | None] = mapped_column(NullableJSONB)
+    generated_imagery: Mapped[dict[str, Any] | None] = mapped_column(NullableJSONB)
 
     #: Set by a reviewer, not by the pipeline. See ``Subject``.
     subject: Mapped[Subject | None] = mapped_column(pg_enum(Subject, "subject"))
 
     evidence_grade: Mapped[StudyType] = mapped_column(pg_enum(StudyType, "study_type"))
-    validation_report: Mapped[dict | None] = mapped_column(NullableJSONB)
+    validation_report: Mapped[dict[str, Any] | None] = mapped_column(NullableJSONB)
 
     reviewed_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id"))
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -282,7 +283,7 @@ class Article(Base):
     )
     #: Which handles and sources triggered the flag, so the console can point
     #: at the paragraph rather than at the article.
-    retraction_detail: Mapped[dict | None] = mapped_column(NullableJSONB)
+    retraction_detail: Mapped[dict[str, Any] | None] = mapped_column(NullableJSONB)
 
     pipeline_run_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False))
     created_at: Mapped[datetime] = mapped_column(
@@ -295,7 +296,7 @@ class Article(Base):
     sources: Mapped[list[ArticleSource]] = relationship(back_populates="article")
 
     @property
-    def display_content(self) -> dict:
+    def display_content(self) -> dict[str, Any]:
         """What the reader sees: the human-approved version when one exists."""
         return self.edited_content or self.original_content
 
@@ -336,7 +337,7 @@ class PipelineRun(Base):
     source_blurb: Mapped[str | None] = mapped_column(Text)
     status: Mapped[RunStatus] = mapped_column(pg_enum(RunStatus, "run_status"))
     article_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False))
-    error: Mapped[dict | None] = mapped_column(NullableJSONB)
+    error: Mapped[dict[str, Any] | None] = mapped_column(NullableJSONB)
     #: Rollup of the per-stage ledger below, so "what did this run consume" is
     #: one row read. Cannot be priced on its own: the stages may have run on
     #: different models. See PipelineStageRun and app/llm/pricing.py.
@@ -380,8 +381,8 @@ class PipelineStageRun(Base):
     #: try means seeing what the first two did.
     attempt: Mapped[int] = mapped_column(Integer, server_default=text("1"))
     status: Mapped[RunStatus] = mapped_column(pg_enum(RunStatus, "run_status"))
-    error: Mapped[dict | None] = mapped_column(NullableJSONB)
-    metrics: Mapped[dict | None] = mapped_column(NullableJSONB)
+    error: Mapped[dict[str, Any] | None] = mapped_column(NullableJSONB)
+    metrics: Mapped[dict[str, Any] | None] = mapped_column(NullableJSONB)
     #: Provider-namespaced id of the model this stage called, e.g.
     #: `anthropic/claude-sonnet-5`. NULL for the four stages that call no model.
     #: The join key into app/llm/pricing.py — a bare name would not distinguish
@@ -564,7 +565,7 @@ class DiscoveryScan(Base):
     )
     records_seen: Mapped[int] = mapped_column(Integer, server_default=text("0"))
     descriptors_seen: Mapped[int] = mapped_column(Integer, server_default=text("0"))
-    error: Mapped[dict | None] = mapped_column(NullableJSONB)
+    error: Mapped[dict[str, Any] | None] = mapped_column(NullableJSONB)
     started_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -656,7 +657,7 @@ class DiscoveryCandidate(Base):
     #: ``{lift, study_mix, top_pmids, window}`` — the reviewer's evidence for the
     #: proposal, and the dismissal rule's memory of what was known at the time.
     #: Not nullable, so bare JSONB is correct here.
-    rationale: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    rationale: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     status: Mapped[DiscoveryCandidateStatus] = mapped_column(
         pg_enum(DiscoveryCandidateStatus, "discovery_candidate_status"),
         server_default=text("'proposed'"),
@@ -698,20 +699,20 @@ class ResearchRun(Base):
     )
     #: The current ``ResearchStage`` while running, the last one reached after.
     stage: Mapped[str | None] = mapped_column(Text)
-    params: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    params: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     #: Weights and thresholds the run scored with, frozen at start.
-    config: Mapped[dict] = mapped_column(JSONB, nullable=False)
-    provider_status: Mapped[dict] = mapped_column(
+    config: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    provider_status: Mapped[dict[str, Any]] = mapped_column(
         JSONB, nullable=False, server_default=text("'{}'::jsonb")
     )
-    stage_log: Mapped[list] = mapped_column(
+    stage_log: Mapped[list[Any]] = mapped_column(
         JSONB, nullable=False, server_default=text("'[]'::jsonb")
     )
     #: Short notes for the desk, e.g. why fewer topics than asked were selected.
-    notes: Mapped[list] = mapped_column(
+    notes: Mapped[list[Any]] = mapped_column(
         JSONB, nullable=False, server_default=text("'[]'::jsonb")
     )
-    error: Mapped[dict | None] = mapped_column(NullableJSONB)
+    error: Mapped[dict[str, Any] | None] = mapped_column(NullableJSONB)
     requested_by: Mapped[str | None] = mapped_column(
         UUID(as_uuid=False), ForeignKey("users.id", ondelete="SET NULL")
     )
@@ -742,16 +743,16 @@ class ResearchCandidate(Base):
     )
     canonical_topic: Mapped[str] = mapped_column(Text, nullable=False)
     category: Mapped[str | None] = mapped_column(Text)
-    queries: Mapped[list] = mapped_column(JSONB, nullable=False)
+    queries: Mapped[list[Any]] = mapped_column(JSONB, nullable=False)
     #: ``CandidateTopic.signals_json()``: subject, outcome, the trend, news, web
     #: and science signals, the topic's metrics, status, questions and
     #: supporting sources.
-    signals: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    signals: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     #: ``TrendScores``: dimension scores, ``overall`` (the trend score),
     #: weights, ``unavailable``, data coverage, confidence, version. Rows from
     #: before the split carry the old evidence-weighted shape, without
     #: ``version``.
-    scores: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    scores: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     evidence_status: Mapped[str | None] = mapped_column(Text)
     overall: Mapped[float | None] = mapped_column(Float)
     rank: Mapped[int | None] = mapped_column(Integer)
@@ -844,3 +845,199 @@ class ResearchFeedState(Base):
     consecutive_failures: Mapped[int] = mapped_column(Integer, server_default=text("0"))
     #: The last parsed entries, replayed on a 304. NULL until the first success.
     items: Mapped[list[dict[str, Any]] | None] = mapped_column(NullableJSONB)
+
+
+# --- social listening and product discovery (migrations/0002) ----------------
+
+
+class CollectionRun(Base):
+    """One queued unit of collection work (``app/social/service.py``).
+
+    ``kind`` is ``social_daily`` | ``social_weekly`` | ``product_discovery``;
+    one may be active per kind. Claimed by the pipeline worker, like a
+    research run, so its model calls never share the GPU with a pipeline run.
+    """
+
+    __tablename__ = "collection_runs"
+
+    id: Mapped[str] = mapped_column(UUID_PK, primary_key=True, server_default=GEN_UUID)
+    label: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    kind: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(Text, server_default=text("'queued'"))
+    #: Per platform or source: status (SUCCESS, EMPTY, ...), calls, items, detail.
+    collection_status: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{}'::jsonb")
+    )
+    stats: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{}'::jsonb")
+    )
+    notes: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+    error: Mapped[dict[str, Any] | None] = mapped_column(NullableJSONB)
+    heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class SocialPost(Base):
+    """One video or post, identified by the platform's own id."""
+
+    __tablename__ = "social_posts"
+
+    id: Mapped[str] = mapped_column(UUID_PK, primary_key=True, server_default=GEN_UUID)
+    platform: Mapped[str] = mapped_column(Text, nullable=False)
+    platform_post_id: Mapped[str] = mapped_column(Text, nullable=False)
+    url: Mapped[str] = mapped_column(Text, nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    creator_platform_id: Mapped[str | None] = mapped_column(Text)
+    creator_name: Mapped[str | None] = mapped_column(Text)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_collected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SocialPostObservation(Base):
+    """One reading of a post's counters. NULL means the platform did not say."""
+
+    __tablename__ = "social_post_observations"
+
+    post_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("social_posts.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    collection_run_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("collection_runs.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    views: Mapped[int | None] = mapped_column(BigInteger)
+    likes: Mapped[int | None] = mapped_column(BigInteger)
+    comments: Mapped[int | None] = mapped_column(BigInteger)
+
+
+class SocialTopic(Base):
+    """A social topic's identity, keyed by the trend search's ``topic_key``."""
+
+    __tablename__ = "social_topics"
+
+    id: Mapped[str] = mapped_column(UUID_PK, primary_key=True, server_default=GEN_UUID)
+    topic_key: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    label: Mapped[str] = mapped_column(Text, nullable=False)
+    subject: Mapped[str] = mapped_column(Text, nullable=False)
+    outcome: Mapped[str] = mapped_column(Text, server_default=text("''"))
+    question: Mapped[str | None] = mapped_column(Text)
+    category: Mapped[str] = mapped_column(Text, nullable=False)
+    last_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class SocialPostTopic(Base):
+    __tablename__ = "social_post_topics"
+
+    post_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("social_posts.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    topic_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("social_topics.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+
+
+class TextReading(Base):
+    """What the reader model said about one text (``app/intel/reader.py``)."""
+
+    __tablename__ = "text_readings"
+
+    text_key: Mapped[str] = mapped_column(Text, primary_key=True)
+    reading: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    read_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class SocialCandidate(Base):
+    """A social topic proposed by one weekly run, with its metrics and assessments."""
+
+    __tablename__ = "social_candidates"
+
+    id: Mapped[str] = mapped_column(UUID_PK, primary_key=True, server_default=GEN_UUID)
+    collection_run_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("collection_runs.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    topic_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("social_topics.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    rank: Mapped[int] = mapped_column(Integer, nullable=False)
+    metrics: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    momentum: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    evidence: Mapped[dict[str, Any] | None] = mapped_column(NullableJSONB)
+    status: Mapped[str] = mapped_column(Text, server_default=text("'proposed'"))
+    pipeline_run_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("pipeline_runs.id", ondelete="SET NULL")
+    )
+    decided_by: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("users.id", ondelete="SET NULL")
+    )
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    dismiss_reason: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class Product(Base):
+    """A product, deduplicated by normalised ``brand|name`` (``products/resolve.py``)."""
+
+    __tablename__ = "products"
+
+    id: Mapped[str] = mapped_column(UUID_PK, primary_key=True, server_default=GEN_UUID)
+    product_key: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    brand: Mapped[str] = mapped_column(Text, nullable=False)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    category: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(Text, server_default=text("'uncertain'"))
+    launch_status: Mapped[str] = mapped_column(Text, server_default=text("'none'"))
+    official_url: Mapped[str | None] = mapped_column(Text)
+    fda_reference: Mapped[dict[str, Any] | None] = mapped_column(NullableJSONB)
+    confirmation_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    first_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    last_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class ProductObservation(Base):
+    """One source naming one product."""
+
+    __tablename__ = "product_observations"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    product_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("products.id", ondelete="CASCADE"), nullable=False
+    )
+    social_post_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("social_posts.id", ondelete="CASCADE")
+    )
+    source_kind: Mapped[str] = mapped_column(Text, nullable=False)
+    source_url: Mapped[str] = mapped_column(Text, nullable=False)
+    publisher: Mapped[str | None] = mapped_column(Text)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    mention_kind: Mapped[str] = mapped_column(Text, nullable=False)
+    quote: Mapped[str] = mapped_column(Text, nullable=False)

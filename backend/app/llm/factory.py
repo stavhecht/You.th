@@ -31,6 +31,7 @@ from app.llm.llamacpp_client import (
     LlamaCppChat,
     LlamaCppExtractionClient,
     LlamaCppSynthesisClient,
+    MakeRoom,
     build_llamacpp_client,
     ollama_unloader,
 )
@@ -144,7 +145,17 @@ def build_appraisal_client(settings: Settings) -> AppraisalClient:
 
 
 def llamacpp_chat(settings: Settings) -> LlamaCppChat:
-    """The llama-server transport, which unloads Ollama's language models first.
+    """The llama-server transport, which unloads Ollama's language models first."""
+    return LlamaCppChat(
+        build_llamacpp_client(settings.llamacpp_base_url),
+        settings.llamacpp_model,
+        settings.llamacpp_reasoning_effort,
+        make_room=llamacpp_make_room(settings),
+    )
+
+
+def llamacpp_make_room(settings: Settings) -> MakeRoom:
+    """Unloads Ollama's language models, which cannot share the GPU with llama-server.
 
     The embedding model is kept: it fits beside Bonsai, and RETRIEVE needs it.
     """
@@ -153,12 +164,7 @@ def llamacpp_chat(settings: Settings) -> LlamaCppChat:
         if settings.embedding_provider.lower() == "ollama"
         else frozenset()
     )
-    return LlamaCppChat(
-        build_llamacpp_client(settings.llamacpp_base_url),
-        settings.llamacpp_model,
-        settings.llamacpp_reasoning_effort,
-        make_room=ollama_unloader(
-            build_ollama_client(settings.ollama_base_url, settings.ollama_timeout_seconds),
-            keep=embedding,
-        ),
+    return ollama_unloader(
+        build_ollama_client(settings.ollama_base_url, settings.ollama_timeout_seconds),
+        keep=embedding,
     )

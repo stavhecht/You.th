@@ -61,7 +61,7 @@ async def list_queue(
         items, next_cursor = await ReviewService(session).queue(status_filter, cursor, limit)
     except ReviewError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    return QueuePageOut(items=items, next_cursor=next_cursor)
+    return QueuePageOut.model_validate({"items": items, "next_cursor": next_cursor})
 
 
 @router.get("/articles/{article_id}", response_model=ArticleDetailOut)

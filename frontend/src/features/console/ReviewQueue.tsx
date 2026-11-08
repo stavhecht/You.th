@@ -34,6 +34,7 @@ import { GRADE_LABELS, VERDICT_LABELS } from "@/features/evidence/labels";
 import { subjectBorderLeft } from "@/features/evidence/subject";
 import type { ArticleStatus, PipelineRun, QueueItem } from "@/types/api";
 import { ResearchPanel } from "./ResearchPanel";
+import { SocialPanel } from "./SocialPanel";
 import { TrendCandidates } from "./TrendCandidates";
 import { PRIMARY } from "./controls";
 import {
@@ -134,6 +135,7 @@ export function ReviewQueue() {
           scan (what researchers are publishing). */}
       <ResearchPanel />
       <TrendCandidates />
+      <SocialPanel />
       <NewRunForm />
 
       <nav className={TAB_BAR}>

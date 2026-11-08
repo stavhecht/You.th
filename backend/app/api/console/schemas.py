@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -142,7 +143,7 @@ class ReviewSourceOut(CamelModel):
 class ValidationFailureOut(CamelModel):
     code: str
     message: str
-    detail: dict = Field(default_factory=dict)
+    detail: dict[str, Any] = Field(default_factory=dict)
 
 
 class ValidationReportOut(CamelModel):
@@ -188,10 +189,10 @@ class ArticleDetailOut(CamelModel):
     verdict_qualifier: str | None
     evidence_grade: StudyType
     #: The immutable AI draft. Rendered read-only beside the editor.
-    original_content: dict
+    original_content: dict[str, Any]
     #: Human edits, null until first autosave. The editor loads
     #: ``edited_content or original_content``.
-    edited_content: dict | None
+    edited_content: dict[str, Any] | None
     validation_report: ValidationReportOut
     #: Grouped by claim in handle order, so the panel renders without
     #: client-side joining.
@@ -201,15 +202,15 @@ class ArticleDetailOut(CamelModel):
     #: written. The article keeps its status — this raises it for a human,
     #: it does not withdraw it.
     retraction_flagged_at: datetime | None = None
-    retraction_detail: dict | None = None
+    retraction_detail: dict[str, Any] | None = None
     created_at: datetime
 
 
 class SaveContentRequest(CamelModel):
     """Autosave payload. Debounced ~800ms from the editor."""
 
-    content: dict = Field(description="TipTap document")
-    base: dict | None = Field(
+    content: dict[str, Any] = Field(description="TipTap document")
+    base: dict[str, Any] | None = Field(
         default=None,
         description="The edited content this edit started from (null if unedited). "
         "When sent, the save is refused with 412 if the draft has changed since.",
@@ -343,8 +344,8 @@ class StageRunOut(CamelModel):
     stage: str
     ordinal: int
     status: RunStatus
-    error: dict | None
-    metrics: dict | None
+    error: dict[str, Any] | None
+    metrics: dict[str, Any] | None
     #: Provider-namespaced model this stage called; null for the four that call
     #: none. Recorded from the call itself, so it is what actually ran rather
     #: than what the settings say now.
@@ -366,7 +367,7 @@ class RunOut(CamelModel):
     topic: str
     status: RunStatus
     article_id: str | None
-    error: dict | None
+    error: dict[str, Any] | None
     #: Lifetime totals across every attempt, so a run that retried reports what
     #: it really spent. Not priceable as a unit — the stages may have run on
     #: different models — which is why the cost below is summed per stage.
@@ -432,6 +433,8 @@ class DiscoveryCandidateOut(CamelModel):
 
     id: str
     topic: str
+    #: The same topic as a question, for the desk. A promotion generates from ``topic``.
+    question: str
     substance_ui: str
     substance_name: str
     outcome_name: str | None
@@ -575,8 +578,8 @@ class ResearchCandidateOut(CamelModel):
     evidence_status: str | None
     overall: float | None
     rank: int | None
-    scores: dict
-    signals: dict
+    scores: dict[str, Any]
+    signals: dict[str, Any]
     pipeline_run_id: str | None
     decided_at: datetime | None
     dismiss_reason: str | None
@@ -590,11 +593,11 @@ class ResearchRunOut(CamelModel):
     mode: ResearchRunMode
     status: ResearchRunStatus
     stage: str | None
-    params: dict
-    provider_status: dict
-    stage_log: list
-    notes: list
-    error: dict | None
+    params: dict[str, Any]
+    provider_status: dict[str, Any]
+    stage_log: list[Any]
+    notes: list[Any]
+    error: dict[str, Any] | None
     created_at: datetime
     started_at: datetime | None
     finished_at: datetime | None

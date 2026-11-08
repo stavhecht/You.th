@@ -185,8 +185,8 @@ class FaultSpec(BaseModel):
     status: int | None = None
     #: Restrict to one operation of the tool (``esearch``, ``efetch``, ``search``).
     operation: str | None = None
-    #: Only calls whose parameters contain this text (e.g. ``TITLE_ABS`` to fault
-    #: Europe PMC's scoped search but not its full-text fallback).
+    #: Only calls whose parameters contain this text (e.g. ``PUB_TYPE`` to fault
+    #: Europe PMC's reviews search but not its general one).
     param_contains: str | None = None
     #: Let this many matching calls through before the fault starts.
     after: int = 0

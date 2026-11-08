@@ -178,9 +178,9 @@ class PipelineOrchestrator:
         except _RunAborted as aborted:
             return aborted.ctx
 
-        ctx = final["ctx"]
-        await self._finish_run(run_id, ctx)
-        return ctx
+        done: PipelineContext = final["ctx"]
+        await self._finish_run(run_id, done)
+        return done
 
     async def _run_stage(
         self, ordinal: int, stage: Stage, ctx: PipelineContext, attempt: int

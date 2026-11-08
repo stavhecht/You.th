@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from typing import cast
 
 from app.domain.contracts import (
     CITATION_MARKER_RE,
@@ -244,15 +245,17 @@ def repair_rejection(
                 f"kept {', '.join(left)} in a sentence that cites nothing: remove the "
                 "number, or cite the source that contains it"
             )
-    if left := _unsourced([edited], sources):
-        number, handles = sorted(left)[0]
+    if unsourced := _unsourced([edited], sources):
+        number, handles = sorted(unsourced)[0]
         return f"still gives {number} beside {', '.join(handles)}, which does not contain it"
     # The final round only warns on this, so a repair is the last place it can be refused.
     if wrong := misattributed_sentences([edited], sources):
         detail = wrong[0].detail
+        cited = cast(list[str], detail["handles"])
+        found_in = cast(list[str], detail["found_in"])
         return (
-            f"cites {', '.join(detail['handles'])} for “{detail['sentence']}”, but that "
-            f"finding is worded like {', '.join(detail['found_in'])}: "
+            f"cites {', '.join(cited)} for “{detail['sentence']}”, but that "
+            f"finding is worded like {', '.join(found_in)}: "
             "cite the source that reports it"
         )
     return paragraph_rejection(part, edited, sources, same_handles=False)

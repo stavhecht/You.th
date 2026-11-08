@@ -492,3 +492,48 @@ async def test_a_failed_synthesis_call_replays_as_it_happened(tmp_path) -> None:
     expected = ['error:{"headline": "x"}', "Caffeine and endurance"]
     assert await two_calls(_Live(), "cached") == expected
     assert await two_calls(None, "replay") == expected
+
+
+def _coverage_rule(sources: list[dict], cited: str, *, reprompted: bool) -> dict:
+    first = {"beat_2_evidence": cited, "sections": []}
+    trace = {
+        "synthesis_input": {"product": "p", "target_claims": ["c"], "sources": sources},
+        "drafts": [{"kind": "first", "output": {"body": first}}],
+        "decisions": [{"decision": "coverage re-prompt"}] if reprompted else [],
+    }
+    return next(c for c in agent.decisions(trace) if c["rule"] == "coverage_reprompt_rule")
+
+
+def _sources(usable: int, off_topic: int) -> list[dict]:
+    labels = ["supports"] * usable + ["off_topic"] * off_topic
+    return [
+        {
+            "handle": f"S{n}",
+            "title": "t",
+            "abstract": "a",
+            "journal": None,
+            "year": 2024,
+            "study_type": "rct",
+            "source_id": f"src-{n}",
+            "claims": ["c"],
+            "stances": {"c": label},
+        }
+        for n, label in enumerate(labels, start=1)
+    ]
+
+
+def test_the_coverage_rule_ignores_sources_labelled_off_topic() -> None:
+    """Twelve offered, nine off-topic, the other three cited: nothing to ask for."""
+    rule = _coverage_rule(_sources(3, 9), "One [S1]. Two [S2]. Three [S3].", reprompted=False)
+    assert rule["passed"], rule["detail"]
+
+
+def test_the_coverage_rule_still_expects_a_reprompt_when_usable_sources_go_uncited() -> None:
+    rule = _coverage_rule(_sources(8, 4), "One [S1].", reprompted=False)
+    assert not rule["passed"], rule["detail"]
+
+
+def test_the_coverage_rule_asks_whether_there_is_plenty_of_all_the_sources() -> None:
+    """Twelve offered, five usable, two of them cited: under the bar, so it re-prompts."""
+    rule = _coverage_rule(_sources(5, 7), "One [S1]. Two [S2].", reprompted=False)
+    assert not rule["passed"], rule["detail"]

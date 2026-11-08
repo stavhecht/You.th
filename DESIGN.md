@@ -477,7 +477,7 @@ described there.
 
 **Since 2026-09-30 the default is `IMAGE_COVER_MODE=crop`: one render, the cover cut from
 it.** The landscape lead is rendered once, and the portrait cover is centre-cropped out of it to
-3:4. At the default sizes that is 624×832, ample for a 190px tile. That halves the cost to one
+3:4. At the default sizes that is 624×832, ample for a feed tile. That halves the cost to one
 billed render per article, and it makes the two frames provably one photograph. A Regenerate
 press in this mode always redraws both frames, for one render. `render` mode keeps the
 two-generation behaviour described below. A local FLUX provider (mflux, 4-bit) was measured on

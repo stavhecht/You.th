@@ -806,7 +806,10 @@ no model request changes, so recordings replay), and only ever lowers. It re-val
 It is the weakest-claim rule applied to the article's own words, and it cannot tell the whole claim from part of it ("not supported
 across all populations"), so the reviewer is shown the sentence. Two sentences do not count: a split between
 studies ("others found no clear effect"), and on a claim saying "safe", "no clear evidence of harm" (`_NO_HARM_FOUND`), which
-backs it; "insufficient evidence of harm" says nobody knows, so it still lowers. **Replayed on the pilot: verdicts 13 → 18
+backs it; "insufficient evidence of harm" says nobody knows, so it still lowers. Since 2026-11-08 "does not support worries
+that it harms" and "has not been shown to damage" back it too (both lowered a safety article before), but only with the harm
+word before any "safe" or "harmless": "not proven harmless" still lowers. The quoted sentence no longer ends at the point in
+"0.5" (`_SENTENCE_END`). **Replayed on the pilot: verdicts 13 → 18
 of 19, answer correctness 52.6% → 68.4% (10 → 13), proportionate certainty 9 → 12; the phrases were written on
 these drafts, so that flatters it.** On 86 other Oct 26 drafts: verdicts 64 → 74, correct answers 49 → 58 of
 86 (fires on 24: 11 fixed, 12 no change, 1 broken). On the pilot's own Oct 26 drafts: no gain (2 fixed, 2 broken).

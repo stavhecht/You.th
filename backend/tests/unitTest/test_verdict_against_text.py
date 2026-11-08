@@ -147,8 +147,17 @@ def test_a_split_between_studies_is_not_a_conclusion_against_the_claim(text: str
 NO_HARM = "No clear evidence of harm was found in these trials."
 
 
-def test_finding_no_harm_backs_a_safety_claim() -> None:
-    assert claim_not_backed(_with_text(NO_HARM), ["melatonin is safe long term"]) is None
+@pytest.mark.parametrize(
+    "text",
+    [
+        NO_HARM,
+        "Research does not support worries that creatine harms healthy kidneys.",
+        "Creatine has not been shown to damage the kidneys of healthy adults.",
+        "No clear evidence of harm was found, and it appears safe.",
+    ],
+)
+def test_finding_no_harm_backs_a_safety_claim(text: str) -> None:
+    assert claim_not_backed(_with_text(text), ["creatine is safe for the kidneys"]) is None
 
 
 def test_finding_no_harm_disowns_a_harm_claim() -> None:
@@ -161,6 +170,8 @@ def test_finding_no_harm_disowns_a_harm_claim() -> None:
     [
         "There is insufficient evidence of harm to call it safe.",  # nobody knows
         "There is no clear evidence that it is safe.",  # names no harm
+        "It has not been proven harmless for the kidneys.",  # "harmless" is no harm word
+        "The research does not support that it is safe and free of side effects.",
     ],
 )
 def test_not_knowing_is_not_the_same_as_finding_it_safe(text: str) -> None:
@@ -176,3 +187,8 @@ def test_a_safety_article_still_gets_its_other_conclusions_checked() -> None:
 def test_a_split_does_not_hide_a_conclusion_in_another_sentence() -> None:
     text = f"Some trials found a benefit, while others found no clear effect. {NOT_BACKED}"
     assert claim_not_backed(_with_text(text)) == NOT_BACKED.rstrip(".")
+
+
+def test_a_decimal_point_does_not_end_the_quoted_sentence() -> None:
+    text = "Gains averaged 0.5 kg, but the evidence is not strong enough."
+    assert claim_not_backed(_with_text(text)) == text.rstrip(".")

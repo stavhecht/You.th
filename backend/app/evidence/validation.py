@@ -700,13 +700,22 @@ _CLAIM_NOT_BACKED = re.compile(
 _STUDIES_SPLIT = re.compile(r"\bothers\b", re.IGNORECASE)
 
 _SAFETY_CLAIM = re.compile(r"\bsafe(ly|ty)?\b", re.IGNORECASE)
-#: Found no harm, which backs a safety claim. Only "no <word> evidence": "insufficient
-#: evidence of harm" says nobody knows, and that does not call anything safe.
+#: Found no harm, which backs a safety claim: "no clear evidence of harm", "does not support
+#: worries that it harms", "has not been shown to damage". Not "insufficient evidence of
+#: harm", which says nobody knows. A "safe" or "harmless" before the harm word is what the
+#: negation denies ("not been proven harmless", "does not support that it is safe and free
+#: of side effects"), so the harm word must come first; "harm" is matched whole for that.
 _NO_HARM_FOUND = re.compile(
-    r"no (clear|good|strong|reliable|solid) evidence\b.*"
-    r"\b(harm\w*|adverse|side effects?|risks?|toxic\w*|damage\w*|danger\w*|injur\w*)\b",
+    r"(?:no (?:clear|good|strong|reliable|solid) evidence|doesn['\u2019]t support"
+    r"|not support(?:ed)?|not (?:been )?(?:shown|proven|demonstrated|found))\b"
+    r"(?:(?!\bsafe|\bharmless)[^.])*?"
+    r"\b(?:harm(?:s|ful|ed)?|adverse|side effects?|risks?"
+    r"|toxic\w*|damag\w*|danger\w*|injur\w*)\b",
     re.IGNORECASE,
 )
+
+#: A sentence end: not the point inside "0.5".
+_SENTENCE_END = re.compile(r"[.!?](?=\s|$)")
 
 
 def claim_not_backed(output: SynthesisOutput, claims: Iterable[str] = ()) -> str | None:
@@ -720,9 +729,10 @@ def claim_not_backed(output: SynthesisOutput, claims: Iterable[str] = ()) -> str
     about_safety = any(_SAFETY_CLAIM.search(claim) for claim in claims)
     text = f"{output.body.beat_3_bottom_line} {output.summary}"
     for match in _CLAIM_NOT_BACKED.finditer(text):
-        start = text.rfind(".", 0, match.start()) + 1
-        end = text.find(".", match.end())
-        sentence = text[start : end if end >= 0 else None].strip()
+        ends = _SENTENCE_END.finditer(text, 0, match.start())
+        start = max((m.end() for m in ends), default=0)
+        end = _SENTENCE_END.search(text, match.end())
+        sentence = text[start : end.start() if end else None].strip()
         if about_safety and _NO_HARM_FOUND.search(sentence):
             continue
         # "while others found no clear effect" reports a split, which is what ``mixed`` means

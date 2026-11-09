@@ -24,12 +24,14 @@ from app.domain.contracts import CandidatePaper, RankedSource
 from app.domain.enums import SourceApi, StudyType
 from app.retrieval.rerank import (
     GRADE_BONUS,
+    KEEP_BEST_MATCHES,
     RECENCY_BONUS_MAX,
     RECENCY_FULL_CREDIT_YEARS,
     RECENCY_ZERO_CREDIT_YEARS,
     assign_handles,
     recency_bonus,
     score,
+    select_top,
 )
 
 NOW = 2026
@@ -279,3 +281,80 @@ def test_claims_with_no_survivors_are_preserved_as_empty() -> None:
 def test_assigning_handles_to_nothing_is_not_an_error() -> None:
     """The no-evidence path reaches here with every claim empty."""
     assert assign_handles({"a": [], "b": []}) == {"a": [], "b": []}
+
+
+# ---------------------------------------------------------------------------
+# The best matches are always kept.
+# ---------------------------------------------------------------------------
+
+
+def _scored(source_id: str, cosine: float, final_score: float) -> RankedSource:
+    entry = _ranked(source_id, "c", final_score)
+    return entry.model_copy(update={"cosine_similarity": cosine})
+
+
+def test_a_best_match_cut_by_the_bonuses_is_kept() -> None:
+    """wt_087: the melanoma trial matched second best of 51 (0.863) and fell
+    0.013 under the cut, behind reviews matching 0.78 with a larger bonus."""
+    reviews = [_scored(f"r{i}", 0.78, 0.96 - i * 0.001) for i in range(12)]
+    trial = _scored("trial", 0.863, 0.943)
+
+    top = select_top(sorted([*reviews, trial], key=lambda e: e.final_score, reverse=True), 12)
+
+    assert len(top) == 12
+    assert "trial" in {e.source_id for e in top}
+    assert "r11" not in {e.source_id for e in top}  # the lowest score made room
+    assert [e.final_score for e in top] == sorted((e.final_score for e in top), reverse=True)
+
+
+def test_nothing_changes_when_the_best_matches_already_made_the_cut() -> None:
+    ranked = [_scored(f"p{i}", 0.9 - i * 0.01, 1.0 - i * 0.01) for i in range(20)]
+
+    assert select_top(ranked, 12) == ranked[:12]
+
+
+def test_only_the_best_few_matches_are_protected() -> None:
+    ranked = sorted(
+        [_scored(f"r{i}", 0.70, 0.95 - i * 0.001) for i in range(12)]
+        + [_scored(f"m{i}", 0.90 - i * 0.01, 0.80 - i * 0.01) for i in range(6)],
+        key=lambda e: e.final_score,
+        reverse=True,
+    )
+
+    kept = {e.source_id for e in select_top(ranked, 12)}
+
+    assert {f"m{i}" for i in range(KEEP_BEST_MATCHES)} <= kept
+    assert f"m{KEEP_BEST_MATCHES}" not in kept
+
+
+def test_a_protected_paper_at_the_cut_is_not_pushed_out_by_the_others() -> None:
+    """The best match sits last in the top 12 while the next two are outside it:
+    making room for those two must not drop the first."""
+    filler = [_scored(f"f{i}", 0.70, 0.99 - i * 0.001) for i in range(11)]
+    best = [_scored("A", 0.95, 0.90), _scored("B", 0.94, 0.85), _scored("C", 0.93, 0.84)]
+    ranked = sorted([*filler, *best], key=lambda e: e.final_score, reverse=True)
+
+    kept = {e.source_id for e in select_top(ranked, 12)}
+
+    assert {"A", "B", "C"} <= kept
+    assert len(kept) == 12
+
+
+def test_a_short_list_is_returned_whole() -> None:
+    ranked = [_scored("a", 0.9, 0.9), _scored("b", 0.95, 0.8)]
+
+    assert select_top(ranked, 12) == ranked
+
+
+def test_a_best_matching_narrative_review_is_not_protected() -> None:
+    """conf_004: a narrative review titled like the question pushed out a 2024
+    meta-analysis. Only trials and systematic reviews are protected."""
+    strong = [_scored(f"m{i}", 0.87, 1.05 - i * 0.001) for i in range(12)]
+    narrative = _scored("narrative", 0.905, 0.884).model_copy(
+        update={"paper": _paper(StudyType.NARRATIVE_REVIEW)}
+    )
+
+    kept = {e.source_id for e in select_top([*strong, narrative], 12)}
+
+    assert "narrative" not in kept
+    assert "m11" in kept

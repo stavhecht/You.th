@@ -133,6 +133,40 @@ _NARRATIVE_TITLE_RE = re.compile(
     r"\bnarrative\b[^.:]{0,30}\breview\b|(?<!systematic )\bliterature review\b", re.I
 )
 
+#: A title calling the paper a review is read like a `Review` tag: graded inside
+#: the review family, never as a trial. Untyped records (OpenAlex, Europe PMC)
+#: otherwise reached the trial words every review of an intervention uses;
+#: measured 2026-11-09, 19 papers titled "…: A Scoping Review", "Review of the
+#: Literature: …" and the like were graded `rct`. "Reviewed" does not match.
+_REVIEW_TITLE_RE = re.compile(r"\breview\b", re.I)
+#: For a paper routed here by its title alone (no `Review` tag), the old text
+#: fallback read these as systematic; the title rule must not demote them.
+#: Title only: in an abstract they widened 66 grades on the 2026-11-09 traces.
+_SYSTEMATIC_TITLE_RE = re.compile(
+    r"\b(systematic (literature )?review|umbrella review)\b", re.I
+)
+#: Only a title that *is* a Cochrane review: letters criticising one name it too.
+_COCHRANE_TITLE_RE = re.compile(r"^\s*cochrane\s+(systematic\s+)?review\b", re.I)
+
+#: Animals named as *this* study's subjects, not mentioned in passing: "Male
+#: Wistar rats (n=30) were randomized" (wt_098 cited that rat study as a trial),
+#: "30 mice", "in a rat model". A bare "mice" is background in many human trials
+#: ("studies in mice suggest…"), so it never demotes one on its own.
+_ANIMAL_SUBJECTS_RE = re.compile(
+    r"\b(rats|mice|rodents|rabbits|hamsters|piglets)\s+(\(n\s*=\s*\d+\)\s+)?(were|was)\b"
+    r"|\b\d+\s+(male\s+|female\s+|adult\s+)?(\w+\s+)?(rats|mice)\b"
+    r"|\b(male|female)\s+(wistar|sprague[- ]dawley|albino|swiss|balb/c|c57bl/6\w*)"
+    r"\s+(rats|mice)\b"
+    r"|\b(in|on|using)\s+(an?\s+)?(rat|mouse|murine|rodent|animal)\s+models?\b",
+    re.I,
+)
+#: Any sign the study had human subjects keeps a trial a trial.
+_HUMAN_SUBJECTS_RE = re.compile(
+    r"\b(participants|patients|volunteers|adults|children|adolescents|men|women"
+    r"|human subjects|healthy subjects)\b",
+    re.I,
+)
+
 #: Abstract prose in which a review describes *its own* method, as opposed to
 #: the literature it surveys. Measured 2026-10-13: three narrative reviews in
 #: one article graded ``meta_analysis`` because their abstracts said "evidence
@@ -322,7 +356,7 @@ def strong_by_direction(cited: list[tuple[StudyType, Stance | None]]) -> dict[st
 
     Recorded on every report and enforced nowhere yet: the verdict cap above is
     still stance-blind, and this only drives a reviewer warning while the
-    labels' accuracy is measured (CLAUDE.md, APPRAISE).
+    labels' accuracy is measured (app/pipeline/CLAUDE.md, APPRAISE).
     """
     tally = {"for": 0, "against": 0, "unlabelled": 0}
     for study_type, stance in cited:
@@ -431,8 +465,8 @@ def classify_study_type(
         (study for pattern, study in TEXT_PATTERNS if pattern.search(haystack)), None
     )
 
-    if normalised_types & PROVISIONAL_REVIEW_TYPES:
-        # Tagged a review and nothing more specific. The text may sharpen that
+    if normalised_types & PROVISIONAL_REVIEW_TYPES or _REVIEW_TITLE_RE.search(title):
+        # Tagged (or titled) a review and nothing more specific. The text may sharpen that
         # into a systematic review or meta-analysis; anything else it thinks it
         # sees is the surveyed literature, not this paper. And even a review-
         # family word counts only where it describes this paper — in its title,
@@ -450,7 +484,19 @@ def classify_study_type(
         )
         if title_guess in REVIEW_FAMILY:
             return title_guess
+        if _COCHRANE_TITLE_RE.search(title) or (
+            not normalised_types & PROVISIONAL_REVIEW_TYPES
+            and _SYSTEMATIC_TITLE_RE.search(title)
+        ):
+            return StudyType.SYSTEMATIC_REVIEW
         return StudyType.NARRATIVE_REVIEW
+
+    if (
+        guess in (StudyType.RCT, StudyType.OBSERVATIONAL)
+        and _ANIMAL_SUBJECTS_RE.search(haystack)
+        and not _HUMAN_SUBJECTS_RE.search(haystack)
+    ):
+        return StudyType.ANIMAL
 
     if guess is not None:
         return guess

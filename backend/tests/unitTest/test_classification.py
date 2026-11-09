@@ -322,3 +322,137 @@ def test_no_publication_type_maps_to_an_unknown_grade() -> None:
     silently suppressing the text fallback. Negative types belong in
     ``NEGATIVE_PUBLICATION_TYPES``, which is explicit about doing that."""
     assert StudyType.UNKNOWN not in PUBLICATION_TYPE_MAP.values()
+
+
+# ---------------------------------------------------------------------------
+# Untyped records (OpenAlex, Europe PMC): a review title and an animal study.
+# Measured 2026-11-09: of 367 papers graded `rct` by the text fallback in the
+# latest pilot and retrieval suites, at least 28 were not trials — 19 said
+# "review" in their title — and wt_098 cited a rat study as a trial.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("title", "abstract"),
+    [
+        (
+            "A Comprehensive Review of Rosemary-Based Herbal Hair Growth Serum: "
+            "Formulation, Evaluation and Prospects",
+            "Rosemary has attracted interest; a randomized trial compared it with "
+            "minoxidil, and double-blind studies are summarised here.",
+        ),
+        (
+            "Review of the Literature: Rosemary Oil: Potential Benefits in Male "
+            "Pattern Balding",
+            "Panahi, Y., et al. Rosemary oil vs minoxidil 2%: a randomized "
+            "comparative trial.",
+        ),
+        (
+            "Creatine Supplementation in Endurance and Mixed-Sport Contexts: A "
+            "Scoping Review",
+            "Randomized controlled trials of creatine were charted.",
+        ),
+    ],
+)
+def test_an_untyped_paper_titled_a_review_is_not_a_trial(title: str, abstract: str) -> None:
+    assert classify_study_type(["article"], title=title, abstract=abstract) is (
+        StudyType.NARRATIVE_REVIEW
+    )
+
+
+def test_an_untyped_systematic_review_keeps_its_grade() -> None:
+    result = classify_study_type(
+        [],
+        title="Rosemary oil for hair loss: a systematic review and meta-analysis",
+        abstract="We searched PubMed for randomized trials.",
+    )
+
+    assert result is StudyType.META_ANALYSIS
+
+
+def test_an_untyped_cochrane_review_is_a_systematic_review() -> None:
+    result = classify_study_type(
+        ["article"],
+        title="Cochrane Review: Zinc for the common cold",
+        abstract="Selection criteria: randomised, double-blind, placebo-controlled trials.",
+    )
+
+    assert result is StudyType.SYSTEMATIC_REVIEW
+
+
+def test_an_untyped_rat_study_that_randomised_its_rats_is_an_animal_study() -> None:
+    """wt_098 cited this one as a trial."""
+    result = classify_study_type(
+        ["article"],
+        title="Additive effects of clove (Syzygium aromaticum) and rosemary "
+        "(Rosmarinus officinalis) essential oils on hair regrowth",
+        abstract="Aims: To evaluate the effects of the oils, alone and in combination, "
+        "on hair regrowth in rats and compared with 2% minoxidil. Methods: Male "
+        "Wistar rats (n=30) were randomized to negative control (vehicle), 2% "
+        "minoxidil, or the oils.",
+    )
+
+    assert result is StudyType.ANIMAL
+
+
+@pytest.mark.parametrize(
+    "abstract",
+    [
+        # Animals as background, people as the study.
+        "Studies in mice suggest a benefit. In this randomized, double-blind "
+        "trial, 60 participants received creatine or placebo.",
+        "Rats fed high doses showed liver changes. We randomized 120 adults to "
+        "two arms.",
+        # Animals mentioned with no sign of being the study's own subjects.
+        "This randomized controlled trial in older patients follows animal "
+        "data on rats and mice.",
+    ],
+)
+def test_a_human_trial_that_mentions_animals_stays_a_trial(abstract: str) -> None:
+    assert classify_study_type(["article"], title="Creatine and sleep", abstract=abstract) is (
+        StudyType.RCT
+    )
+
+
+def test_a_systematic_review_of_animal_studies_stays_a_review() -> None:
+    """Only a primary animal study is demoted; a review keeps its family."""
+    result = classify_study_type(
+        [],
+        title="Creatine in rodent models: a systematic review",
+        abstract="Studies in which rats were randomly assigned were included.",
+    )
+
+    assert result is StudyType.SYSTEMATIC_REVIEW
+
+
+def test_a_cochrane_meta_analysis_keeps_its_grade() -> None:
+    """The dry run over the cache caught this: Cochrane must not cap a title
+    that says meta-analysis."""
+    result = classify_study_type(
+        ["review"],
+        title="Effect of longer term modest salt reduction on blood pressure: Cochrane "
+        "systematic review and meta-analysis of randomised trials",
+    )
+
+    assert result is StudyType.META_ANALYSIS
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "Magnesium sulfate for acute asthma in adults: a systematic literature review.",
+        "Salivary biomarkers in burning mouth syndrome: an umbrella review of systematic "
+        "reviews.",
+    ],
+)
+def test_an_untyped_systematic_or_umbrella_review_stays_systematic(title: str) -> None:
+    assert classify_study_type(["article"], title=title) is StudyType.SYSTEMATIC_REVIEW
+
+
+def test_a_letter_criticising_a_cochrane_review_is_not_one() -> None:
+    result = classify_study_type(
+        ["article"],
+        title="Shortcomings in the Cochrane review on zinc for the common cold (2024)",
+    )
+
+    assert result is StudyType.NARRATIVE_REVIEW

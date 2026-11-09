@@ -34,7 +34,7 @@ from app.domain.enums import EVIDENCE_RANK, StudyType
 from app.llm.embeddings.base import EmbeddingProvider
 from app.retrieval.cache import CachedSource
 from app.retrieval.chunking import chunk_text
-from app.retrieval.rerank import RerankConfig, ranking_text, score
+from app.retrieval.rerank import RerankConfig, ranking_text, score, select_top
 from evaluation.schema import FaultSpec
 
 
@@ -188,7 +188,7 @@ class MemoryReranker:
                 )
             )
         ranked.sort(key=lambda entry: entry.final_score, reverse=True)
-        return ranked[: config.top_k]
+        return select_top(ranked, config.top_k)
 
 
 class _Scalars:

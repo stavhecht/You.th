@@ -23,7 +23,7 @@ VALIDATE to read, and PERSIST writes them to ``article_sources.stance``.
 Measured 2026-10-02 on llama3.1:8b over 132 blind-labelled pairs, the two were
 level on flips (2 each, on different studies) and ``one_call`` was slightly
 ahead on direction (79% against 78%) and on off-topic studies caught (75%
-against 69%) at one call instead of two — the full table is in CLAUDE.md. Both
+against 69%) at one call instead of two — the full table is in app/pipeline/CLAUDE.md. Both
 are kept because the winner is a fact about a model, not about the task: a
 larger or hosted model may reverse it, and re-measuring is a setting away.
 

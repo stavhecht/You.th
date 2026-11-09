@@ -61,6 +61,32 @@ class RerankConfig:
     min_abstract_chars: int = MIN_ABSTRACT_CHARS
 
 
+#: The papers matching the claim best are kept whatever the bonuses say. A review
+#: earns 0.15 + up to 0.03 recency to an older trial's 0.08, so on wt_087 (2026-11-07)
+#: the melanoma trial, second best of 51 by similarity (0.863), lost its place to
+#: sun-behaviour reviews matching 0.78. Three, so the bonuses still decide the rest.
+#: Only trials and systematic reviews: on conf_004 a narrative review titled like the
+#: question pushed out a 2024 meta-analysis, and a narrative review caps at `weak`.
+KEEP_BEST_MATCHES = 3
+PROTECTED_TYPES = frozenset(
+    {StudyType.RCT, StudyType.SYSTEMATIC_REVIEW, StudyType.META_ANALYSIS}
+)
+
+
+def select_top(ranked: list[RankedSource], top_k: int) -> list[RankedSource]:
+    """The top ``top_k`` of ``ranked`` (sorted by score, best first), with the
+    ``KEEP_BEST_MATCHES`` most similar trials and systematic reviews always kept;
+    the lowest-scoring others make room for them."""
+    keep = sorted(
+        (entry for entry in ranked if entry.paper.study_type in PROTECTED_TYPES),
+        key=lambda entry: entry.cosine_similarity,
+        reverse=True,
+    )[: min(KEEP_BEST_MATCHES, top_k)]
+    ids = {entry.source_id for entry in keep}
+    rest = [entry for entry in ranked if entry.source_id not in ids][: top_k - len(keep)]
+    return sorted(keep + rest, key=lambda entry: entry.final_score, reverse=True)
+
+
 def recency_bonus(year: int | None, *, current_year: int | None = None) -> float:
     """Full credit up to 5 years old, falling linearly to zero at 15.
 
@@ -162,7 +188,7 @@ class SemanticReranker:
             )
 
         ranked.sort(key=lambda entry: entry.final_score, reverse=True)
-        top = ranked[: config.top_k]
+        top = select_top(ranked, config.top_k)
 
         logger.info(
             "rerank claim=%r: %d candidates -> %d kept (top score %.3f)",

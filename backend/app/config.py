@@ -199,7 +199,7 @@ class Settings(BaseSettings):
     #: claim's outcome, then label it) or ``two_call`` (relevance first, then a
     #: direction call shown only the relevant sources). One call is the default
     #: on measurement — level on flipped directions, slightly ahead on the rest,
-    #: half the calls (CLAUDE.md, APPRAISE). Two calls is kept for re-measuring
+    #: half the calls (app/pipeline/CLAUDE.md, APPRAISE). Two calls is kept for re-measuring
     #: when the appraisal model changes.
     appraisal_mode: Literal["one_call", "two_call"] = "one_call"
     #: Whether SYNTHESIZE uses APPRAISE's relevance calls to trim its prompt:

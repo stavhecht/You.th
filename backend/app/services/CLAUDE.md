@@ -2,7 +2,7 @@
 
 Accounts, feed ordering, subjects, card derivation, and the media store.
 
-Loaded when you work under this directory; the root [CLAUDE.md](../../../CLAUDE.md) (commands, invariants, map) still applies. The reasoning behind the design is in [docs/design/03-frontend-auth-pipeline.md](../../../docs/design/03-frontend-auth-pipeline.md) §3.2 and [03-article-body-and-media.md](../../../docs/design/03-article-body-and-media.md).
+Loaded when you work under this directory; the root [CLAUDE.md](../../../CLAUDE.md) (commands, invariants, map) still applies. The reasoning behind the design is in [docs/design/03a-frontend-auth-pipeline.md](../../../docs/design/03a-frontend-auth-pipeline.md) §3.2 and [03b-article-body-and-media.md](../../../docs/design/03b-article-body-and-media.md).
 
 ## Accounts
 

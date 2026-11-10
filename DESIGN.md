@@ -32,9 +32,9 @@ for each area are in the nested `CLAUDE.md` files listed in the root [CLAUDE.md]
 |---|---|
 | §1 | [The four invariants](docs/design/01-invariants.md) |
 | §2 | [System shape](docs/design/02-system-shape.md) |
-| §3.1, §3.2, §3.3 | [Vite SPA, shaped for a Next.js port (your call, recorded) / Auth: two kinds of account, minimal, with a real audit trail / Pipeline: local worker with a `pipeline_runs` table](docs/design/03-frontend-auth-pipeline.md) |
-| §3.4, §3.4b, §3.4c | [Article body as TipTap JSON, not markdown / Article media: uploaded or generated, never linked / Generated illustration: two frames, one locked prompt builder, no claim](docs/design/03-article-body-and-media.md) |
-| §3.5, §3.6, §3.7, §3.8 | [Embeddings: Voyage, behind an interface / LLM: a model setting per job, structured outputs, no sampling params / Cost: store tokens, price at read time / The visual system: You.th over Modernist](docs/design/03-models-cost-visual.md) |
+| §3.1, §3.2, §3.3 | [Vite SPA, shaped for a Next.js port (your call, recorded) / Auth: two kinds of account, minimal, with a real audit trail / Pipeline: local worker with a `pipeline_runs` table](docs/design/03a-frontend-auth-pipeline.md) |
+| §3.4, §3.4b, §3.4c | [Article body as TipTap JSON, not markdown / Article media: uploaded or generated, never linked / Generated illustration: two frames, one locked prompt builder, no claim](docs/design/03b-article-body-and-media.md) |
+| §3.5, §3.6, §3.7, §3.8 | [Embeddings: Voyage, behind an interface / LLM: a model setting per job, structured outputs, no sampling params / Cost: store tokens, price at read time / The visual system: You.th over Modernist](docs/design/03c-models-cost-visual.md) |
 | §4 | [Retrieval design](docs/design/04-retrieval.md) |
 | §4b | [Topic discovery: the research agent](docs/design/04b-topic-discovery.md) |
 | §5 | [The AI contracts](docs/design/05-ai-contracts.md) |

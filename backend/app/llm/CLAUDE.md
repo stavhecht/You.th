@@ -2,7 +2,7 @@
 
 Which model runs where, the traps in each provider, and the token ledger.
 
-Loaded when you work under this directory; the root [CLAUDE.md](../../../CLAUDE.md) (commands, invariants, map) still applies. The reasoning behind the design is in [docs/design/03-models-cost-visual.md](../../../docs/design/03-models-cost-visual.md) §3.6-3.7.
+Loaded when you work under this directory; the root [CLAUDE.md](../../../CLAUDE.md) (commands, invariants, map) still applies. The reasoning behind the design is in [docs/design/03c-models-cost-visual.md](../../../docs/design/03c-models-cost-visual.md) §3.6-3.7.
 
 ## Choosing and sizing a local model
 

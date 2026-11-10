@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Skill(claude-api)",
-      "Bash(npm run *)",
-      "Bash(docker compose *)"
-    ]
-  }
-}

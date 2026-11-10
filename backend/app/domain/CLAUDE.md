@@ -2,7 +2,7 @@
 
 `contracts.py` is the spec, its docstrings are prompt text, and the body is TipTap JSON.
 
-Loaded when you work under this directory; the root [CLAUDE.md](../../../CLAUDE.md) (commands, invariants, map) still applies. The reasoning behind the design is in [docs/design/03-article-body-and-media.md](../../../docs/design/03-article-body-and-media.md) and [05-ai-contracts.md](../../../docs/design/05-ai-contracts.md).
+Loaded when you work under this directory; the root [CLAUDE.md](../../../CLAUDE.md) (commands, invariants, map) still applies. The reasoning behind the design is in [docs/design/03b-article-body-and-media.md](../../../docs/design/03b-article-body-and-media.md) and [05-ai-contracts.md](../../../docs/design/05-ai-contracts.md).
 
 ## `contracts.py` is the spec
 

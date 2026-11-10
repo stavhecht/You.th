@@ -2,7 +2,7 @@
 
 The nine stages, the graph that orders them, transaction boundaries, the worker, and what SYNTHESIZE does to a draft.
 
-Loaded when you work under this directory; the root [CLAUDE.md](../../../CLAUDE.md) (commands, invariants, map) still applies. The reasoning behind the design is in [docs/design/03-frontend-auth-pipeline.md](../../../docs/design/03-frontend-auth-pipeline.md) §3.3.
+Loaded when you work under this directory; the root [CLAUDE.md](../../../CLAUDE.md) (commands, invariants, map) still applies. The reasoning behind the design is in [docs/design/03a-frontend-auth-pipeline.md](../../../docs/design/03a-frontend-auth-pipeline.md) §3.3.
 
 ## Stages and the graph
 

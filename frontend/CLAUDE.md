@@ -2,7 +2,7 @@
 
 Vite SPA: public site and review desk.
 
-Loaded when you work under this directory; the root [CLAUDE.md](../CLAUDE.md) (commands, invariants, map) still applies. The reasoning behind the design is in [docs/design/03-frontend-auth-pipeline.md](../docs/design/03-frontend-auth-pipeline.md) §3.1 and [03-models-cost-visual.md](../docs/design/03-models-cost-visual.md) §3.8.
+Loaded when you work under this directory; the root [CLAUDE.md](../CLAUDE.md) (commands, invariants, map) still applies. The reasoning behind the design is in [docs/design/03a-frontend-auth-pipeline.md](../docs/design/03a-frontend-auth-pipeline.md) §3.1 and [03c-models-cost-visual.md](../docs/design/03c-models-cost-visual.md) §3.8.
 
 ## Theme
 

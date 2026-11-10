@@ -2,7 +2,7 @@
 
 How the image prompt is built and why it can never make a claim.
 
-Loaded when you work under this directory; the root [CLAUDE.md](../../../CLAUDE.md) (commands, invariants, map) still applies. The reasoning behind the design is in [docs/design/03-article-body-and-media.md](../../../docs/design/03-article-body-and-media.md) §3.4c.
+Loaded when you work under this directory; the root [CLAUDE.md](../../../CLAUDE.md) (commands, invariants, map) still applies. The reasoning behind the design is in [docs/design/03b-article-body-and-media.md](../../../docs/design/03b-article-body-and-media.md) §3.4c.
 
 ## Rules
 

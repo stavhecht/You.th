@@ -31,10 +31,10 @@ import {
   TOOLBAR_DIVIDER,
   saveIndicator,
   toolbarButton,
-} from "./styles";
-import type { Autosave } from "./useAutosave";
+} from "../styles";
+import type { Autosave } from "../useAutosave";
 import { ACCEPTED_IMAGE_TYPES, useMediaInsert, type MediaInsert } from "./useMediaInsert";
-import { useIllustration, type Illustration } from "./useIllustration";
+import { useIllustration, type Illustration } from "../useIllustration";
 import type { TipTapDoc } from "@/types/api";
 
 interface Props {

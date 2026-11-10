@@ -47,7 +47,7 @@ import {
   MEDIA_RESIZE_HANDLE_VISIBLE,
   MEDIA_WIDTH_READOUT,
   mediaControlButton,
-} from "./styles";
+} from "../styles";
 
 /** One press of − or +. Fine enough to matter, coarse enough to be quick. */
 const WIDTH_STEP = 5;

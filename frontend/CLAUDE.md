@@ -77,6 +77,9 @@ wrapped to two lines, and drops the reviewer's name and the public-feed link (`W
 
 ## Editor block types
 
+The TipTap editor and its custom nodes live in `features/console/editor/` (split out of
+`console/` 2026-11-10); the review panels stay in `console/`.
+
 **A new block type has to be declared in the console editor's `StarterKit`, or it is silently
 destroyed.** TipTap drops nodes its schema does not know: with `heading: false` the editor
 parsed a sectioned draft, discarded every heading, and the first autosave wrote an

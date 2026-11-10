@@ -39,7 +39,7 @@ import {
 import { VerdictMark } from "@/features/evidence/VerdictMark";
 import { VERDICT_LABELS } from "@/features/evidence/labels";
 import { readingTimeLabel } from "@/lib/readingTime";
-import { ArticleEditor } from "./ArticleEditor";
+import { ArticleEditor } from "./editor/ArticleEditor";
 import { FeedPreview } from "./FeedPreview";
 import { SubjectPicker } from "./SubjectPicker";
 import { SourcesPanel, ValidationSummary } from "./SourcesPanel";

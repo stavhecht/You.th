@@ -409,7 +409,7 @@ export const TOOLBAR_DIVIDER = "mx-1.5 h-4 w-px bg-rule-soft";
  * renderer wraps a node view in an element of its own, and that element is the
  * one sitting in the editor's flow, so it is the one that has to float. It
  * gets `mediaWrapClass()` from `lib/media.ts` through the node's `attrs`
- * option (see `MediaNodes.ts`), which is the same class the published article
+ * option (see `editor/MediaNodes.ts`), which is the same class the published article
  * uses.
  *
  * What is left for the figure is the part that only exists while editing:

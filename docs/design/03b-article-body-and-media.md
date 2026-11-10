@@ -111,7 +111,7 @@ A percentage rather than pixels because the editor's column (~850px) and the art
 coordinates: media stay siblings of the beat paragraphs and are placed by being dragged
 between them, which is what keeps `attrs.beat` — and therefore the derived card — meaningful.
 
-In the editor the two nodes are React node views (`console/MediaNodeView.tsx`). Worth knowing
+In the editor the two nodes are React node views (`console/editor/MediaNodeView.tsx`). Worth knowing
 before editing it: TipTap's React renderer wraps a node view in an element of *its own*, and
 that element is the one in the editor's flow, so it is the one that has to float — hence the
 `attrs` option on `addNodeView()` rather than styling the component's own root. Dragging the

@@ -55,7 +55,7 @@ docker compose exec n8n n8n import:workflow --separate --input=/workflows
 
 # check
 pytest tests/ -q
-pytest tests/unitTest/test_invariants.py::test_name -q     # single test
+pytest tests/unit/test_invariants.py::test_name -q     # single test
 ruff check app tests scripts evaluation  # clean; treat as a gate
 mypy app                                 # clean (strict); treat as a gate
 
@@ -153,8 +153,9 @@ measured reasons behind them, and the traps.
   text.** It reaches the model as the generation grammar.
 - **Unknown is never zero.** A missing measurement is `None`/NULL, an unpriced model costs
   `None`, an unchecked retraction is `retraction_checked_at IS NULL`.
-- **A green `pytest` with Postgres down proves less than it looks**: eleven DB suites skip
-  silently (list in [backend/tests/CLAUDE.md](backend/tests/CLAUDE.md)). Check the skip count.
+- **A green `pytest` with Postgres down proves less than it looks**: the thirteen suites in
+  `backend/tests/db/` skip silently (what each one covers is in
+  [backend/tests/CLAUDE.md](backend/tests/CLAUDE.md)). Check the skip count.
 - **Stop llama-server before `npm run test:e2e`** (`llama-server/manage.sh stop`): with it
   resident the browser tests took 31-38 min with random timeouts; stopped, 21 s.
 - **Do not compress the synthesis prompt**; it was measured and reverted (see the LLM notes).
@@ -165,7 +166,7 @@ The four are stated with their enforcement mechanisms in [DESIGN.md](./DESIGN.md
 matters when editing:
 
 1. `ReviewService.approve()` is the **only** assignment of `published` in the codebase.
-   `tests/unitTest/test_publish_path.py` greps the AST and fails when a second one appears. If a change
+   `tests/unit/test_publish_path.py` greps the AST and fails when a second one appears. If a change
    seems to need another publish path, that is a design conversation, not a fix.
 2. Citation validation runs after synthesis, before persistence. A failing draft is written as
    `validation_failed` and never enters the review queue — do not soften it to a warning.

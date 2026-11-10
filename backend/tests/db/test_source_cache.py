@@ -12,7 +12,7 @@ Skipped automatically when no database is reachable, following
 
     docker compose up -d db
     python -m scripts.migrate
-    pytest tests/unitTest/test_source_cache.py
+    pytest tests/db/test_source_cache.py
 """
 
 from __future__ import annotations

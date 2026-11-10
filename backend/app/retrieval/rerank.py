@@ -138,7 +138,7 @@ class SemanticReranker:
         * **Top-k is cut in Python, after the bonuses.** A SQL ``LIMIT`` on
           similarity alone would drop exactly the reviews the grade bonus
           exists to promote. So the query has no ``LIMIT``, and Postgres
-          scores every candidate exactly (``tests/unitTest/test_rerank_plan.py``).
+          scores every candidate exactly (``tests/db/test_rerank_plan.py``).
 
         Handles are placeholders here; ``assign_handles`` numbers them across
         the whole article.

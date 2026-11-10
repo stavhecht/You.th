@@ -46,7 +46,7 @@ worker's poll loop, leaving the run neither failed nor completed. The offset kee
 monotonic in execution order (0..8 for an ordinary run; with one refinement 0..2, then 10, 11,
 then 12..17) and is a no-op on round 0, so an ordinary run records exactly what it always did. The **commit** boundary still keys on list
 position: "is this the last stage" is a question about the pipeline's shape, not about how many
-times it has looped. `tests/unitTest/test_orchestrator_transactions.py::test_a_refinement_pass_does_not_collide_with_its_own_stage_row`
+times it has looped. `tests/db/test_orchestrator_transactions.py::test_a_refinement_pass_does_not_collide_with_its_own_stage_row`
 fails with an `IntegrityError` without the offset.
 
 **The one branch is RANK → RETRIEVE, and it is why this is a graph at all.** `rank.py::thin_claims`

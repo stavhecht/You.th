@@ -259,7 +259,7 @@ loop made it the most expensive path instead of the cheapest.
 
 **The re-rank is exact and there is no HNSW index.** Top-k
 is applied in Python after the grade bonus, so no `LIMIT` reaches SQL and the planner cannot
-choose an approximate scan — `tests/unitTest/test_rerank_plan.py` pins this with `EXPLAIN`. That holds
+choose an approximate scan — `tests/db/test_rerank_plan.py` pins this with `EXPLAIN`. That holds
 for `source_chunks` exactly as it did for the old `sources.embedding`: creating an index there
 means revisiting `rank_for_claim` first. `0001_initial.sql` records the statement and the
 condition that would justify one, commented beside the index it declines to create.

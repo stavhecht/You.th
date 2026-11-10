@@ -156,5 +156,5 @@ Six things about it that are load-bearing:
 The sharpest risk is `UnanchoredQuery`: a promoted topic that leads extraction to return an empty
 `ingredients` and a vague `product` dies at a **non-retryable** stage failure, having spent the
 extraction call. Topics are composed as `"<substance> for <outcome>"` with the substance bare and
-first for that reason, and `tests/unitTest/test_discovery_topics.py` pins that every botanical still anchors
+first for that reason, and `tests/unit/test_discovery_topics.py` pins that every botanical still anchors
 a query. It fails *visibly* — the run shows `failed` — so it costs one call, not a wrong article.

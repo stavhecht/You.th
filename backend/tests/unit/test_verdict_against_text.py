@@ -16,7 +16,7 @@ from app.evidence.validation import claim_not_backed
 from app.pipeline.steps import persist
 from app.pipeline.steps.persist import ValidateStage
 from app.pipeline.steps.synthesize import SynthesizeStage
-from tests.unitTest.test_synthesis_coverage import _context, _draft
+from tests.unit.test_synthesis_coverage import _context, _draft
 
 BACKED = "Trials in adults found a clear benefit for sleep."
 NOT_BACKED = "The research does not support the claim that it improves sleep."

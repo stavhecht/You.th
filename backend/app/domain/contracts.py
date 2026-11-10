@@ -71,7 +71,7 @@ _HANDLE_IN_MARKER_RE = re.compile(r"S\d+")
 #: into a GBNF grammar and its converter does not understand the ``\d`` escape:
 #: with ``\d`` the whole request fails at 400 "failed to parse grammar", which
 #: breaks every synthesis call rather than just a malformed one. Verified
-#: against llama3.1:8b — see tests/unitTest/test_content.py.
+#: against llama3.1:8b — see tests/unit/test_content.py.
 CitationHandle = Annotated[str, StringConstraints(pattern=r"^S[0-9]+$")]
 
 #: The shorthand a model reaches for when every source backs the same claim:

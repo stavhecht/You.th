@@ -8,7 +8,7 @@ Run with a database available:
 
     docker compose up -d db
     python -m scripts.migrate
-    pytest tests/unitTest/test_db_invariants.py
+    pytest tests/db/test_db_invariants.py
 
 The URL comes from ``TEST_DATABASE_URL`` if set, otherwise from the application
 settings — so it follows ``.env`` and cannot drift from the port compose

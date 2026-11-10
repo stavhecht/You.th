@@ -1,6 +1,6 @@
 """Parsing MeSH out of real efetch XML.
 
-``tests/unitTest/fixtures/pubmed_mesh_sample.xml`` was **captured from a live efetch** on
+``tests/unit/fixtures/pubmed_mesh_sample.xml`` was **captured from a live efetch** on
 2026-09-04, not hand-written. That matters: the whole window design rests on
 ``<PubMedPubDate PubStatus="entrez">`` being present, and a hand-made fixture
 would only prove that the parser reads the XML someone imagined.

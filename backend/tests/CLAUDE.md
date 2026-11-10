@@ -4,9 +4,17 @@ What a green `pytest` does and does not prove.
 
 Loaded when you work under this directory; the root [CLAUDE.md](../../CLAUDE.md) (commands, invariants, map) still applies.
 
+## Layout
+
+By what a test needs to run, not by app area (file prefixes already say the area):
+`unit/` needs nothing, `db/` needs Postgres and skips without it, `e2e/` needs `youth_test`.
+A new suite that opens a real connection goes in `db/` and gets a row in the table below.
+(Split 2026-11-10 from a single `unitTest/` that held both, which is how two DB suites
+went missing from this table.)
+
 ## Testing gotchas
 
-**Eleven suites skip silently when no database is reachable**, and they are the ones covering
+**The thirteen suites in `db/` skip silently when no database is reachable**, and they are the ones covering
 guarantees a fake session cannot express — SQL semantics, transaction boundaries, and the
 query planner. A green `pytest` with the DB down is a much weaker signal than it looks:
 
@@ -23,6 +31,8 @@ query planner. A green `pytest` with the DB down is a much weaker signal than it
 | `test_reader_privacy.py` | account export and erasure reaching exactly the caller's rows (the folder/save cascade), the password re-check and its throttle on `DELETE /readers/me`, and `privacy_request` erasing by address |
 | `test_feed_search.py` | `approve()` indexing the *edited* body through `article_search_document`, drafts never answering a search, citation markers and `topic` staying out of the index, and the typo fallback answering only when full text found nothing and the query used no `-word` |
 | `test_research_db.py` | the research candidates' three decision CHECKs, single-flight (the check *and* the `research_runs_one_active` index), the worker's claim, checkpoint upserts by primary key, topic resolution and observation upserts being idempotent, history pruning keeping referenced topics, and feed state storing SQL `NULL` (it deletes the rows it commits) |
+| `test_review_locking.py` | `approve`, `save_edits` and `reject` locking the article row, so an autosave racing Approve cannot write unapproved text onto a published article |
+| `test_social_db.py` | social listening and product discovery against `youth_test` (see below; it also skips when that database lacks migration 0002) |
 
 Point them elsewhere with `TEST_DATABASE_URL`; they otherwise use `database_url` from
 settings. `test_discovery_db.py` runs against a *populated* database on purpose — after a

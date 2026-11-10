@@ -22,7 +22,7 @@ from app.domain.enums import ResearchCandidateStatus, ResearchRunMode, ResearchR
 from app.domain.models import ResearchCandidate, ResearchRun
 from app.research import service
 from app.research.trends.contracts import TrendSearchResult
-from tests.unitTest.test_research_graph import World, _run, _state
+from tests.unit.test_research_graph import World, _run, _state
 
 
 def _walk_keys(value: Any) -> list[str]:

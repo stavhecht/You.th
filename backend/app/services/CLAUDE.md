@@ -125,7 +125,7 @@ billing two renders to someone who asked for one is the mistake the budget exist
     from the app's own origin. A document may only reference media the store wrote; checked on
     autosave *and* again in `ReviewService.approve()`. Do not relax either check to make a
     paste work. `media.py::image_node` builds the node the pipeline writes and
-    `tests/unitTest/test_media.py` pins that `assert_media_is_ours` accepts it, because a writer and a
+    `tests/unit/test_media.py` pins that `assert_media_is_ours` accepts it, because a writer and a
     checker that disagree produce an article whose *first* autosave is refused.
   - `store_image` still has **no size gate**: the upload route enforces `MEDIA_MAX_BYTES`, and
     a generated image never passes through it, so `services/illustration.py` is the only

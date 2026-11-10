@@ -13,7 +13,7 @@ the grade floor. The scoring itself (``score``: cosine + grade bonus + recency
 bonus), the chunking (``chunk_text``), the top-k cut and the handle assignment
 are imported from production unchanged. The SQL's own properties (no ``LIMIT``
 reaching the planner, exact scan) are pinned separately by
-``tests/unitTest/test_rerank_plan.py`` against a live database.
+``tests/db/test_rerank_plan.py`` against a live database.
 
 One deliberate mirror of the real cache: a row keeps the fields it was first
 inserted with. ``SourceCache`` refreshes only identifiers and citation counts

@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.config import get_settings
 from app.services.review import EditConflict, ReviewError, ReviewService
-from tests.unitTest.test_feed_search import _doc, _draft, _reviewer
+from tests.db.test_feed_search import _doc, _draft, _reviewer
 
 DATABASE_URL = os.environ.get("TEST_DATABASE_URL") or get_settings().database_url
 

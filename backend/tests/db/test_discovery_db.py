@@ -19,7 +19,7 @@ Needs a live database, and skips silently without one — see the note in
 
     docker compose up -d db
     python -m scripts.migrate
-    pytest tests/unitTest/test_discovery_db.py
+    pytest tests/db/test_discovery_db.py
 """
 
 from __future__ import annotations

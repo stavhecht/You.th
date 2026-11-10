@@ -7,7 +7,7 @@ same way ``test_db_invariants.py`` does — **a skipped run verifies none of it.
 
     docker compose up -d db
     python -m scripts.migrate
-    pytest tests/unitTest/test_orchestrator_transactions.py
+    pytest tests/db/test_orchestrator_transactions.py
 """
 
 from __future__ import annotations

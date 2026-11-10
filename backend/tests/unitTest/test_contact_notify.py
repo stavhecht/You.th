@@ -115,7 +115,7 @@ def test_sending_a_message_queues_one_email_after_saving_it(
     with TestClient(app) as http:
         response = http.post(
             "/api/contact",
-            json={"kind": "topic", "name": "Maya", "email": "maya@example.com", "note": "Hi"},
+            json={"kind": "other", "name": "Maya", "email": "maya@example.com", "note": "Hi"},
         )
 
     assert response.status_code == 202

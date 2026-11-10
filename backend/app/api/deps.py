@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
+from datetime import timedelta
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Path, Request, status
@@ -16,13 +17,14 @@ from app.db import get_session_factory
 from app.domain.enums import UserRole
 from app.domain.models import Reader, User
 from app.security.auth import (
-    TOKEN_TYPE_READER,
     AuthenticatedReader,
     AuthenticatedReviewer,
     AuthError,
+    decode_reader_token,
     decode_token_subject,
+    password_unchanged,
 )
-from app.security.login_throttle import InMemoryLoginThrottle, LoginThrottle
+from app.security.login_throttle import Budget, InMemoryLoginThrottle, LoginThrottle
 from app.security.spend_throttle import InMemorySpendThrottle, SpendThrottle
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -113,6 +115,22 @@ def get_signup_throttle() -> LoginThrottle:
 
 
 SignupThrottleDep = Annotated[LoginThrottle, Depends(get_signup_throttle)]
+
+#: And one for "forgot your password", apart for the same reason: every request
+#: can send an email, and a burst must not lock anyone out of signing in.
+#: Three per address an hour, not the login's twenty per quarter hour: each one
+#: mails a stranger through the Gmail account the contact form shares, and a
+#: real reader needs one link, maybe two.
+_password_reset_throttle: LoginThrottle = InMemoryLoginThrottle(
+    account_budget=Budget(max_failures=3, window=timedelta(hours=1))
+)
+
+
+def get_password_reset_throttle() -> LoginThrottle:
+    return _password_reset_throttle
+
+
+PasswordResetThrottleDep = Annotated[LoginThrottle, Depends(get_password_reset_throttle)]
 
 #: And a fourth counter, of a different kind, for regenerating article imagery.
 #:
@@ -210,8 +228,8 @@ async def _resolve_reader(
         return None
 
     try:
-        reader_id = decode_token_subject(
-            credentials.credentials, settings.jwt_secret, expect=TOKEN_TYPE_READER
+        reader_id, fingerprint = decode_reader_token(
+            credentials.credentials, settings.jwt_secret
         )
     except AuthError:
         return None
@@ -221,6 +239,9 @@ async def _resolve_reader(
     )
     reader = result.scalar_one_or_none()
     if reader is None:
+        return None
+    # A token from before the last password change: a reset signs out every device.
+    if fingerprint is not None and not password_unchanged(fingerprint, reader.password_hash):
         return None
 
     return AuthenticatedReader(

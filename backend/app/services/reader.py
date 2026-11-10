@@ -102,6 +102,11 @@ class ReaderService:
         logger.info("reader %s signed up", reader.id)
         return reader
 
+    async def set_password(self, reader: Reader, password: str) -> None:
+        reader.password_hash = await asyncio.to_thread(hash_password, password)
+        await self._session.flush()
+        logger.info("reader %s reset their password", reader.id)
+
     async def by_email(self, email: str) -> Reader | None:
         result = await self._session.execute(
             select(Reader).where(

@@ -568,6 +568,8 @@ class Settings(BaseSettings):
     #: shortcut: placeholder until the editorial Gmail inbox exists; set
     #: CONTACT_NOTIFY_TO in the root .env, then --force-recreate backend.
     contact_notify_to: str = "editorial@example.com"
+    #: Where the public site is served, for links in emails (password reset).
+    public_site_url: str = "http://localhost:5173"
 
     # --- article media ---
     #: Per-file ceiling. Generous for a photo, small enough that a stray upload

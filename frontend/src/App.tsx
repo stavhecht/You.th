@@ -40,6 +40,7 @@ import { AccessibilityRoute } from "./routes/accessibility";
 import { ArticleRoute } from "./routes/article";
 import { ContactRoute } from "./routes/contact";
 import { FeedRoute } from "./routes/feed";
+import { ForgotPasswordRoute } from "./routes/forgot-password";
 import { JoinRoute } from "./routes/join";
 import { PrivacyRoute } from "./routes/privacy";
 import { TermsRoute } from "./routes/terms";
@@ -70,6 +71,7 @@ export function App() {
               {/* Keyed so switching between the two never carries one form's fields into the other. */}
               <Route path="/join" element={<JoinRoute key="join" mode="signup" />} />
               <Route path="/signin" element={<JoinRoute key="signin" mode="login" />} />
+              <Route path="/forgot-password" element={<ForgotPasswordRoute />} />
               <Route path="/you" element={<YouRoute />} />
               <Route path="/contact" element={<ContactRoute />} />
               <Route path="/privacy" element={<PrivacyRoute />} />

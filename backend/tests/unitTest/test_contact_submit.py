@@ -100,3 +100,70 @@ async def test_parallel_messages_cannot_outrun_the_rate_limit(
     accepted = [r for r in responses if r.status_code == 202]
     assert len(accepted) == len(saved) == IP_BUDGET.max_failures
     assert all(r.status_code in (202, 429) for r in responses)
+
+
+async def test_only_a_signed_in_reader_can_suggest_a_topic_and_it_is_sent_as_them(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Topics are for accounts; the name and address come from the account, not the form."""
+    from types import SimpleNamespace
+
+    import httpx
+
+    import app.api.deps as deps
+    import app.api.public.contact as contact_api
+    from app.main import create_app
+    from app.security.auth import AuthenticatedReader
+
+    saved: list[Any] = []
+
+    class _Session:
+        def add(self, row: Any) -> None:
+            row.id = "3f1c0000-0000-0000-0000-000000000001"
+            saved.append(row)
+
+        async def flush(self) -> None:
+            return None
+
+        async def commit(self) -> None:
+            return None
+
+    async def _session() -> Any:
+        yield _Session()
+
+    async def _no_email(*_: Any) -> None:
+        return None
+
+    monkeypatch.setattr(contact_api, "notify_editors", _no_email)
+    counted: list[str] = []
+    allow = SimpleNamespace(
+        retry_after=lambda **_: None,
+        record_failure=lambda *, ip, email: counted.append(email),
+    )
+    signed_in: list[AuthenticatedReader | None] = [None]
+    app = create_app()
+    app.dependency_overrides[deps.get_session] = _session
+    app.dependency_overrides[deps.get_contact_throttle] = lambda: allow
+    app.dependency_overrides[deps.client_ip] = lambda: "203.0.113.7"
+    app.dependency_overrides[deps.optional_reader] = lambda: signed_in[0]
+
+    topic = {
+        "kind": "topic",
+        "name": "Someone",
+        "email": "else@example.com",
+        "note": "creatine",
+    }
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as http:
+        guest = await http.post("/api/contact", json=topic)
+        other = await http.post("/api/contact", json={**topic, "kind": "other"})
+        signed_in[0] = AuthenticatedReader(id="r1", email="ada@example.com", display_name="Ada")
+        member = await http.post("/api/contact", json=topic)
+
+    assert guest.status_code == 401
+    assert other.status_code == 202
+    assert member.status_code == 202
+    assert [row.kind for row in saved] == [ContactKind.OTHER, ContactKind.TOPIC]
+    assert (saved[1].name, saved[1].email) == ("Ada", "ada@example.com")
+    # Counted against the account, so changing the form's email cannot dodge the limit.
+    assert counted[-1] == "ada@example.com"

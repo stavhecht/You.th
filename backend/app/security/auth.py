@@ -13,9 +13,12 @@ parameters are current best practice.
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import hmac
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import jwt
 from argon2 import PasswordHasher
@@ -60,6 +63,10 @@ TOKEN_TYPE_READER = "reader"
 #: hour at a desk; a reader comes back next week and should not have to think
 #: about it. Both are still bearer tokens with an expiry.
 READER_TOKEN_TTL = timedelta(days=30)
+
+#: A password-reset link. Short, because it travels by email.
+TOKEN_TYPE_READER_RESET = "reader_reset"
+RESET_TOKEN_TTL = timedelta(minutes=30)
 
 
 @dataclass(frozen=True, slots=True)
@@ -141,23 +148,82 @@ def create_access_token(reviewer: AuthenticatedReviewer, secret: str) -> tuple[s
     return token, int(ACCESS_TOKEN_TTL.total_seconds())
 
 
-def create_reader_token(reader_id: str, secret: str) -> tuple[str, int]:
+def create_reader_token(reader_id: str, secret: str, password_hash: str) -> tuple[str, int]:
     """Issue a reader's JWT. Returns (token, expires_in_seconds).
 
     Same signing key and algorithm as the reviewer token, separated by the
     ``typ`` claim rather than by a second secret. One secret to rotate, and the
     separation is checked on every decode — see ``decode_token_subject``.
+
+    It also carries a fingerprint of the password hash, so a password reset
+    signs out every device: see ``_resolve_reader`` in ``api/deps.py``.
     """
     now = datetime.now(UTC)
     expires = now + READER_TOKEN_TTL
     payload = {
         "sub": reader_id,
         "typ": TOKEN_TYPE_READER,
+        "pwd": _password_fingerprint(password_hash),
         "iat": int(now.timestamp()),
         "exp": int(expires.timestamp()),
     }
     token = jwt.encode(payload, secret, algorithm=JWT_ALGORITHM)
     return token, int(READER_TOKEN_TTL.total_seconds())
+
+
+def _password_fingerprint(password_hash: str) -> str:
+    """Changes whenever the password does, which is what makes a reset link single-use."""
+    return hashlib.sha256(password_hash.encode()).hexdigest()[:16]
+
+
+def create_reset_token(reader_id: str, password_hash: str, secret: str) -> str:
+    """A signed, 30-minute reset link token, no table needed.
+
+    It carries a fingerprint of the current password hash, so it stops working
+    the moment the password changes, its own use included. Its ``typ`` means
+    neither surface accepts it as a session token.
+    """
+    now = datetime.now(UTC)
+    payload = {
+        "sub": reader_id,
+        "typ": TOKEN_TYPE_READER_RESET,
+        "pwd": _password_fingerprint(password_hash),
+        "iat": int(now.timestamp()),
+        "exp": int((now + RESET_TOKEN_TTL).timestamp()),
+    }
+    return jwt.encode(payload, secret, algorithm=JWT_ALGORITHM)
+
+
+def reset_token_subject(token: str, secret: str) -> tuple[str, str]:
+    """(reader id, password fingerprint) from a reset token, or ``AuthError``."""
+    try:
+        payload = jwt.decode(token, secret, algorithms=[JWT_ALGORITHM])
+    except jwt.PyJWTError as exc:
+        raise AuthError("invalid token") from exc
+    subject, fingerprint = payload.get("sub"), payload.get("pwd")
+    if (
+        payload.get("typ") != TOKEN_TYPE_READER_RESET
+        or not isinstance(subject, str)
+        or not isinstance(fingerprint, str)
+    ):
+        raise AuthError("invalid token")
+    return subject, fingerprint
+
+
+def password_unchanged(fingerprint: str, password_hash: str) -> bool:
+    """True while the password is the one a token was issued against."""
+    return hmac.compare_digest(fingerprint, _password_fingerprint(password_hash))
+
+
+def decode_reader_token(token: str, secret: str) -> tuple[str, str | None]:
+    """(reader id, password fingerprint) from a reader session token.
+
+    shortcut: tokens issued before 2026-11-10 carry no fingerprint and give None;
+    they all expire by 2026-12-10, after which None can be refused.
+    """
+    payload = _decode(token, secret, TOKEN_TYPE_READER)
+    fingerprint = payload.get("pwd")
+    return payload["sub"], fingerprint if isinstance(fingerprint, str) else None
 
 
 def decode_token_subject(
@@ -181,8 +247,13 @@ def decode_token_subject(
         AuthError: expired, malformed, bad signature, or minted for the other
             surface.
     """
+    return str(_decode(token, secret, expect)["sub"])
+
+
+def _decode(token: str, secret: str, expect: str) -> dict[str, Any]:
+    """Signature, expiry, surface and a non-empty subject, or ``AuthError``."""
     try:
-        payload = jwt.decode(token, secret, algorithms=[JWT_ALGORITHM])
+        payload: dict[str, Any] = jwt.decode(token, secret, algorithms=[JWT_ALGORITHM])
     except jwt.PyJWTError as exc:
         raise AuthError("invalid token") from exc
 
@@ -192,4 +263,4 @@ def decode_token_subject(
     subject = payload.get("sub")
     if not isinstance(subject, str) or not subject:
         raise AuthError("invalid token")
-    return subject
+    return payload

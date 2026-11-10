@@ -154,7 +154,7 @@ def test_a_reader_token_is_refused_by_the_console_decoder() -> None:
     401 would still happen for the wrong reason — a reader id simply not being
     in `users` — and that reason evaporates the day anyone changes that query.
     """
-    token, _ = create_reader_token(str(uuid.uuid4()), "a-test-secret")
+    token, _ = create_reader_token(str(uuid.uuid4()), "a-test-secret", "a-hash")
 
     with pytest.raises(AuthError):
         decode_token_subject(token, "a-test-secret", expect=TOKEN_TYPE_REVIEWER)

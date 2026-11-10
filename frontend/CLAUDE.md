@@ -29,7 +29,7 @@ mirroring a Next `app/` tree one-for-one, and keep `window` out of render paths 
 route level.
 
 **Two route groups that share only `App.tsx`.** The public site (`/`, `/a/:slug`, `/about`,
-`/join`, `/you`, `/contact`, `/privacy`, `/terms`) renders under `PublicLayout` — site bar, category drawer, mobile
+`/join`, `/signin`, `/forgot-password`, `/you`, `/contact`, `/privacy`, `/terms`, `/accessibility`) renders under `PublicLayout` — site bar, category drawer, mobile
 tab bar. The review desk is at **`/review`**, is lazy-loaded, and renders `ReviewHeader`
 instead. Nothing public links to it. That is chrome and discoverability, *not* access control:
 a URL is not a secret, and what actually keeps readers out is `RequireAuth` plus the
@@ -67,6 +67,13 @@ were removed deliberately: a standing menu of Supported / Mixed / Weak / No evid
 scoreboard, and offering it as a primary way into the feed invites browsing by score rather
 than by subject — the framing the content rules exist to avoid. `?verdict=` is still a real
 narrowing and still works from a shared link; the navigation just does not propose it.
+
+**Phones get no header nav** (below `sm`): About and Sign in are hidden there, so the tab
+bar's last tab is **Sign in** for a guest (You when signed in), and search is a 36px button
+that opens across the bar on focus (`SEARCH_FORM`). **The contact page is the general form
+only; "Suggest a topic" lives on `/you`**, for signed-in readers (the API refuses it signed
+out). The review desk's bar keeps the mark centred below `sm`, with a smaller mark and the tag
+wrapped to two lines, and drops the reviewer's name and the public-feed link (`WIDE_ONLY`).
 
 ## Editor block types
 

@@ -18,13 +18,14 @@ from __future__ import annotations
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
 from app.api.deps import (
     ClientIpDep,
     IdPath,
+    PasswordResetThrottleDep,
     ReaderDep,
     ReaderLoginThrottleDep,
     SessionDep,
@@ -36,16 +37,27 @@ from app.api.public.schemas import (
     CreateFolderRequest,
     DeleteAccountRequest,
     FolderOut,
+    ForgotPasswordRequest,
     ReaderLoginRequest,
     ReaderOut,
     ReaderTokenResponse,
+    ResetPasswordRequest,
     SavedPageOut,
     SaveRequest,
     SignupRequest,
     UpdateReaderRequest,
 )
 from app.api.schemas_base import UUID_PATTERN
-from app.security.auth import check_password, create_reader_token, equalise_timing
+from app.security.auth import (
+    AuthError,
+    check_password,
+    create_reader_token,
+    create_reset_token,
+    equalise_timing,
+    password_unchanged,
+    reset_token_subject,
+)
+from app.services.notify import password_reset_email, send_email
 from app.services.reader import (
     EmailAlreadyRegistered,
     ReaderError,
@@ -107,7 +119,9 @@ async def signup(
         # the reader cannot use and cannot diagnose.
         raise _conflict(exc) from None
 
-    token, expires_in = create_reader_token(reader.id, settings.jwt_secret)
+    token, expires_in = create_reader_token(
+        reader.id, settings.jwt_secret, reader.password_hash
+    )
     return ReaderTokenResponse(access_token=token, expires_in=expires_in)
 
 
@@ -137,8 +151,75 @@ async def login(
         raise _INVALID_CREDENTIALS
 
     throttle.record_success(ip=ip, email=email)
-    token, expires_in = create_reader_token(reader.id, settings.jwt_secret)
+    token, expires_in = create_reader_token(
+        reader.id, settings.jwt_secret, reader.password_hash
+    )
     return ReaderTokenResponse(access_token=token, expires_in=expires_in)
+
+
+# --- forgotten password ------------------------------------------------------
+
+_EXPIRED_LINK = HTTPException(
+    status_code=status.HTTP_400_BAD_REQUEST,
+    detail="This reset link has expired or was already used",
+)
+
+
+@router.post("/password/forgot", status_code=status.HTTP_202_ACCEPTED)
+async def forgot_password(
+    payload: ForgotPasswordRequest,
+    session: SessionDep,
+    settings: SettingsDep,
+    throttle: PasswordResetThrottleDep,
+    ip: ClientIpDep,
+    background: BackgroundTasks,
+) -> dict[str, str]:
+    """Email a reset link if the address has an account.
+
+    The answer is the same either way, so the endpoint does not reveal which
+    addresses are registered. The email goes out after the response, so its
+    send time cannot tell them apart either. Every request counts against the
+    throttle, because every one can send mail.
+    """
+    retry_after = throttle.retry_after(ip=ip, email=payload.email)
+    if retry_after is not None:
+        raise too_many_attempts(retry_after, "Too many attempts. Try again later.")
+    throttle.record_failure(ip=ip, email=payload.email)
+
+    reader = await ReaderService(session).by_email(payload.email)
+    if reader is not None:
+        token = create_reset_token(reader.id, reader.password_hash, settings.jwt_secret)
+        link = f"{settings.public_site_url.rstrip('/')}/forgot-password?token={token}"
+        background.add_task(
+            send_email,
+            password_reset_email(reader.email, link, settings),
+            settings,
+            "password reset email",
+        )
+    return {"status": "sent if the account exists"}
+
+
+@router.post("/password/reset", status_code=status.HTTP_204_NO_CONTENT)
+async def reset_password(
+    payload: ResetPasswordRequest,
+    session: SessionDep,
+    settings: SettingsDep,
+) -> None:
+    """Set a new password from an emailed link. The link then stops working.
+
+    Not throttled, on purpose: a bad token costs one signature check, and the
+    slow password hash runs only after a valid emailed link. A throttle here had
+    no email to key on, so every reset on the site shared one counter.
+    """
+    try:
+        reader_id, fingerprint = reset_token_subject(payload.token, settings.jwt_secret)
+        service = ReaderService(session)
+        reader = await service.get(reader_id)
+    except (AuthError, ReaderError):
+        raise _EXPIRED_LINK from None
+    if not password_unchanged(fingerprint, reader.password_hash):
+        raise _EXPIRED_LINK
+    await service.set_password(reader, payload.password)
 
 
 # --- profile ---------------------------------------------------------------

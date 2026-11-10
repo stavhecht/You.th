@@ -154,10 +154,29 @@ class SignupRequest(CamelModel):
     @field_validator("password")
     @classmethod
     def _password_policy(cls, value: str) -> str:
-        missing = [name for name, rule in PASSWORD_RULES if not rule.search(value)]
-        if missing:
-            raise ValueError(f"password needs {', '.join(missing)}")
-        return value
+        return _check_password_policy(value)
+
+
+def _check_password_policy(value: str) -> str:
+    missing = [name for name, rule in PASSWORD_RULES if not rule.search(value)]
+    if missing:
+        raise ValueError(f"password needs {', '.join(missing)}")
+    return value
+
+
+class ForgotPasswordRequest(CamelModel):
+    email: EmailAddress
+
+
+class ResetPasswordRequest(CamelModel):
+    token: str = Field(min_length=1, max_length=2000)
+    #: Same policy as signup.
+    password: str = Field(min_length=8, max_length=200)
+
+    @field_validator("password")
+    @classmethod
+    def _password_policy(cls, value: str) -> str:
+        return _check_password_policy(value)
 
 
 class ReaderLoginRequest(CamelModel):

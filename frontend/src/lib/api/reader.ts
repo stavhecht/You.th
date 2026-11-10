@@ -68,6 +68,22 @@ export async function login(
   return { token: response.access_token, reader: await fetchMe() };
 }
 
+/** Always 202, account or not: the answer must not say which addresses exist. */
+export async function forgotPassword(email: string): Promise<void> {
+  await apiFetch<unknown>("/readers/password/forgot", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+/** 400 when the emailed link has expired or was already used. */
+export async function resetPassword(token: string, password: string): Promise<void> {
+  await apiFetch<void>("/readers/password/reset", {
+    method: "POST",
+    body: JSON.stringify({ token, password }),
+  });
+}
+
 /** Re-validates the stored token as a side effect of loading the reader. */
 export async function fetchMe(): Promise<Reader> {
   return apiFetch<Reader>("/readers/me");
@@ -151,9 +167,9 @@ export async function unsaveArticle(slug: string): Promise<void> {
 }
 
 /**
- * "Let us know" - a claim to check or a topic to cover.
+ * "Let us know". A message needs no account; a topic suggestion does (401
+ * signed out), and is sent under the account's own name and address.
  *
- * Unauthenticated: a request is worth having from someone who never signs up.
  * 202, not 201 - the row exists, but the thing being asked for has not
  * happened and may not.
  */

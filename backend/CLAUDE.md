@@ -42,8 +42,8 @@ Loaded when you work under this directory; the root [CLAUDE.md](../CLAUDE.md) (c
   attempt, so `/auth/login` saturates a core at ~32 req/s of junk, and `equalise_timing()`
   makes nonsense input cost the same as a real try. `security/login_throttle.py` is checked
   before the user lookup for that reason; moving it after would still pass every behavioural
-  test and leave the process exposed. **There are four separate instances** of it —
-  reviewer login, reader login, the contact form, and reader signup (`api/deps.py`; signup
+  test and leave the process exposed. **There are five separate instances** of it —
+  reviewer login, reader login, the contact form, reader signup and forgot-password (`api/deps.py`; signup
   hashes a password on every call, so it counts every attempt, and hashes in a thread
   rather than on the event loop). One shared counter
   would make the endpoints each other's denial of service: readers and reviewers arrive from
@@ -104,6 +104,24 @@ Loaded when you work under this directory; the root [CLAUDE.md](../CLAUDE.md) (c
   unseen in `contact_requests`, readable only through that endpoint in `/docs`. The
   sender's text stays in the plain-text body, and line breaks are collapsed out of the
   subject, so a name cannot add a `Bcc:` header. `Reply-To` is the sender.
+  **Suggesting a topic needs a reader account** (2026-11-10): `POST /contact` with
+  `kind: topic` answers 401 signed out and is stored under the account's own name and
+  address, whatever the form sent. The public contact page sends only `other`.
+- **"Forgot your password" sends through the same SMTP settings** (2026-11-10,
+  `POST /readers/password/forgot` and `/password/reset`). The link is a 30-minute JWT
+  (`typ: reader_reset`) carrying a fingerprint of the current password hash, so it is
+  single-use with no table: any password change, its own included, kills it. Forgot always
+  answers the same 202, account or not, and sends after the response. Its throttle allows
+  **three emails per address an hour** (not the login's 20 per 15 minutes), since each one
+  mails a stranger through the Gmail account the contact form shares. **The reset itself is
+  not throttled**: a bad link costs one signature check, and keyed on no email the throttle
+  made every reset on the site share one counter (20 junk requests blocked all of them).
+  **A reset signs out every device**: reader session tokens carry the same password-hash
+  fingerprint (`pwd`), and `_resolve_reader` refuses one whose fingerprint no longer matches.
+  Tokens from before 2026-11-10 have none and are accepted until they expire (2026-12-10). With
+  `SMTP_PASSWORD` empty the email is not sent and only a warning is logged, so no reader
+  can reset. The link points at `PUBLIC_SITE_URL` (default `http://localhost:5173`), which
+  must be the real site address wherever this is deployed.
 - **`IMAGE_GEN_KEY` must be a fine-grained HF token with "Make calls to Inference Providers".**
   A plain read token authenticates and then 403s on the first render, which reads nothing like
   a permissions problem until you see the message. No key at all is a supported state, not a

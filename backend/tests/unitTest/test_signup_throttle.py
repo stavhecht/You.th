@@ -39,7 +39,9 @@ def test_signups_past_the_ip_budget_are_refused_before_hashing(
 
         async def signup(self, *, email: str, **_: Any) -> Any:
             calls.append(email)
-            return SimpleNamespace(id="00000000-0000-0000-0000-000000000001")
+            return SimpleNamespace(
+                id="00000000-0000-0000-0000-000000000001", password_hash="hash"
+            )
 
     monkeypatch.setattr(readers_api, "ReaderService", _Service)
     app = create_app()

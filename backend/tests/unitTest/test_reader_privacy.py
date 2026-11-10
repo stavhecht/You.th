@@ -92,7 +92,7 @@ async def http(session: AsyncSession) -> AsyncIterator[httpx.AsyncClient]:
 
 
 def _auth(reader: Reader) -> dict[str, str]:
-    token, _ = create_reader_token(reader.id, get_settings().jwt_secret)
+    token, _ = create_reader_token(reader.id, get_settings().jwt_secret, reader.password_hash)
     return {"Authorization": f"Bearer {token}"}
 
 

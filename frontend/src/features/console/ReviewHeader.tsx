@@ -25,7 +25,7 @@ import {
   REVIEW_NAV,
   REVIEW_NAV_LINK,
 } from "./styles";
-import { SIGNED_IN_AS, SIGN_OUT_ACTION } from "./styles";
+import { SIGNED_IN_AS, SIGN_OUT_ACTION, WIDE_ONLY } from "./styles";
 import { THEME_TOGGLE } from "@/features/shell/styles";
 
 export function ReviewHeader() {
@@ -62,13 +62,13 @@ export function ReviewHeader() {
                 // were working through to do it.
                 target="_blank"
                 rel="noreferrer"
-                className={REVIEW_NAV_LINK}
+                className={`${REVIEW_NAV_LINK} ${WIDE_ONLY}`}
               >
                 Public feed ↗
               </Link>
 
               <span className={SIGNED_IN_AS}>
-                {reviewer.displayName}
+                <span className={WIDE_ONLY}>{reviewer.displayName}</span>
                 <button onClick={logout} className={SIGN_OUT_ACTION}>
                   Sign out
                 </button>

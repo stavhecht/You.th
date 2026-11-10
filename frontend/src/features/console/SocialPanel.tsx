@@ -60,7 +60,8 @@ import {
   CANDIDATES_HEADER,
   CANDIDATES_LIST,
   CANDIDATES_PANEL,
-  CANDIDATES_SCAN,
+  CANDIDATES_RUN,
+  CANDIDATES_RUN_GROUP,
   CANDIDATES_SCAN_NOTE,
   CANDIDATES_TITLE,
   CANDIDATES_TOGGLE,
@@ -470,21 +471,23 @@ export function SocialPanel() {
             {undecided}
           </span>
         ) : null}
-        {RUN_BUTTONS.map((button) => (
-          <button
-            key={button.kind}
-            type="button"
-            className={CANDIDATES_SCAN}
-            disabled={Boolean(active(button.kind)) || start.isPending}
-            onClick={() => start.mutate(button.kind)}
-            title={button.title}
-          >
-            {active(button.kind) ? (
-              <LoaderCircle className="size-3.5 animate-spin" aria-hidden />
-            ) : null}
-            {button.label}
-          </button>
-        ))}
+        <div className={CANDIDATES_RUN_GROUP}>
+          {RUN_BUTTONS.map((button) => (
+            <button
+              key={button.kind}
+              type="button"
+              className={CANDIDATES_RUN}
+              disabled={Boolean(active(button.kind)) || start.isPending}
+              onClick={() => start.mutate(button.kind)}
+              title={button.title}
+            >
+              {active(button.kind) ? (
+                <LoaderCircle className="size-3.5 animate-spin" aria-hidden />
+              ) : null}
+              {button.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {start.isError ? (

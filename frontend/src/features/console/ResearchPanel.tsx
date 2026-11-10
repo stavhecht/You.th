@@ -76,6 +76,7 @@ import {
   CANDIDATES_SUPPRESSED_WHY,
   CANDIDATES_TITLE,
   CANDIDATES_TOGGLE,
+  RESEARCH_CATEGORIES,
   RESEARCH_CATEGORY,
   RESEARCH_DONE,
   RESEARCH_OPTION,
@@ -518,16 +519,18 @@ export function ResearchPanel() {
                 <option value={14}>14 days</option>
               </select>
             </label>
-            {CATEGORIES.map((category) => (
-              <label key={category.value} className={RESEARCH_CATEGORY}>
-                <input
-                  type="checkbox"
-                  checked={categories.includes(category.value)}
-                  onChange={() => toggleCategory(category.value)}
-                />
-                {category.label}
-              </label>
-            ))}
+            <div className={RESEARCH_CATEGORIES}>
+              {CATEGORIES.map((category) => (
+                <label key={category.value} className={RESEARCH_CATEGORY}>
+                  <input
+                    type="checkbox"
+                    checked={categories.includes(category.value)}
+                    onChange={() => toggleCategory(category.value)}
+                  />
+                  {category.label}
+                </label>
+              ))}
+            </div>
           </div>
 
           <div className={CANDIDATES_LIST}>

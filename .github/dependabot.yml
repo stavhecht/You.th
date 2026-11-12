@@ -13,6 +13,13 @@ updates:
     directory: /backend
     schedule:
       interval: weekly
+    # Held by the caps in backend/pyproject.toml: neither has a test that makes a
+    # real call, so green CI says nothing about them. Lift the cap, then delete these.
+    ignore:
+      - dependency-name: anthropic
+        update-types: ["version-update:semver-major"]
+      - dependency-name: huggingface-hub
+        update-types: ["version-update:semver-major"]
     groups:
       minor-and-patch:
         update-types: [minor, patch]

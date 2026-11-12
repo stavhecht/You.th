@@ -4,14 +4,16 @@ version = "0.1.0"
 description = "Evidence-checked wellness content — API and generation pipeline"
 requires-python = ">=3.12"
 
-# Caps on anthropic, huggingface-hub, sqlalchemy and pillow hold them at the
-# versions the project ran on when it moved to uv (2026-11); lift after testing.
+# Caps on anthropic and huggingface-hub hold them at the versions the project ran
+# on when it moved to uv (2026-11); lift after testing a real call, then drop their
+# `ignore` entries in .github/dependabot.yml. sqlalchemy (2.1) and pillow (13) were
+# lifted 2026-11-12, each to its next minor/major only.
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
     "pydantic>=2.9",
     "pydantic-settings>=2.6",
-    "sqlalchemy[asyncio]>=2.0.36,<2.1",
+    "sqlalchemy[asyncio]>=2.1,<2.2",
     "asyncpg>=0.30",
     "pgvector>=0.3.6",
     "httpx>=0.28",

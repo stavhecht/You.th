@@ -130,6 +130,11 @@ Loaded when you work under this directory; the root [CLAUDE.md](../CLAUDE.md) (c
   both were already present *transitively* via `voyageai`, so an undeclared version works in
   every local venv and fails only in `docker compose up backend`, which installs from
   `pyproject.toml`. Same trap as `python-multipart`.
+- **SQLAlchemy 2.1 types a `Select` by its columns** (`Select[str, int]`, a variadic generic;
+  2026-11-12, Dependabot #23). `Select[Any]` now means *one* column, so a helper that takes and
+  returns a statement is generic (`feed.py::_published_only[*Ts]`), and a variable whose width
+  changes (`add_columns`) is declared `Select[*tuple[Any, ...]]`. Rows are typed too: a loop
+  variable reused for a different model is now a mypy error (`intel/related.py`).
 
 ## Deliberately out of scope, and what has been exercised
 

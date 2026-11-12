@@ -57,6 +57,7 @@ import {
   WEAK_EVIDENCE_WARNING,
   panelSourceRow,
   panelSourceStudyType,
+  RETRACTED_FLAG,
 } from "./styles";
 
 interface Props {
@@ -131,6 +132,12 @@ function SourceRow({
         {STUDY_TYPE_LABELS[source.studyType]} ·{" "}
         {source.wasCited ? "cited" : "retrieved, not cited"}
       </div>
+      {source.retracted || source.concern ? (
+        <div className={RETRACTED_FLAG}>
+          {source.retracted ? "Retracted" : "Expression of concern"}
+          {source.retractionNote ? ` · ${source.retractionNote}` : ""}
+        </div>
+      ) : null}
       {appraised ? (
         <div className={PANEL_SOURCE_META}>
           Appraised:{" "}

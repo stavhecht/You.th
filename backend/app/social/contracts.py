@@ -41,6 +41,13 @@ class CollectionKind(StrEnum):
     SOCIAL_DAILY = "social_daily"
     SOCIAL_WEEKLY = "social_weekly"
     PRODUCT_DISCOVERY = "product_discovery"
+    #: Not social at all: the weekly re-check of cited papers against the
+    #: retraction record. It rides this queue because the queue is what the
+    #: worker already claims from, sweeps and heartbeats.
+    RETRACTION_SWEEP = "retraction_sweep"
+    #: The MeSH trend scan (``app/discovery``). In the worker so it shares the
+    #: worker's PubMed rate limit; see ``app/discovery/CLAUDE.md``.
+    MESH_SCAN = "mesh_scan"
 
 
 class CollectionError(RuntimeError):

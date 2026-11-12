@@ -1,7 +1,6 @@
 """Enqueues collection runs when they are due. Runs nothing itself.
 
-The same shape as ``discovery/schedule.py``, and for the same reasons:
-due-ness is read from the ledger (the last *completed* run of each kind), so a
+Due-ness is read from the ledger (the last *completed* run of each kind), so a
 restart or a deploy loop does not trigger a run, and a slot missed while the
 API was down heals on the next tick. The loop never dies on a bad tick.
 
@@ -26,7 +25,6 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.config import Settings
-from app.discovery.schedule import is_due
 from app.domain.models import CollectionRun
 from app.social.contracts import CollectionKind
 from app.social.service import CollectionAlreadyActive, last_completed_at, start_collection_run
@@ -40,14 +38,51 @@ INTERVALS = {
     CollectionKind.SOCIAL_DAILY: timedelta(hours=23),
     CollectionKind.SOCIAL_WEEKLY: timedelta(days=7) - timedelta(hours=1),
     CollectionKind.PRODUCT_DISCOVERY: timedelta(days=7) - timedelta(hours=1),
+    CollectionKind.RETRACTION_SWEEP: timedelta(days=7) - timedelta(hours=1),
 }
 RETRY_AFTER = timedelta(hours=2)
 
 
-async def enqueue_due(session: AsyncSession, *, now: datetime) -> list[CollectionKind]:
+def is_due(last: datetime | None, interval: timedelta, *, now: datetime) -> bool:
+    """True when the last completed run is older than the interval.
+
+    ``None`` (nothing ever completed) is due: a fresh install fills its desk
+    without someone finding the button first. A naive timestamp is read as UTC
+    rather than crashing the comparison, which would kill the loop for good;
+    the worst case of the assumption is one extra run.
+    """
+    if last is None:
+        return True
+    if last.tzinfo is None:
+        last = last.replace(tzinfo=UTC)
+    return now - last >= interval
+
+
+def scheduled_intervals(settings: Settings) -> dict[CollectionKind, timedelta]:
+    """Which jobs this timer queues, each on its own switch.
+
+    ``COLLECTION_SCHEDULE_ENABLED`` covers the social, product and retraction
+    runs; the trend scan keeps the two settings it had when it ran on a timer
+    of its own (``DISCOVERY_SCAN_ENABLED``, ``DISCOVERY_SCAN_INTERVAL_HOURS``),
+    so turning one off never silently stops the other.
+    """
+    intervals = dict(INTERVALS) if settings.collection_schedule_enabled else {}
+    if settings.discovery_scan_enabled:
+        intervals[CollectionKind.MESH_SCAN] = timedelta(
+            hours=settings.discovery_scan_interval_hours
+        )
+    return intervals
+
+
+async def enqueue_due(
+    session: AsyncSession,
+    *,
+    now: datetime,
+    intervals: dict[CollectionKind, timedelta] = INTERVALS,
+) -> list[CollectionKind]:
     """Queue every kind that is due and not already active. Commits nothing."""
     queued = []
-    for kind, interval in INTERVALS.items():
+    for kind, interval in intervals.items():
         if not is_due(await last_completed_at(session, kind), interval, now=now):
             continue
         last_try = await session.scalar(
@@ -78,8 +113,11 @@ class CollectionScheduler:
         self._stopping = asyncio.Event()
 
     def start(self) -> None:
-        if not self._settings.collection_schedule_enabled:
-            logger.info("collection scheduler disabled (collection_schedule_enabled=false)")
+        if not scheduled_intervals(self._settings):
+            logger.info(
+                "scheduler off: collection_schedule_enabled and "
+                "discovery_scan_enabled are both false"
+            )
             return
         self._task = asyncio.create_task(self._run())
 
@@ -93,10 +131,13 @@ class CollectionScheduler:
             await task
 
     async def _run(self) -> None:
+        intervals = scheduled_intervals(self._settings)
         while not self._stopping.is_set():
             try:
                 async with self._factory() as session:
-                    queued = await enqueue_due(session, now=datetime.now(UTC))
+                    queued = await enqueue_due(
+                        session, now=datetime.now(UTC), intervals=intervals
+                    )
                     await session.commit()
                 if queued:
                     logger.info("queued collection runs: %s", [k.value for k in queued])

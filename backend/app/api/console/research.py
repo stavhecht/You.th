@@ -165,7 +165,10 @@ async def read_result(session: AsyncSession, run_id: str) -> TrendSearchResult:
 
 
 async def _load_promotable(session: AsyncSession, candidate_id: str) -> ResearchCandidate:
-    candidate = await session.get(ResearchCandidate, candidate_id)
+    # Locked for the same reason as the MeSH desk's `_load_proposed`.
+    candidate = await session.get(
+        ResearchCandidate, candidate_id, with_for_update=True, populate_existing=True
+    )
     if candidate is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "candidate not found")
     if candidate.status not in _PROMOTABLE:

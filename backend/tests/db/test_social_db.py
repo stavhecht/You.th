@@ -1258,7 +1258,7 @@ async def _research_run(db: AsyncSession) -> str:
 async def test_the_scheduler_queues_what_is_due_and_does_not_hammer_a_failure(
     factory: async_sessionmaker[AsyncSession],
 ) -> None:
-    from app.social.schedule import enqueue_due
+    from app.social.schedule import INTERVALS, enqueue_due
 
     async with factory() as db:
         first = await enqueue_due(db, now=NOW)
@@ -1268,8 +1268,21 @@ async def test_the_scheduler_queues_what_is_due_and_does_not_hammer_a_failure(
         await db.commit()
         soon = await enqueue_due(db, now=NOW + timedelta(minutes=30))  # failed, back off
         later = await enqueue_due(db, now=NOW + timedelta(hours=3))
-    assert set(first) == set(CollectionKind) and again == [] and soon == []
-    assert set(later) == set(CollectionKind)
+    assert set(first) == set(INTERVALS) and again == [] and soon == []
+    assert set(later) == set(INTERVALS)
+    # The trend scan is queued only when the scheduler hands it an interval
+    # (its own two settings), and then like any other kind.
+    assert CollectionKind.MESH_SCAN not in first
+    async with factory() as db:
+        await db.execute(sa.update(CollectionRun).values(status="failed", finished_at=NOW))
+        await db.commit()
+        mesh = await enqueue_due(
+            db,
+            now=NOW + timedelta(hours=9),
+            intervals={CollectionKind.MESH_SCAN: timedelta(hours=24)},
+        )
+        await db.commit()
+    assert mesh == [CollectionKind.MESH_SCAN]
 
 
 async def test_a_topic_found_this_week_counts_last_week_by_the_same_rule(

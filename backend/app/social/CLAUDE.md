@@ -19,7 +19,9 @@ pinned by that test, and neither module ever enqueues an article. What to know:
   `collect.py::platform_logs`; scraping vendors were considered and refused.
 - **Collection runs are a queue the worker claims** (`collection_runs`, kinds
   `social_daily | social_weekly | product_discovery`, one active per kind by a partial unique
-  index), after research runs and before article runs, with the research run's heartbeat and
+  index; since 2026-11-11 also `retraction_sweep`, which is not social: the weekly re-check of
+  cited papers rides this queue because the worker already claims, heartbeats and sweeps it,
+  see [retrieval/CLAUDE.md](../retrieval/CLAUDE.md)), after research runs and before article runs, with the research run's heartbeat and
   stale sweep. In the worker because the reader's model calls must never share the GPU with a
   pipeline run. `social/schedule.py` runs in the API lifespan and only *enqueues*: due-ness
   from the last completed run of each kind (23 h, ~7 days), and a failed kind is not retried

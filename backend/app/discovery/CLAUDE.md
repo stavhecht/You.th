@@ -15,42 +15,22 @@ so it costs nothing; the spend is entirely in what a reviewer chooses to promote
 `pipeline_runs.origin` is what makes that spend one `WHERE` against the token ledger.
 
 **Two callers, one scan.** `scripts/scan_trends.py` is argparse and printing around `run_scan`;
-`POST /console/discovery/scan` is a background task around it, driven by the desk's Run scan
-button. The endpoint must **not** shell out to the script — `scripts/` is deliberately outside the
-deployed image ([.dockerignore](../../.dockerignore)), so that button would work on a laptop and
-500 in a container. Exposing a manual trigger at all is safe only because of the paragraph above:
-a scan proposes, so the button spends PubMed requests and nothing of ours. `discovery/manual.py`
-holds the runner, and three things about it are deliberate — it is **single-flight per process**
-(two concurrent scans double this process's draw on NCBI's per-IP ceiling, which the worker shares,
-to compute the same answer twice; the ledger's idempotence is what makes the per-*process* scope
-merely wasteful rather than corrupting), its state lives **in memory, not in `discovery_scans`**
-(that table is the window ledger — `next_window` reads only its succeeded rows — so a press must
-not write to it), and a scan that raises lands on that state as an error string rather than as an
-unhandled task exception. A restart therefore reports `idle`; `last_scan_at`, read from the ledger,
-is what still answers "when did one last finish".
-
-**The scan runs on a timer, and the button is now the exception rather than the only way.**
-`discovery/schedule.py` starts a task in the **API process's** lifespan that fires
-`manual_scan.start()` when the ledger's last *succeeded* scan is older than
-`DISCOVERY_SCAN_INTERVAL_HOURS` (24). Automating this side is safe for exactly one reason, and it
-is the paragraph above: **a scan proposes and never enqueues**, so the timer spends PubMed
-requests and no tokens at all — the whole generative bill still sits behind a reviewer pressing
-Generate draft. Automating the *promotion* would be a different decision entirely, and there is
-still no `--auto-enqueue`. Four things about it:
-
-- **It goes through `manual_scan`, not a second path.** One runner means the single-flight guard
-  already covers press-versus-timer, and the desk's status line describes whichever scan is in
-  flight without knowing what started it. A `ScanAlreadyRunning` from a race is caught and the
-  tick does nothing.
-- **Due-ness is read from the ledger, never from a timer since process start.** So a restart does
-  not scan, a deploy loop does not scan per deploy, and a slot missed while the process was down
-  heals on the next tick. Same shape as `discovery_overlap_days`.
-- **The loop cannot die on a bad tick.** The symptom of a dead scheduler is *nothing happening*,
-  which reads exactly like a quiet fortnight — so every tick is wrapped, and a naive `finished_at`
-  from an older row is coerced to UTC rather than raising.
-- **It lives in the API process because `manual_scan` does.** Running more than one API replica
-  would give each its own scheduler and its own single-flight scope: wasteful, not corrupting,
-  because the observation ledger is idempotent — but scaling out wants an advisory lock first.
+**The scan runs in the worker, as a `mesh_scan` collection run** (since 2026-11-11). The desk's
+Run scan button (`POST /console/discovery/scan`) and the timer in the API process
+(`social/schedule.py`, on `DISCOVERY_SCAN_ENABLED` and `DISCOVERY_SCAN_INTERVAL_HOURS`, 24 h)
+both only insert that row; the partial unique index on `collection_runs` allows one active per
+kind, so a press during a running scan is a 409. Why the worker: the API and the worker each paced
+PubMed to NCBI's whole per-IP budget, so a scan landing on a pipeline run's RETRIEVE sent twice the
+allowance; the worker runs one job at a time, which is what makes one limiter true. It is
+model-free, so a stopped model server does not hold it back.
+`console/discovery.py::scan_out` turns the latest run into the state the desk reads (a queued run
+reads as running), and `last_scan_at` comes from the `discovery_scans` ledger, which a scan's
+press never writes to: `next_window` reads only its succeeded rows. Automating this side is safe
+for one reason: **a scan proposes and never enqueues**, so it spends PubMed requests and no
+tokens; promoting a candidate is still a reviewer pressing Generate draft. Due-ness is read from
+the last *completed* run, never from a timer since process start, so a restart does not scan.
+**Turning off `COLLECTION_SCHEDULE_ENABLED` does not stop the scan**, and the reverse
+(`social/schedule.py::scheduled_intervals`, pinned in `test_collection_schedule.py`).
 
 **A suppression is explained on the desk, not in a terminal.** `ScanReport.suppressed` carries
 every held-back topic with its reason, and `ManualScanState` used to drop it, leaving the note to

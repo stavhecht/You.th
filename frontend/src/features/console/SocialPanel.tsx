@@ -91,6 +91,12 @@ const RUN_BUTTONS: { kind: CollectionKind; label: string; title: string }[] = [
     label: "Find products",
     title: "Reads feeds and news for product names, then looks for official pages and FDA records.",
   },
+  {
+    kind: "retraction_sweep",
+    label: "Check retractions",
+    title:
+      "Re-checks every cited paper against PubMed and Crossref. Runs weekly on its own; flagged articles are marked in the queue.",
+  },
 ];
 
 const KIND_WORDS: Record<string, string> = {

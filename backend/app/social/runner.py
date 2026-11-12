@@ -14,6 +14,7 @@ import httpx
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.config import Settings
+from app.discovery.scan import run_scan
 from app.intel.reader import build_reader_call
 from app.llm.base import LLMError
 from app.llm.factory import build_generative_clients
@@ -31,6 +32,7 @@ from app.retrieval.factory import (
     build_http_client,
     build_pubmed_provider,
 )
+from app.retrieval.retraction_sweep import build_checker, sweep
 from app.social import service
 from app.social.collect import collect_daily
 from app.social.contracts import CollectionKind
@@ -115,6 +117,29 @@ async def execute_collection_run(
                     settings=settings,
                     now=now,
                 )
+            elif kind == CollectionKind.MESH_SCAN:
+                scan = await run_scan(settings=settings, factory=factory, apply=True)
+                report.stats.update(
+                    records_seen=scan.records_seen,
+                    observations_written=scan.observations_written,
+                    candidates_proposed=scan.candidates_proposed,
+                    # Each topic found again and held back, with why. The desk
+                    # lists them, so "0 proposals" is not read as "nothing found".
+                    suppressed=[list(pair) for pair in scan.suppressed],
+                )
+                report.notes.extend(scan.notes)
+            elif kind == CollectionKind.RETRACTION_SWEEP:
+                result = await sweep(factory, build_checker(settings, http), apply=True)
+                report.stats.update(
+                    sources=len(result.papers),
+                    articles_flagged=len(result.flagged_articles),
+                    **result.counts,
+                )
+                if result.counts["unchecked"]:
+                    report.notes.append(
+                        f"{result.counts['unchecked']} source(s) could not be checked; "
+                        "they are not verified clean and are retried next sweep"
+                    )
             else:
                 error = f"unknown collection kind {kind!r}"
     except Exception as exc:

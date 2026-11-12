@@ -287,9 +287,15 @@ typed `article` and was cited with a `supported` verdict; that screen fails open
 (`retraction_screen_failed`); `classify_study_type`
 returns `UNKNOWN` for one already cached; `scripts/check_retractions.py` re-checks cited sources
 against PubMed + Crossref on a schedule, because retractions land *after* publication and the
-ingest screen only ever catches what was already withdrawn when we first saw it. The schedule is
+ingest screen only ever catches what was already withdrawn when we first saw it. **Since 2026-11-11 the worker
+runs it weekly** as a collection run (`CollectionKind.RETRACTION_SWEEP`, model-free, so a
+stopped model server does not hold it; the logic is `retrieval/retraction_sweep.py::sweep`, and
+the script is the same sweep with a dry run and a printout). The desk shows the result: a flag
+on the queue row, a banner on the draft, a mark on the source, and Publish asks before putting
+out a draft that cites a retracted paper. Before that the schedule was
 a host LaunchAgent, Mondays 07:00 (`./jobs/retractions.sh install`; log
-`~/Library/Logs/youth/retractions.log`). Nothing ran it before 2026-10-28; the first run
+`~/Library/Logs/youth/retractions.log`), which a deployed stack never had; uninstall it
+(`./jobs/retractions.sh uninstall`) or the sweep runs twice a week. Nothing ran it before 2026-10-28; the first run
 checked the 106 sources cited by published and pending articles, all clean.
 
 Two rules with teeth. **Retractions are checked *before* the publication-type map**, unlike

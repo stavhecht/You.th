@@ -16,6 +16,7 @@ from app.api.console.pipeline import _enqueue_run, _run_out
 from app.api.console.schemas import (
     DiscoveryCandidateOut,
     DismissCandidateRequest,
+    ManualScanStatus,
     RunOut,
     SuppressedTopicOut,
     TrendScanOut,
@@ -24,11 +25,8 @@ from app.api.deps import (
     IdPath,
     ReviewerDep,
     SessionDep,
-    SettingsDep,
     require_reviewer,
 )
-from app.db import get_session_factory
-from app.discovery.manual import ScanAlreadyRunning, manual_scan
 from app.discovery.topics import topic_question
 from app.domain.enums import (
     DiscoveryCandidateStatus,
@@ -36,10 +34,13 @@ from app.domain.enums import (
     RunOrigin,
 )
 from app.domain.models import (
+    CollectionRun,
     DiscoveryCandidate,
     DiscoveryDescriptor,
     DiscoveryScan,
 )
+from app.social.contracts import CollectionKind
+from app.social.service import CollectionAlreadyActive, start_collection_run
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +112,11 @@ async def list_candidates(
 
 
 async def _load_proposed(session: AsyncSession, candidate_id: str) -> DiscoveryCandidate:
-    candidate = await session.get(DiscoveryCandidate, candidate_id)
+    # Locked, like the review writes: two presses both read `proposed` and
+    # each queued a run for the same topic.
+    candidate = await session.get(
+        DiscoveryCandidate, candidate_id, with_for_update=True, populate_existing=True
+    )
     if candidate is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "candidate not found")
     if candidate.status is not DiscoveryCandidateStatus.PROPOSED:
@@ -185,39 +190,71 @@ async def dismiss_candidate(
     await session.flush()
 
 
-async def _scan_out(session: AsyncSession) -> TrendScanOut:
-    """This process's last press, plus when a scan last succeeded anywhere.
+#: The collection run's status, in the words the desk already reads.
+_SCAN_STATUS = {
+    "queued": ManualScanStatus.RUNNING,
+    "running": ManualScanStatus.RUNNING,
+    "completed": ManualScanStatus.SUCCEEDED,
+    "failed": ManualScanStatus.FAILED,
+}
 
-    The two halves answer different questions and neither substitutes for the
-    other: the runner knows whether the button is busy *now*, and only the
-    ledger knows the cron slot ran on Monday.
+
+def scan_out(run: CollectionRun | None, last: datetime | None) -> TrendScanOut:
+    """The latest ``mesh_scan`` run as the desk's scan state. Pure.
+
+    ``last`` is when a scan last succeeded anywhere (the window ledger), which
+    also covers one run from the command line. A queued run reads as running:
+    to the reviewer both mean "asked for, not finished".
     """
+    if run is None:
+        return TrendScanOut(
+            status=ManualScanStatus.IDLE,
+            started_at=None,
+            finished_at=None,
+            records_seen=0,
+            observations_written=0,
+            candidates_proposed=0,
+            notes=[],
+            suppressed=[],
+            error=None,
+            last_scan_at=last,
+        )
+    stats = run.stats or {}
+    return TrendScanOut(
+        status=_SCAN_STATUS.get(run.status, ManualScanStatus.FAILED),
+        started_at=run.started_at or run.created_at,
+        finished_at=run.finished_at,
+        records_seen=stats.get("records_seen", 0),
+        observations_written=stats.get("observations_written", 0),
+        candidates_proposed=stats.get("candidates_proposed", 0),
+        notes=list(run.notes or []),
+        suppressed=[
+            SuppressedTopicOut(topic=topic, reason=reason)
+            for topic, reason in stats.get("suppressed", [])
+        ],
+        error=(run.error or {}).get("message"),
+        last_scan_at=last,
+    )
+
+
+async def _scan_out(session: AsyncSession) -> TrendScanOut:
     last = await session.scalar(
         select(sa_func.max(DiscoveryScan.finished_at)).where(
             DiscoveryScan.status == DiscoveryScanStatus.SUCCEEDED
         )
     )
-    state = manual_scan.state
-    return TrendScanOut(
-        status=state.status,
-        started_at=state.started_at,
-        finished_at=state.finished_at,
-        records_seen=state.records_seen,
-        observations_written=state.observations_written,
-        candidates_proposed=state.candidates_proposed,
-        notes=state.notes,
-        suppressed=[
-            SuppressedTopicOut(topic=item.topic, reason=item.reason)
-            for item in state.suppressed
-        ],
-        error=state.error,
-        last_scan_at=last,
+    run = await session.scalar(
+        select(CollectionRun)
+        .where(CollectionRun.kind == CollectionKind.MESH_SCAN.value)
+        .order_by(CollectionRun.created_at.desc())
+        .limit(1)
     )
+    return scan_out(run, last)
 
 
 @router.get("/discovery/scan", response_model=TrendScanOut)
 async def get_scan(session: SessionDep, reviewer: ReviewerDep) -> TrendScanOut:
-    """Poll target for the desk's scan button. Cheap by design — one MAX()."""
+    """Poll target for the desk's scan button. Two small reads."""
     return await _scan_out(session)
 
 
@@ -226,25 +263,20 @@ async def get_scan(session: SessionDep, reviewer: ReviewerDep) -> TrendScanOut:
     response_model=TrendScanOut,
     status_code=status.HTTP_202_ACCEPTED,
 )
-async def start_scan(
-    session: SessionDep, reviewer: ReviewerDep, settings: SettingsDep
-) -> TrendScanOut:
-    """Run the trend scan now, instead of waiting for the cron slot.
+async def start_scan(session: SessionDep, reviewer: ReviewerDep) -> TrendScanOut:
+    """Queue the trend scan now, instead of waiting for its slot.
 
-    202 with the state, not 200 with a result: the scan is minutes of PubMed
-    requests and the reviewer's connection is not going to be held open for it.
-    The desk polls ``GET`` until it stops saying ``running``.
+    202 with the state: the worker runs it (minutes of PubMed requests), and
+    the desk polls ``GET`` until it stops saying ``running``. In the worker so
+    it shares the worker's PubMed rate limit; see ``app/discovery/CLAUDE.md``.
 
     Safe to expose because a scan **proposes and nothing else** — no model
-    calls, no queued run, no spend. Promoting what it finds is still a human
-    decision, which is the whole shape of this feature.
+    calls, no queued article run, no spend.
 
-    409 rather than a second task when one is already in flight: two concurrent
-    scans double this process's draw on NCBI's per-IP ceiling — shared with the
-    worker — to compute the same answer twice.
+    409 while one is already queued or running.
     """
     try:
-        manual_scan.start(settings=settings, factory=get_session_factory())
-    except ScanAlreadyRunning as exc:
+        await start_collection_run(session, CollectionKind.MESH_SCAN)
+    except CollectionAlreadyActive as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
     return await _scan_out(session)

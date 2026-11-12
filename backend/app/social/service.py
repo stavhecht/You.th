@@ -70,7 +70,11 @@ async def start_collection_run(session: AsyncSession, kind: CollectionKind) -> C
 
 #: Kinds that make no model calls. The daily run is one, and a day it misses is a
 #: day of coverage lost, so a model outage must not hold it back.
-MODEL_FREE_KINDS = (CollectionKind.SOCIAL_DAILY.value,)
+MODEL_FREE_KINDS = (
+    CollectionKind.SOCIAL_DAILY.value,
+    CollectionKind.RETRACTION_SWEEP.value,
+    CollectionKind.MESH_SCAN.value,
+)
 
 
 async def claim_next(

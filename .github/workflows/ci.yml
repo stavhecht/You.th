@@ -40,7 +40,7 @@ jobs:
         working-directory: backend
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v7
       - run: uv sync --locked
       - name: Migrate the dev and test databases
         run: |
@@ -91,7 +91,7 @@ jobs:
           --health-cmd "pg_isready -U youth" --health-interval 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v7
       - uses: actions/setup-node@v4
         with:
           node-version: 22

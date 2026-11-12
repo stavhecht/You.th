@@ -15,7 +15,7 @@ dependencies = [
     "asyncpg>=0.30",
     "pgvector>=0.3.6",
     "httpx>=0.28",
-    "anthropic>=0.69,<1",
+    "anthropic>=0.69,<3",
     "ollama>=0.4",
     "voyageai>=0.3",
     # Stage sequencing only — `pipeline/graph.py`. Nothing here talks to a

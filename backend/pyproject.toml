@@ -33,7 +33,7 @@ dependencies = [
     # three above are here rather than hand-rolled over httpx. Pillow is what
     # `text_to_image` returns; `imagery/huggingface.py` re-encodes it to WebP.
     "huggingface-hub>=0.35,<2",
-    "pillow>=11.0,<13",
+    "pillow>=11.0,<14",
     "pyjwt>=2.15",
     "argon2-cffi>=23.1",
     # Starlette parses multipart bodies through this; without it the console's

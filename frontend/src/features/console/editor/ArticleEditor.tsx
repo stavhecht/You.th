@@ -73,6 +73,14 @@ export function ArticleEditor({ content, autosave, articleId, onCitationClick }:
         bulletList: false,
         orderedList: false,
         blockquote: false,
+        // New in TipTap 3's StarterKit, and off for the same reason. A link
+        // mark would carry a pasted URL into the stored document that neither
+        // the media check nor the public renderer looks at; underline has no
+        // style on the article page; and the trailing node appends an empty
+        // paragraph on load, which autosave would then write back as an edit.
+        link: false,
+        underline: false,
+        trailingNode: false,
       }),
       BeatAttribute,
       Citation,
@@ -80,6 +88,10 @@ export function ArticleEditor({ content, autosave, articleId, onCitationClick }:
       YouTubeEmbed,
     ],
     content,
+    // TipTap 3 stopped re-rendering on every transaction. The toolbar reads
+    // `editor.isActive()` during render, so without this the Bold, Italic and
+    // Heading buttons stopped showing what the cursor is in.
+    shouldRerenderOnTransaction: true,
     editorProps: {
       attributes: { class: EDITOR_PROSE },
       handleClick(_view, _pos, event) {
@@ -117,9 +129,8 @@ export function ArticleEditor({ content, autosave, articleId, onCitationClick }:
     if (editor && content) {
       // emitUpdate=false: loading a document must not look like an edit, or
       // opening a draft immediately autosaves it back over itself.
-      editor.commands.setContent(content, false);
+      editor.commands.setContent(content, { emitUpdate: false });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor, content]);
 
   return (

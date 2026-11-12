@@ -9,6 +9,11 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+    # Frontend majors are migrations (Tailwind 4 rewrites the config, Vite 8,
+    # TypeScript 7), done on purpose by hand, not merged from a weekly PR.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: uv
     directory: /backend
     schedule:

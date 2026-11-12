@@ -109,7 +109,9 @@ from evaluation.schema import EvalCase, InjectedDocument, Outcome
 logger = logging.getLogger(__name__)
 
 #: Production stages the eval deliberately does not run (see module docstring).
-NOT_EVALUATED = (StageName.ILLUSTRATE, StageName.PERSIST)
+#: VERIFY (2026-11-12) is skipped until it has a recording key in harness/llm.py:
+#: run unkeyed, a replay would call the model live for it on every case.
+NOT_EVALUATED = (StageName.ILLUSTRATE, StageName.VERIFY, StageName.PERSIST)
 
 
 @dataclass

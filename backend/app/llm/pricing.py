@@ -19,8 +19,12 @@ already uses. Bare model names collide across providers and, worse, make a local
 model indistinguishable from a hosted one — which is the difference between free
 and not.
 
-Prices are USD per million tokens, **as_of 2026-08-21**, transcribed from
-Anthropic's published pricing. Nothing verifies them against a real invoice: no
+Prices are USD per million tokens, **as_of 2026-10-06** (corrected 2026-11-11:
+Opus 5 and Sonnet 5 had been entered at an older generation's rates, three times
+and one and a half times too high), transcribed from Anthropic's published
+pricing. Cache reads are a tenth of the input rate and five-minute cache writes
+a quarter more, except where a model's own cache-read price is published.
+Nothing verifies them against a real invoice: no
 Anthropic call has been made from this codebase yet (see README, "Verification
 status"). Treat a figure here as a documented assumption, and confirm it against
 the pricing page before anyone reports a number from it.
@@ -94,11 +98,21 @@ def _usd(
 PRICES: dict[str, Price] = {
     # Anthropic. Cache write is the 5-minute TTL rate; the 1-hour TTL costs
     # more, and this table does not model TTL because nothing here sets it.
+    "anthropic/claude-opus-5-5": _usd(
+        input="4.00", output="20.00", cache_read="0.20", cache_write="5.00"
+    ),
     "anthropic/claude-opus-5": _usd(
-        input="15.00", output="75.00", cache_read="1.50", cache_write="18.75"
+        input="5.00", output="25.00", cache_read="0.50", cache_write="6.25"
+    ),
+    "anthropic/claude-sonnet-5-5": _usd(
+        input="2.00", output="10.00", cache_read="0.20", cache_write="2.50"
     ),
     "anthropic/claude-sonnet-5": _usd(
-        input="3.00", output="15.00", cache_read="0.30", cache_write="3.75"
+        input="2.00", output="10.00", cache_read="0.20", cache_write="2.50"
+    ),
+    # Up to 100K-token prompts; longer ones are billed higher and not modelled.
+    "anthropic/claude-haiku-5-5": _usd(
+        input="0.10", output="0.50", cache_read="0.01", cache_write="0.125"
     ),
     "anthropic/claude-haiku-4-5": _usd(
         input="1.00", output="5.00", cache_read="0.10", cache_write="1.25"

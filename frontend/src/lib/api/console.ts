@@ -7,6 +7,11 @@ import type {
   ArticleDetail,
   ArticleStatus,
   CardPreview,
+  CollectionKind,
+  CollectionRun,
+  Product,
+  RelatedItem,
+  SocialListeningResult,
   GeneratedImagery,
   IllustrationFrame,
   DiscoveryCandidate,
@@ -19,6 +24,7 @@ import type {
   RunPage,
   TipTapDoc,
   TrendScan,
+  Verdict,
 } from "@/types/api";
 
 export const consoleKeys = {
@@ -37,6 +43,11 @@ export const consoleKeys = {
   /** Research runs, newest first; and one run with its candidates. */
   researchRuns: ["console", "research-runs"] as const,
   researchRun: (id: string) => ["console", "research-run", id] as const,
+  /** Collection runs (social listening, product discovery), newest first. */
+  collectionRuns: ["console", "collection-runs"] as const,
+  socialResult: ["console", "social-result"] as const,
+  products: ["console", "products"] as const,
+  related: (kind: string, id: string) => ["console", "related", kind, id] as const,
 };
 
 /**
@@ -56,6 +67,37 @@ export async function login(
   setAuthToken(response.access_token);
   const reviewer = await fetchMe();
   return { token: response.access_token, reviewer };
+}
+
+/**
+ * Change the signed-in reviewer's password. Every other session is signed out,
+ * so the answer is a fresh token for this one.
+ */
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<string> {
+  const response = await apiFetch<{ access_token: string }>("/console/auth/password", {
+    method: "POST",
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+  return response.access_token;
+}
+
+/** Mail a reset link. Answers the same whether or not the address is a reviewer's. */
+export async function forgotReviewerPassword(email: string): Promise<void> {
+  await apiFetch("/console/auth/password/forgot", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+/** Set a new password from the emailed link. 400 when the link is stale or used. */
+export async function resetReviewerPassword(token: string, password: string): Promise<void> {
+  return apiFetch<void>("/console/auth/password/reset", {
+    method: "POST",
+    body: JSON.stringify({ token, password }),
+  });
 }
 
 /** Re-validates the stored token as a side effect of loading the reviewer. */
@@ -103,6 +145,48 @@ export async function saveContent(
   return apiFetch<void>(`/console/articles/${id}/content`, {
     method: "PATCH",
     body: JSON.stringify({ content, base }),
+  });
+}
+
+/** Autosave a correction to a published article. Readers do not see it yet. */
+export async function saveCorrection(
+  id: string,
+  content: TipTapDoc,
+  base: TipTapDoc | null,
+): Promise<void> {
+  return apiFetch<void>(`/console/articles/${id}/correction`, {
+    method: "PATCH",
+    body: JSON.stringify({ content, base }),
+  });
+}
+
+/** Put the typed correction live. The note is shown to readers with the date. */
+export async function publishCorrection(id: string, note: string): Promise<void> {
+  return apiFetch<void>(`/console/articles/${id}/correction`, {
+    method: "POST",
+    body: JSON.stringify({ note }),
+  });
+}
+
+/** Take a published article off the public site. Terminal; the reason is kept. */
+export async function withdrawArticle(id: string, reason: string): Promise<void> {
+  return apiFetch<void>(`/console/articles/${id}/withdraw`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  });
+}
+
+/**
+ * Fix a draft's headline, summary or verdict. Omitted fields stay as they are.
+ * 409 when the verdict would rise past the ceiling the cited evidence sets.
+ */
+export async function setMeta(
+  id: string,
+  meta: { headline?: string; summary?: string; verdict?: Verdict },
+): Promise<void> {
+  return apiFetch<void>(`/console/articles/${id}/meta`, {
+    method: "PATCH",
+    body: JSON.stringify(meta),
   });
 }
 
@@ -321,4 +405,80 @@ export async function dismissResearchCandidate(id: string, reason: string): Prom
     method: "POST",
     body: JSON.stringify({ reason }),
   });
+}
+
+// --- social listening and product discovery -----------------------------------
+
+/**
+ * Queue a collection run now (the scheduler also queues them when due). It
+ * spends YouTube quota and local model time, never a draft. 409 while one of
+ * the same kind is queued or running.
+ */
+export async function startCollectionRun(kind: CollectionKind): Promise<CollectionRun> {
+  return apiFetch("/console/collection/runs", {
+    method: "POST",
+    body: JSON.stringify({ kind }),
+  });
+}
+
+export async function fetchCollectionRuns(limit = 10): Promise<CollectionRun[]> {
+  return apiFetch(`/console/collection/runs${qs({ limit })}`);
+}
+
+/** The latest weekly social run's proposals; a 404 means there is none yet. */
+export async function fetchSocialResult(): Promise<SocialListeningResult> {
+  return apiFetch("/console/social/result");
+}
+
+export async function promoteSocialCandidate(id: string): Promise<{ id: string }> {
+  return apiFetch(`/console/social/candidates/${id}/promote`, { method: "POST" });
+}
+
+export async function dismissSocialCandidate(id: string, reason: string): Promise<void> {
+  return apiFetch(`/console/social/candidates/${id}/dismiss`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  });
+}
+
+export async function fetchProducts(limit = 30): Promise<Product[]> {
+  return apiFetch(`/console/products${qs({ limit })}`);
+}
+
+/** Items from the other discovery systems, each with its own system's numbers. */
+export async function fetchRelated(
+  kind: "social_topic" | "product",
+  id: string,
+): Promise<RelatedItem[]> {
+  return apiFetch(`/console/intel/related${qs({ kind, id })}`);
+}
+
+export interface WorkerStatus {
+  queuedArticles: number;
+  queuedResearch: number;
+  queuedCollection: number;
+  running: { kind: string; label: string; heartbeatAgeSeconds: number | null }[];
+  oldestQueuedSeconds: number | null;
+  /** Work is waiting, nothing is running, and it has waited too long. */
+  stalled: boolean;
+  lastRetractionSweepAt: string | null;
+}
+
+export async function fetchWorkerStatus(): Promise<WorkerStatus> {
+  return apiFetch<WorkerStatus>("/console/status");
+}
+
+export interface ContactMessage {
+  id: string;
+  kind: "topic" | "other" | string;
+  name: string | null;
+  email: string;
+  link: string | null;
+  note: string;
+  createdAt: string;
+}
+
+/** What readers sent through the contact form and "Suggest a topic", newest first. */
+export async function fetchContactInbox(): Promise<ContactMessage[]> {
+  return apiFetch<ContactMessage[]>("/console/contact");
 }

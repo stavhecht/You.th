@@ -17,7 +17,7 @@ Measured 2026-10-02 on llama3.1:8b over 132 blind-labelled pairs: direction
 alone flipped nothing but called only 23% of off-topic studies off topic; one
 call with free-text summaries caught 72% and flipped five; the quote design
 (one call) got 79% right, flipped two, caught 75%; the two-call design got 78%,
-flipped two, caught 69%. The table and the reasoning are in CLAUDE.md.
+flipped two, caught 69%. The table and the reasoning are in app/pipeline/CLAUDE.md.
 
 Both are deliberately narrow calls rather than fields the synthesis model fills
 in: labelling twelve abstracts is a far easier task for a small model than

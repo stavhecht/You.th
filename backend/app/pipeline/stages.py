@@ -67,6 +67,8 @@ class StageName(StrEnum):
     SYNTHESIZE = "synthesize"
     ILLUSTRATE = "illustrate"
     VALIDATE = "validate"
+    #: Inserted 2026-11-12; runs before it carry ``persist`` one ordinal lower.
+    VERIFY = "verify"
     PERSIST = "persist"
 
 

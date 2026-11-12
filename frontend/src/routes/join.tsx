@@ -14,12 +14,13 @@
  * nothing sends one.
  */
 
+import { usePageMeta } from "@/lib/usePageMeta";
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Eye, EyeOff } from "lucide-react";
 
 import { SUBJECTS, SUBJECT_LABELS } from "@/features/evidence/subject";
 import { useReader } from "@/features/reader/auth";
+import { PasswordChecklist, RevealToggle } from "@/features/reader/PasswordParts";
 import { useToast } from "@/features/shell/toast";
 import {
   CHECKBOX,
@@ -42,15 +43,13 @@ import {
   PANEL_ITEM_TITLE,
   PANEL_LABEL,
   PANEL_LIST,
-  PASSWORD_RULE_LIST,
-  PASSWORD_RULE_MARK,
   SPLIT,
   SUBMIT_BUTTON,
   WIDE_PAGE,
   chip,
-  passwordRule,
 } from "@/features/shell/pageStyles";
 import { ApiError } from "@/lib/api/client";
+import { passwordProblem } from "@/lib/password";
 import type { Subject } from "@/types/api";
 
 // A small indent, so each title sits slightly inside the field's left edge.
@@ -71,22 +70,9 @@ const WHAT_IT_DOES = [
   },
 ];
 
-/**
- * What a new password must contain. The server refuses anything short of this
- * (`SignupRequest` in `backend/app/api/public/schemas.py`, `PASSWORD_RULES`);
- * the two lists must change together, or the form passes a password the server
- * refuses - or blocks one it would have taken.
- */
-const PASSWORD_RULES: { label: string; met: (password: string) => boolean }[] =
-  [
-    { label: "At least 8 characters", met: (pw) => pw.length >= 8 },
-    { label: "A lowercase letter", met: (pw) => /[a-z]/.test(pw) },
-    { label: "A capital letter", met: (pw) => /[A-Z]/.test(pw) },
-    { label: "A number", met: (pw) => /[0-9]/.test(pw) },
-    { label: "A special character", met: (pw) => /[^A-Za-z0-9]/.test(pw) },
-  ];
 
 export function JoinRoute({ mode }: { mode: "signup" | "login" }) {
+  usePageMeta(mode === "signup" ? "Create an account" : "Sign in");
   const { signup, login, signedIn } = useReader();
   const navigate = useNavigate();
   const flash = useToast();
@@ -105,7 +91,6 @@ export function JoinRoute({ mode }: { mode: "signup" | "login" }) {
   const [showConfirm, setShowConfirm] = useState(false);
 
   const signingUp = mode === "signup";
-  const unmet = PASSWORD_RULES.filter((rule) => !rule.met(password));
   const mismatch = confirm !== "" && confirm !== password;
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -117,12 +102,9 @@ export function JoinRoute({ mode }: { mode: "signup" | "login" }) {
     const displayName = String(form.get("displayName") ?? "").trim();
 
     if (signingUp) {
-      if (unmet.length) {
-        setError(
-          `Your password needs ${unmet
-            .map((rule) => rule.label.toLowerCase())
-            .join(", ")}.`,
-        );
+      const problem = passwordProblem(password);
+      if (problem) {
+        setError(problem);
         return;
       }
       if (password !== confirm) {
@@ -293,33 +275,7 @@ export function JoinRoute({ mode }: { mode: "signup" | "login" }) {
               ) : null}
             </div>
 
-            {signingUp ? (
-              // The rules are checked off as they are met, so the reader finds
-              // out what is missing while typing rather than after a submit.
-              <ul id="password-rules" className={PASSWORD_RULE_LIST}>
-                {PASSWORD_RULES.map((rule) => {
-                  const met = rule.met(password);
-                  return (
-                    <li key={rule.label} className={passwordRule(met)}>
-                      <span aria-hidden className={PASSWORD_RULE_MARK}>
-                        {met ? "✓" : "·"}
-                      </span>
-                      {rule.label}
-                      <span className="sr-only">{met ? ", done" : ""}</span>
-                    </li>
-                  );
-                })}
-                <li
-                  id="password-match"
-                  className={passwordRule(!mismatch && confirm !== "")}
-                >
-                  <span aria-hidden className={PASSWORD_RULE_MARK}>
-                    {mismatch ? "✕" : confirm !== "" ? "✓" : "·"}
-                  </span>
-                  {mismatch ? "Passwords do not match" : "Passwords match"}
-                </li>
-              </ul>
-            ) : null}
+            {signingUp ? <PasswordChecklist password={password} confirm={confirm} /> : null}
 
             {signingUp ? (
               <label className={`${CHECKBOX_ROW} mb-6`}>
@@ -375,9 +331,15 @@ export function JoinRoute({ mode }: { mode: "signup" | "login" }) {
                   Free account. <Link to="/signin" className="underline">Already have an account? Sign in</Link>
                 </>
               ) : (
-                <Link to="/join" className="underline">
-                  Still don&apos;t have a user? Create one
-                </Link>
+                <>
+                  <Link to="/forgot-password" className="underline">
+                    Forgot your password?
+                  </Link>
+                  <span aria-hidden> · </span>
+                  <Link to="/join" className="underline">
+                    Still don&apos;t have a user? Create one
+                  </Link>
+                </>
               )}
             </p>
           </form>
@@ -397,26 +359,6 @@ export function JoinRoute({ mode }: { mode: "signup" | "login" }) {
         </aside>
       </div>
     </main>
-  );
-}
-
-/**
- * The eye beside a password field. A button, not a checkbox, so it reads as an
- * action; `aria-pressed` gives a screen reader the state without a second label.
- * It sits inside the field's `<label>`, and a click on an interactive child
- * does not re-focus the input, so the field keeps its own focus.
- */
-function RevealToggle({ shown, onToggle }: { shown: boolean; onToggle: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-label={shown ? "Hide password" : "Show password"}
-      aria-pressed={shown}
-      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-2 text-ink-3 hover:text-ink"
-    >
-      {shown ? <Eye size={17} aria-hidden /> : <EyeOff size={17} aria-hidden />}
-    </button>
   );
 }
 

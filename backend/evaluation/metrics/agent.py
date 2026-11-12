@@ -27,11 +27,13 @@ import itertools
 from collections import Counter
 from typing import Any
 
+from app.domain.contracts import SynthesisInput
 from app.pipeline.graph import MAX_REFINE_ROUNDS, MAX_REVISE_ROUNDS, REVISABLE_FAILURES
 from app.pipeline.steps.synthesize import (
     MAX_HANDLES_PER_CITATION,
     MIN_CITED_FRACTION,
     SECTIONS_EXPECTED_FROM,
+    _worth_citing,
 )
 from evaluation.harness.trace import SEARCH_TOOLS
 from evaluation.schema import TERMINATED, Behavior, EvalCase, Outcome
@@ -199,9 +201,10 @@ def decisions(trace: dict[str, Any]) -> list[dict[str, Any]]:
     # overwrites those, and the coverage decision belongs to the first pass.
     first = next((d for d in trace.get("drafts") or [] if d["kind"] == "first"), None)
     if first is not None and offered:
+        worth_citing = _worth_citing(SynthesisInput.model_validate(payload))
         thin = (
             len(offered) >= SECTIONS_EXPECTED_FROM
-            and _covered(first["output"], offered) < len(offered) * MIN_CITED_FRACTION
+            and _covered(first["output"], worth_citing) < len(worth_citing) * MIN_CITED_FRACTION
         )
         # The decision log, not the drafts: a re-prompt whose draft was not kept
         # leaves only the first draft in the trace (2026-10-24, 4 false failures).
@@ -212,7 +215,8 @@ def decisions(trace: dict[str, Any]) -> list[dict[str, Any]]:
             "coverage_reprompt_rule",
             reprompted == thin,
             f"re-prompt {'expected' if thin else 'not expected'} "
-            f"({len(offered)} sources offered), {'made' if reprompted else 'not made'}",
+            f"({len(worth_citing)} of {len(offered)} sources not labelled off-topic), "
+            f"{'made' if reprompted else 'not made'}",
         )
 
     validations = trace.get("validations") or []

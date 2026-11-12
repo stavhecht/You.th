@@ -92,6 +92,22 @@ export function citedSentences(doc: TipTapDoc): CitedSentence[] {
   return out;
 }
 
+/**
+ * Body paragraphs with prose and no citation, as the reviewer has them now.
+ *
+ * Validation holds the pipeline's draft to this rule (the opening and closing
+ * beats are exempt, as they carry no findings), but nothing re-ran it after a
+ * reviewer's edit, so a pasted sentence with no source went out unflagged.
+ */
+export function uncitedParagraphs(doc: TipTapDoc): string[] {
+  return (doc.content ?? [])
+    .filter((block) => block.type === "paragraph")
+    .filter((block) => block.attrs?.beat !== 1 && block.attrs?.beat !== 3)
+    .filter((block) => !(block.content ?? []).some((node) => node.type === "citation"))
+    .map((block) => (block.content ?? []).map((node) => node.text ?? "").join("").trim())
+    .filter(Boolean);
+}
+
 // Words that carry no topic. Without them every sentence is flagged for
 // "found" or "after" whenever the abstract words it differently.
 const COMMON = new Set(

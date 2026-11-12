@@ -39,21 +39,27 @@ export const REVIEW_HEADER = "sticky top-0 z-40 border-b-2 border-rule bg-ground
  * product and unmistakably not the live site.
  */
 export const REVIEW_BAR =
-  "grid h-header w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 px-gutter";
+  "grid h-header w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 px-gutter max-sm:gap-2 max-sm:px-4";
+/**
+ * The mark stays centred on a phone too. It fits because the mark shrinks, the
+ * tag wraps to two lines, and the right column keeps only Sign out and theme.
+ */
 export const REVIEW_BRAND = "block justify-self-center leading-none";
-export const REVIEW_BRAND_LOGO = "youth-mark block h-[44px] w-auto max-w-none sm:h-[51px]";
+export const REVIEW_BRAND_LOGO = "youth-mark block h-[44px] w-auto max-w-none max-sm:h-[32px] sm:h-[51px]";
 
 /** Names the surface, in the left column where the public bar puts browse. */
 export const REVIEW_BRAND_TAG =
-  "justify-self-start whitespace-nowrap font-body text-micro font-bold uppercase leading-none tracking-[0.13em] text-accent-ink";
+  "justify-self-start whitespace-nowrap font-body text-micro font-bold uppercase leading-none tracking-[0.13em] text-accent-ink max-sm:min-w-0 max-sm:whitespace-normal max-sm:leading-tight";
 export const REVIEW_NAV =
-  "flex min-w-0 flex-wrap items-center justify-end gap-3 justify-self-end";
+  "flex min-w-0 flex-wrap items-center justify-end gap-3 justify-self-end max-sm:flex-nowrap max-sm:gap-2";
 /** A nav button in a bar, so it takes `font-ui` like the public site's do. */
 export const REVIEW_NAV_LINK =
   "whitespace-nowrap font-ui text-micro font-semibold uppercase leading-none tracking-[0.11em] text-ink-3 transition-colors hover:text-ink";
 
 export const SIGNED_IN_AS =
   "inline-flex items-baseline gap-[7px] font-body text-[12px] leading-normal text-ink-3";
+/** The reviewer's name and the public-feed link: there is no room on a phone. */
+export const WIDE_ONLY = "max-sm:hidden";
 export const SIGN_OUT_ACTION =
   "border-b border-accent pb-px font-body text-[12px] font-semibold leading-normal text-accent-ink";
 
@@ -67,11 +73,12 @@ export const QUEUE_MESSAGE = "py-8 font-body text-meta text-ink-3";
 export const QUEUE_LIST = "list-none p-0";
 export const QUEUE_FOOTNOTE = "mt-5 font-body text-[12px] leading-normal text-ink-3";
 
-export const TAB_BAR = "mt-[22px] flex gap-0.5 border-b border-rule-soft";
+/** Wraps on a phone: four tabs are ~400px of text. */
+export const TAB_BAR = "mt-[22px] flex flex-wrap gap-0.5 border-b border-rule-soft";
 
 /** `-mb-px` pulls the active tab's rule over the bar's, so they read as one. */
 export function queueTab(current: boolean): string {
-  return `-mb-px border-b-2 px-[13px] py-[11px] font-body text-[12px] font-semibold leading-none tracking-[0.05em] transition-colors ${
+  return `-mb-px whitespace-nowrap border-b-2 px-[13px] py-[11px] font-body text-[12px] font-semibold leading-none tracking-[0.05em] transition-colors max-sm:px-2.5 ${
     current ? "border-ink text-ink" : "border-transparent text-ink-3 hover:text-ink"
   }`;
 }
@@ -210,6 +217,17 @@ export const DRAFT_HEADLINE =
   "mt-[18px] border-b-2 border-rule-soft pb-3 font-ui text-subhead font-extrabold text-ink";
 export const EDITOR_SLOT = "mt-[18px]";
 
+/** The headline and summary as fields: same type as the read-only ones. */
+export const META_HEADLINE_FIELD =
+  "mt-[18px] w-full border-0 border-b-2 border-rule-soft bg-transparent pb-3 font-ui text-subhead font-extrabold text-ink outline-none focus:border-ink-3";
+export const META_SUMMARY_FIELD =
+  "mt-3 w-full resize-y rounded-field border border-rule-soft bg-transparent px-3 py-2 font-body text-meta leading-[1.5] text-ink-2 outline-none focus:border-ink-3";
+
+/** A cited source was retracted. The one red in the theme, as failed checks use. */
+export const RETRACTED_FLAG = "mt-1 font-body text-micro font-semibold text-danger-ink";
+export const RETRACTION_ALERT =
+  "mt-3 border-l-2 border-danger-ink px-[11px] py-[9px] font-body text-micro font-semibold leading-[1.45] text-danger-ink";
+
 export const SIDEBAR_SOURCES = "mt-6";
 
 /**
@@ -243,7 +261,7 @@ export const SUBJECT_ROW = "mt-2.5 flex flex-wrap gap-1.5";
 export const SUBJECT_NOTE = "mt-2 font-body text-micro text-ink-3";
 
 export function subjectChip(active: boolean): string {
-  return `rounded-full border px-2.5 py-[5px] font-body text-[11px] font-semibold leading-none transition-colors disabled:opacity-50 ${
+  return `rounded-full border px-2.5 py-[5px] font-body text-[12px] font-semibold leading-none transition-colors disabled:opacity-50 ${
     active
       ? "border-ink bg-ink text-ground"
       : "border-rule-soft bg-transparent text-ink-2 hover:border-ink"
@@ -402,7 +420,7 @@ export const TOOLBAR_DIVIDER = "mx-1.5 h-4 w-px bg-rule-soft";
  * renderer wraps a node view in an element of its own, and that element is the
  * one sitting in the editor's flow, so it is the one that has to float. It
  * gets `mediaWrapClass()` from `lib/media.ts` through the node's `attrs`
- * option (see `MediaNodes.ts`), which is the same class the published article
+ * option (see `editor/MediaNodes.ts`), which is the same class the published article
  * uses.
  *
  * What is left for the figure is the part that only exists while editing:
@@ -455,18 +473,18 @@ export const MEDIA_CONTROLS =
 export const MEDIA_CONTROL_DIVIDER = "mx-1 h-3.5 w-px bg-rule-soft";
 
 export function mediaControlButton(active: boolean): string {
-  return `px-2 py-1.5 font-body text-[11px] font-semibold leading-none transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+  return `px-2 py-1.5 font-body text-[12px] font-semibold leading-none transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
     active ? "bg-ink text-ground" : "text-ink-2 hover:bg-ground hover:text-ink"
   }`;
 }
 
 /** The live percentage. Tabular so the bar does not twitch as it is dragged. */
 export const MEDIA_WIDTH_READOUT =
-  "min-w-[38px] text-center font-body text-[11px] font-semibold tabular-nums leading-none text-ink-3";
+  "min-w-[38px] text-center font-body text-[12px] font-semibold tabular-nums leading-none text-ink-3";
 
 /** Destructive, so it is the accent - the same red as everything that acts. */
 export const MEDIA_REMOVE_BUTTON =
-  "px-2 py-1.5 font-body text-[11px] font-semibold leading-none text-accent-ink transition-colors hover:bg-accent-wash";
+  "px-2 py-1.5 font-body text-[12px] font-semibold leading-none text-accent-ink transition-colors hover:bg-accent-wash";
 
 /**
  * The corner grip.
@@ -494,7 +512,7 @@ export function saveIndicator(failed: boolean): string {
  * The console's first overlay, and the reason it earns one: the reviewer's
  * question is "how will this look on the feed", and a tile alone in a sidebar
  * cannot answer it. Scale is comparative - a headline that clamps at three
- * lines, a picture that reads at 190px, a verdict kicker that holds its own,
+ * lines, a picture that reads at 200px, a verdict kicker that holds its own,
  * and all of that is only legible beside other tiles. So the overlay clears
  * the review screen and rebuilds a few cells of the real feed around it.
  */
@@ -526,8 +544,8 @@ export const PREVIEW_CLOSE =
 export const PREVIEW_ACTIONS = "flex items-baseline gap-3";
 
 /**
- * The feed's own measure: `MasonryFeed` runs `columnWidth={190}` at
- * `columnGutter={14}`. Written as literals because the masonry's numbers are
+ * The feed's narrowest desktop measure: `MasonryFeed` runs `columnWidth={200}` at
+ * `columnGutter={14}`, stretching wider on a wider window. Written as literals because the masonry's numbers are
  * the original and a shared constant would be a second place to keep them,
  * but they must agree, since a tile previewed at 260px clamps its headline
  * differently from the one that ships, and that difference is the whole point
@@ -540,7 +558,7 @@ export const PREVIEW_ACTIONS = "flex items-baseline gap-3";
  * in `styles/youth.css`.
  */
 export const PREVIEW_GRID =
-  "ew-type-feed mt-4 grid grid-cols-[repeat(auto-fill,190px)] justify-center gap-[14px]";
+  "ew-type-feed mt-4 grid grid-cols-[repeat(auto-fill,200px)] justify-center gap-[14px]";
 
 /**
  * The reviewer's own tile, marked so it is findable among the neighbours.
@@ -577,7 +595,7 @@ export const CANDIDATES_PANEL = "mt-5 border border-rule-soft bg-surface";
  * inside a button is not a thing HTML has - the disclosure had to give up the
  * whole row to gain a sibling.
  */
-export const CANDIDATES_HEADER = "flex w-full items-center gap-2 px-4 py-3";
+export const CANDIDATES_HEADER = "flex w-full flex-wrap items-center gap-2 px-4 py-3";
 
 /**
  * The disclosure: an arrow and the title, and no surface of its own.
@@ -608,7 +626,7 @@ export function candidatesChevron(open: boolean): string {
  * no badge at all.
  */
 export const CANDIDATES_BADGE =
-  "inline-flex size-[22px] shrink-0 items-center justify-center rounded-full bg-accent px-1 font-body text-[11px] font-bold leading-none text-white";
+  "inline-flex size-[22px] shrink-0 items-center justify-center rounded-full bg-accent px-1 font-body text-[12px] font-bold leading-none text-white";
 
 export const CANDIDATES_COUNT = "font-body text-micro text-ink-3";
 
@@ -617,8 +635,12 @@ export const CANDIDATES_COUNT = "font-body text-micro text-ink-3";
  * nothing generative, but it is minutes of somebody else's API budget, and it
  * must not compete with Generate draft for a reviewer's attention.
  */
-export const CANDIDATES_SCAN =
-  "ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full border border-rule px-3 py-1.5 font-body text-[11px] font-bold uppercase leading-none tracking-[0.08em] text-ink-3 transition-colors hover:border-ink hover:text-ink disabled:cursor-not-allowed disabled:opacity-45";
+export const CANDIDATES_RUN =
+  "inline-flex shrink-0 items-center gap-1.5 rounded-full border border-rule px-3 py-1.5 font-body text-[12px] font-bold uppercase leading-none tracking-[0.08em] text-ink-3 transition-colors hover:border-ink hover:text-ink disabled:cursor-not-allowed disabled:opacity-45";
+export const CANDIDATES_SCAN = `ml-auto ${CANDIDATES_RUN}`;
+
+/** Several run buttons side by side at the right of the header, wrapping as a group. */
+export const CANDIDATES_RUN_GROUP = "ml-auto flex flex-wrap justify-end gap-2 max-sm:ml-0 max-sm:w-full max-sm:justify-start";
 
 /** What the scan is doing or found. Sits under the header, above the list. */
 export const CANDIDATES_SCAN_NOTE =
@@ -655,7 +677,11 @@ export const CANDIDATE_EVIDENCE = "mt-1 font-body text-micro text-ink-3";
 
 export const CANDIDATE_MIX = "mt-0.5 font-body text-micro text-ink-4";
 
-export const CANDIDATE_ACTIONS = "flex shrink-0 items-center gap-2";
+/**
+ * May wrap, and never wider than its row: three pill buttons are ~370px, and
+ * unwrapped on a phone the last one sat past the panel's edge.
+ */
+export const CANDIDATE_ACTIONS = "flex max-w-full flex-wrap items-center gap-2";
 
 export const CANDIDATE_DISMISS_ROW = "mt-2 flex w-full flex-wrap gap-2";
 
@@ -675,7 +701,11 @@ export const CANDIDATES_ERROR = "px-4 py-3 font-body text-micro text-accent-ink"
 export const RESEARCH_OPTIONS =
   "flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-rule-soft px-4 py-2 font-body text-micro text-ink-3";
 
-export const RESEARCH_OPTION = "inline-flex items-center gap-1.5";
+export const RESEARCH_OPTION = "inline-flex items-center gap-1.5 whitespace-nowrap";
+
+/** The category checkboxes, on their own line and in columns, so they line up. */
+export const RESEARCH_CATEGORIES =
+  "grid w-full grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-x-4 gap-y-2";
 
 export const RESEARCH_SELECT = `${FIELD} w-auto py-1 text-micro`;
 
@@ -683,7 +713,7 @@ export const RESEARCH_CATEGORY = "inline-flex items-center gap-1 text-ink-3";
 
 /** "Also considered" - a label, not a control, above the discarded list. */
 export const RESEARCH_SUBHEAD =
-  "border-t border-rule-soft px-4 pb-1 pt-3 font-body text-[11px] font-bold uppercase tracking-[0.08em] text-ink-4";
+  "border-t border-rule-soft px-4 pb-1 pt-3 font-body text-[12px] font-bold uppercase tracking-[0.08em] text-ink-4";
 
 /** The score, spelled out by component, one step quieter than the evidence line. */
 export const RESEARCH_SCORE = "mt-0.5 font-body text-micro text-ink-4";

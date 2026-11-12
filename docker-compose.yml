@@ -130,8 +130,16 @@ services:
       - --reload
       - --reload-dir
       - /app/app
+      # Trust X-Forwarded-For so rate limits see the browser's address, not the
+      # `web` proxy's. `*` is right only here, where nothing else can reach
+      # this port; a real deployment names its proxy (docker-compose.prod.yml).
+      - --proxy-headers
+      - --forwarded-allow-ips
+      - "*"
+    # Loopback by default: this is a --reload dev server. To open the stack on
+    # a phone on the same network, set DEV_BIND=0.0.0.0 in the root .env.
     ports:
-      - "8000:8000"
+      - "${DEV_BIND:-127.0.0.1}:8000:8000"
     depends_on:
       db:
         condition: service_healthy
@@ -175,7 +183,7 @@ services:
       # silently stops reloading costs more.
       VITE_DEV_POLL: "1"
     ports:
-      - "5173:5173"
+      - "${DEV_BIND:-127.0.0.1}:5173:5173"
     volumes:
       - ./frontend:/app
       # Shadows the host's node_modules: esbuild and rollup ship platform

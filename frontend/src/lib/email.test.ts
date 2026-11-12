@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { isEmail } from "./email";
 
-// Same cases as backend/tests/unitTest/test_email_address.py, so the two stay in step.
+// Same cases as backend/tests/unit/test_email_address.py, so the two stay in step.
 describe("isEmail", () => {
   it.each([
     "ada@example.com",

@@ -109,6 +109,8 @@ export default {
        * component cannot quietly promote a caption to a headline; the two fluid
        * steps are the only ones that respond to viewport width.
        */
+      // Nothing under 11px (2026-11-12): the small steps were 10-11.5px, in a
+      // serif with a small x-height, for readers who skew older.
       fontSize: {
         display: ["clamp(40px,5.4vw,66px)", { lineHeight: "1.02", letterSpacing: "-0.03em" }],
         title: ["clamp(32px,4vw,50px)", { lineHeight: "1.04", letterSpacing: "-0.03em" }],
@@ -120,11 +122,11 @@ export default {
         row: ["16px", { lineHeight: "1.3", letterSpacing: "-0.01em" }],
         excerpt: ["14px", { lineHeight: "1.55" }],
         field: ["13.5px", { lineHeight: "1.3" }],
-        meta: ["12.5px", { lineHeight: "1.45" }],
-        micro: ["11.5px", { lineHeight: "1.4" }],
-        label: ["11px", { lineHeight: "1", letterSpacing: "0.11em" }],
-        "label-sm": ["10.5px", { lineHeight: "1", letterSpacing: "0.12em" }],
-        kicker: ["10px", { lineHeight: "1", letterSpacing: "0.13em" }],
+        meta: ["13px", { lineHeight: "1.45" }],
+        micro: ["12.5px", { lineHeight: "1.4" }],
+        label: ["12px", { lineHeight: "1", letterSpacing: "0.11em" }],
+        "label-sm": ["11.5px", { lineHeight: "1", letterSpacing: "0.12em" }],
+        kicker: ["11px", { lineHeight: "1", letterSpacing: "0.13em" }],
       },
 
       boxShadow: {

@@ -32,6 +32,11 @@ interface AuthState {
   status: "loading" | "authenticated" | "anonymous";
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  /**
+   * Re-read the signed-in reviewer, first swapping in a token the server just
+   * issued if there is one (a password change answers with a fresh token).
+   */
+  adopt: (token?: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -69,6 +74,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStatus("authenticated");
   }, []);
 
+  const adopt = useCallback(async (token?: string) => {
+    if (token) {
+      sessionStorage.setItem(TOKEN_KEY, token);
+      setAuthToken(token);
+    }
+    setReviewer(await fetchMe());
+  }, []);
+
   const logout = useCallback(() => {
     sessionStorage.removeItem(TOKEN_KEY);
     setAuthToken(null);
@@ -77,8 +90,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ reviewer, status, login, logout }),
-    [reviewer, status, login, logout],
+    () => ({ reviewer, status, login, logout, adopt }),
+    [reviewer, status, login, logout, adopt],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

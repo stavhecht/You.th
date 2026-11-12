@@ -11,9 +11,9 @@ so a deployment that does not use n8n exposes nothing here. The token cannot
 reach reviewer or reader routes: those check their own bearer JWTs, and this
 dependency is attached to this router only.
 
-What the token grants is deliberately small: starting a research run (which
-proposes and never enqueues generation), reading research runs and their trend
-results. No article, reviewer or reader data is reachable with it.
+What the token grants is deliberately small: starting a research run or a
+collection run (both propose and never enqueue generation), reading research
+runs and their trend results. No article, reviewer or reader data is reachable with it.
 """
 
 from __future__ import annotations
@@ -25,6 +25,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, status
 
 from app.api.console.research import read_result, research_run_out, start_run
 from app.api.console.schemas import AutomationResearchRequest, ResearchRunOut
+from app.api.console.social import CollectionRunOut, CollectionRunRequest, queue_run
 from app.api.deps import IdPath, SessionDep, SettingsDep
 from app.domain.models import ResearchRun
 from app.research import service
@@ -89,3 +90,17 @@ async def read_research_result(run_id: IdPath, session: SessionDep) -> TrendSear
     evidence score.
     """
     return await read_result(session, run_id)
+
+
+@router.post(
+    "/collection/runs", response_model=CollectionRunOut, status_code=status.HTTP_202_ACCEPTED
+)
+async def trigger_collection_run(
+    payload: CollectionRunRequest, session: SessionDep
+) -> CollectionRunOut:
+    """Queue a social or product collection run, e.g. from n8n's weekly workflow.
+
+    The API's own scheduler already queues them when due; this is for a
+    deployment that prefers n8n to own the timing. 409 while one is active.
+    """
+    return await queue_run(session, payload.kind)

@@ -313,11 +313,11 @@ class RetrieveStage:
         gone = await self._doi_registry.unregistered(dois) if dois else set()
         for doi in sorted(gone):
             logger.info("refused paper with unregistered doi=%s", doi)
-        screened = {
+        kept = {
             claim: [p for p in papers if not (p.doi and p.doi.strip().lower() in gone)]
             for claim, papers in merged.items()
         }
-        return screened, {"dois_checked": len(dois), "unregistered_dois_dropped": len(gone)}
+        return kept, {"dois_checked": len(dois), "unregistered_dois_dropped": len(gone)}
 
     def _build_queries(
         self, compose: ComposeQueries, claim: str, extraction: ExtractionOutput

@@ -29,18 +29,22 @@ import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
 
-import { ApiError } from "@/lib/api/client";
 import {
   approveArticle,
   consoleKeys,
   fetchArticleDetail,
   rejectArticle,
+  saveContent,
+  saveCorrection,
 } from "@/lib/api/console";
 import { VerdictMark } from "@/features/evidence/VerdictMark";
 import { VERDICT_LABELS } from "@/features/evidence/labels";
 import { readingTimeLabel } from "@/lib/readingTime";
-import { ArticleEditor } from "./ArticleEditor";
+import { ArticleEditor } from "./editor/ArticleEditor";
+import { describeError } from "./errors";
 import { FeedPreview } from "./FeedPreview";
+import { MetaEditor } from "./MetaEditor";
+import { PublishedDecision } from "./PublishedDecision";
 import { SubjectPicker } from "./SubjectPicker";
 import { SourcesPanel, ValidationSummary } from "./SourcesPanel";
 import { WhyItFailed } from "./WhyItFailed";
@@ -50,7 +54,6 @@ import {
   APPROVE_BUTTON,
   BACK_TO_QUEUE,
   DECISION_BLOCK,
-  DECISION_LINK,
   DECISION_NOTE,
   DRAFT_HEADLINE,
   DRAFT_META,
@@ -65,6 +68,7 @@ import {
   REVIEW_PAGE,
   REVIEW_SIDEBAR,
   REVIEW_TOP_BAR,
+  RETRACTION_ALERT,
   SIDEBAR_SOURCES,
   STATUS_DIVIDER,
   TOP_BAR_ACTION,
@@ -113,9 +117,18 @@ export function ReviewDetail() {
     queryFn: () => fetchArticleDetail(id),
     enabled: Boolean(id),
   });
+  // A published article is edited as a correction: typed into its own draft,
+  // which readers do not see until it is published with a note.
+  const correcting = article?.status === "published";
   // The editor loads `editedContent ?? originalContent`; only edited content is
   // what a save must start from (null for an unedited draft).
-  const autosave = useAutosave(id, article ? (article.editedContent ?? null) : undefined);
+  const autosave = useAutosave(
+    id,
+    article
+      ? ((correcting ? article.correctionDraft : article.editedContent) ?? null)
+      : undefined,
+    correcting ? saveCorrection : saveContent,
+  );
 
   const approve = useMutation({
     mutationFn: async () => {
@@ -174,6 +187,16 @@ export function ReviewDetail() {
   const foundNothing =
     article.verdict === "no_evidence" || article.sources.length === 0;
   const restsOnWeakEvidence = article.sources.some((s) => s.wasCited && s.isWeakEvidence);
+  const body =
+    (correcting ? article.correctionDraft : null) ??
+    article.editedContent ??
+    article.originalContent;
+  // Handles, not rows: `sources` holds one row per paper per claim.
+  const retracted = [
+    ...new Set(
+      article.sources.filter((s) => s.wasCited && s.retracted).map((s) => s.citationHandle),
+    ),
+  ];
 
   /**
    * Leaving flushes first. Unmount flushes too, but that fires after the route
@@ -251,22 +274,40 @@ export function ReviewDetail() {
                 reviewer deciding whether the draft is finished should see the
                 same one, from the same function. */}
             <span className={DRAFT_META}>
-              {readingTimeLabel(article.editedContent ?? article.originalContent)}
+              {readingTimeLabel(body)}
             </span>
             <span className={DRAFT_META}>{article.topic}</span>
           </div>
 
-          {/*
-            Read-only. The headline is not part of the autosave contract - that
-            endpoint takes a TipTap document and nothing else - so an editable
-            field here would silently discard what was typed into it. Making it
-            editable is an API change, not a styling one.
-          */}
-          <h1 className={DRAFT_HEADLINE}>{article.headline}</h1>
+          {retracted.length > 0 || article.retractionFlaggedAt ? (
+            <p role="alert" className={RETRACTION_ALERT}>
+              {retracted.length > 0
+                ? `Retracted since it was cited: ${retracted.join(", ")}. `
+                : "A cited source was retracted after this article was written. "}
+              Check whether the conclusion still holds without it.
+            </p>
+          ) : null}
+          {article.status === "withdrawn" ? (
+            <p role="note" className={RETRACTION_ALERT}>
+              Withdrawn
+              {article.withdrawnAt
+                ? ` ${new Date(article.withdrawnAt).toLocaleDateString()}`
+                : ""}
+              : {article.withdrawalReason}
+            </p>
+          ) : null}
+
+          {/* Editable while the draft is pending (PATCH /meta). After that the
+              headline is something a reader was shown, so it is read-only. */}
+          {canApprove ? (
+            <MetaEditor key={article.id} article={article} />
+          ) : (
+            <h1 className={DRAFT_HEADLINE}>{article.headline}</h1>
+          )}
 
           <div className={EDITOR_SLOT}>
             <ArticleEditor
-              content={article.editedContent ?? article.originalContent}
+              content={body}
               autosave={autosave}
               articleId={article.id}
               onCitationClick={setFocusedHandle}
@@ -296,7 +337,7 @@ export function ReviewDetail() {
               report={article.validationReport}
               sources={article.sources}
               verdict={article.verdict}
-              doc={article.editedContent ?? article.originalContent}
+              doc={body}
             />
           </div>
           <div hidden={sideTab !== "evidence"}>
@@ -318,12 +359,23 @@ export function ReviewDetail() {
               part of the irreversible act. */}
           <SubjectPicker articleId={article.id} subject={article.subject} />
 
+          {correcting ? (
+            <PublishedDecision article={article} autosave={autosave} />
+          ) : (
           <div className={DECISION_BLOCK}>
             <span className={SECTION_LABEL}>Decision</span>
 
             <button
               onClick={() => {
                 setActionError(null);
+                if (
+                  retracted.length > 0 &&
+                  !window.confirm(
+                    `${retracted.join(", ")} has been retracted. Publish anyway?`,
+                  )
+                ) {
+                  return;
+                }
                 approve.mutate();
               }}
               disabled={
@@ -347,23 +399,11 @@ export function ReviewDetail() {
                 the only path to `published` in the system, and it puts the
                 article in front of every reader - worth saying in words. */}
             <p className={DECISION_NOTE}>
-              {foundNothing && article.status !== "published" ? (
+              {foundNothing ? (
                 <>
                   Retrieval returned no usable sources, so there is nothing here
                   for a reader to check. Reject it with a reason, because that reason is
                   what the query gets fixed from.
-                </>
-              ) : article.status === "published" ? (
-                <>
-                  Live at{" "}
-                  <a
-                    href={`/a/${article.slug}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className={DECISION_LINK}
-                  >
-                    /a/{article.slug} ↗
-                  </a>
                 </>
               ) : (
                 <>
@@ -419,23 +459,9 @@ export function ReviewDetail() {
               model's original draft is kept unchanged.
             </p>
           </div>
+          )}
         </aside>
       </div>
     </main>
   );
-}
-
-/**
- * Surface the server's detail verbatim where there is one.
- *
- * The 409 from approve says *which* handles no longer resolve; replacing that
- * with "Publish failed" would send the reviewer hunting through the body.
- */
-function describeError(error: unknown): string {
-  if (error instanceof ApiError) {
-    const detail = (error.detail as { detail?: string } | undefined)?.detail;
-    if (detail) return detail;
-    if (error.status === 409) return "This draft can no longer be published.";
-  }
-  return error instanceof Error ? error.message : "Something went wrong.";
 }

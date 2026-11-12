@@ -34,14 +34,22 @@ export const FEED_PAGE = "pb-16";
 /**
  * The hero, full-bleed.
  *
- * `w-screen` with a negative margin rather than a wrapper without the page
- * measure: the video runs edge to edge while everything under it stays on the
- * 1240px grid, and `calc(50% - 50vw)` is what pulls it out of the centred
- * column without a layout wrapper of its own.
+ * `w-full`, never `w-screen`: 100vw counts a classic scrollbar, which made the
+ * page scroll sideways on Windows.
+ *
+ * The framing is fixed: the same 29:10 band of the footage at every width,
+ * set so her face comes into frame as she reaches the camera at the end of the
+ * loop. The video box keeps that shape when the hero is taller than it (a phone,
+ * at `min-h`), so a narrow screen loses the sides rather than showing more above
+ * and below. The statement is centred on the hero, not the video, so moving the
+ * band does not move the text.
  */
 export const HERO =
-  "relative ml-[calc(50%-50vw)] aspect-[16/9] max-h-[68vh] w-screen overflow-hidden bg-tile";
-export const HERO_VIDEO = "h-full w-full object-cover saturate-[0.72]";
+  "relative aspect-[29/10] max-h-[68vh] min-h-[240px] w-full overflow-hidden bg-tile";
+/** Between the video and the headline; see `.ew-hero-scrim` in youth.css. */
+export const HERO_SCRIM = "ew-hero-scrim pointer-events-none absolute inset-0";
+export const HERO_VIDEO =
+  "absolute left-1/2 aspect-[29/10] h-full min-w-full max-w-none -translate-x-1/2 object-cover object-[50%_25%] saturate-[0.72]";
 /**
  * Pause/play for the hero footage: a bare ▶ / ⏸ glyph in the statement's own
  * colour and 70% opacity, so it reads as part of the same quiet layer rather
@@ -66,9 +74,10 @@ export const HERO_TOGGLE =
  * demanding to be finished before the picture is looked at.
  */
 export const HERO_STATEMENT =
-  "pointer-events-none absolute left-1/2 top-1/2 w-[min(90%,16ch)] -translate-x-1/2 -translate-y-1/2 text-balance text-center font-heading text-[clamp(28px,3.6vw,60px)] uppercase leading-[1.1] text-[#f4f0ed] opacity-70";
+  "pointer-events-none absolute left-1/2 top-1/2 w-[min(90%,16ch)] -translate-x-1/2 -translate-y-1/2 text-balance text-center font-heading text-[clamp(28px,3.6vw,60px)] uppercase leading-[1.1] text-[#f4f0ed] opacity-90";
 
-export const FEED_BODY = "mx-auto max-w-page px-gutter";
+/** No `max-w-page`: the grid follows the window, as the site bar above it does. */
+export const FEED_BODY = "px-gutter";
 
 export const FEED_HEAD =
   "flex flex-wrap items-baseline justify-between gap-3 pb-[18px] pt-7";
@@ -80,11 +89,11 @@ export const FEED_ACTIONS = "flex flex-wrap items-center gap-2";
 
 /** A pill that clears or toggles something. Outlined - never the accent fill. */
 export const PILL_BUTTON =
-  "inline-flex items-center gap-2 rounded-full border border-rule bg-transparent px-3.5 py-[7px] font-body text-[10.5px] font-semibold uppercase leading-none tracking-[0.12em] text-ink transition-colors hover:border-ink";
+  "inline-flex items-center gap-2 rounded-full border border-rule bg-transparent px-3.5 py-[7px] font-body text-[11.5px] font-semibold uppercase leading-none tracking-[0.12em] text-ink transition-colors hover:border-ink";
 
 /** The same pill, filled, for a narrowing that is currently on. */
 export const PILL_BUTTON_ON =
-  "inline-flex items-center gap-2 rounded-full border border-invert bg-invert px-3.5 py-[7px] font-body text-[10.5px] font-semibold uppercase leading-none tracking-[0.12em] text-invert-fg transition-opacity hover:opacity-90";
+  "inline-flex items-center gap-2 rounded-full border border-invert bg-invert px-3.5 py-[7px] font-body text-[11.5px] font-semibold uppercase leading-none tracking-[0.12em] text-invert-fg transition-opacity hover:opacity-90";
 
 /**
  * The standing promise under the feed.
@@ -116,8 +125,13 @@ export const ACCENT_TEXT_ACTION =
  * One tile. The aspect ratio is set inline per card - see `tileRatio` in
  * `ArticleCard.tsx` - because it varies, which is what gives the masonry its
  * rhythm.
+ *
+ * A size container, so its type scales with the tile (`cqw`) and not the window:
+ * the same width can be a tile in the feed or in the desk's preview. Each clamp's
+ * floor is the size the type was drawn at for the narrowest tile.
  */
-export const TILE = "relative overflow-hidden rounded-tile bg-tile";
+export const TILE =
+  "relative overflow-hidden rounded-tile bg-tile [container-type:inline-size]";
 export const TILE_LINK = "absolute inset-0 block";
 export const TILE_IMAGE = "h-full w-full object-cover";
 
@@ -129,7 +143,7 @@ export const TILE_IMAGE = "h-full w-full object-cover";
  * than a missing asset. This is the normal case, not the exception.
  */
 export const TILE_TYPESET =
-  "flex h-full w-full flex-col justify-end gap-2 p-4";
+  "flex h-full w-full flex-col justify-end gap-2 p-[clamp(10px,7cqw,24px)]";
 /**
  * An article's title, so `font-ui` - see the type block in `styles/youth.css`.
  * The tile headline is the smallest type in the product that has to be read
@@ -137,21 +151,21 @@ export const TILE_TYPESET =
  * modulation is the first thing to go.
  */
 export const TILE_TYPESET_HEADLINE =
-  "text-pretty font-ui text-[15px] font-bold leading-[1.2] tracking-[-0.015em] text-ink";
+  "text-pretty font-ui text-[clamp(13px,6.7cqw,26px)] font-bold leading-[1.2] tracking-[-0.015em] text-ink";
 export const TILE_TYPESET_KICKER =
   "font-body text-kicker font-bold uppercase text-ink-3";
 
 /** The scrim and the text over it. `pointer-events-none` so the link wins. */
 export const TILE_SCRIM =
   "ew-tile-scrim pointer-events-none absolute inset-x-0 bottom-0 z-[3] max-h-full pt-9";
-export const TILE_TEXT = "px-3 pb-3";
+export const TILE_TEXT = "px-[clamp(10px,5.3cqw,20px)] pb-[clamp(10px,5.3cqw,20px)]";
 export const TILE_KICKER =
-  "mb-1 flex items-center gap-1.5 font-body text-[8.5px] font-bold uppercase leading-none tracking-[0.13em] text-[rgb(255_253_250/0.78)]";
+  "mb-1 flex items-center gap-1.5 font-body text-[clamp(8.5px,3.8cqw,13px)] font-bold uppercase leading-none tracking-[0.13em] text-[rgb(255_253_250/0.78)]";
 export const TILE_QUALIFIER =
-  "mb-1 line-clamp-1 font-body text-[9px] leading-tight text-[rgb(255_253_250/0.66)]";
+  "mb-1 line-clamp-1 font-body text-[clamp(9px,4cqw,14px)] leading-tight text-[rgb(255_253_250/0.66)]";
 /** The same title, over the picture. `font-ui` for the reason above. */
 export const TILE_HEADLINE =
-  "line-clamp-3 text-pretty font-ui text-[11.5px] font-bold leading-[1.28] tracking-[-0.012em] text-[#fffdfa]";
+  "line-clamp-3 text-pretty font-ui text-[clamp(11.5px,5.1cqw,20px)] font-bold leading-[1.28] tracking-[-0.012em] text-[#fffdfa]";
 
 /**
  * The Save control, floated over the tile.
@@ -181,7 +195,7 @@ export const LOADING_MORE = "py-6 font-body text-meta text-ink-3";
  * jumps the moment content lands.
  */
 export const SKELETON_GRID =
-  "grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3.5";
+  "grid grid-cols-2 gap-3.5 min-[481px]:grid-cols-[repeat(auto-fill,minmax(200px,1fr))]";
 export const SKELETON_TILE = "animate-pulse rounded-tile bg-tile";
 
 export const FEED_STATE = "border-t border-rule-soft py-16";
@@ -274,7 +288,7 @@ export const SOURCE_RETRACTED =
 
 /** Tracks the prose measure, so it sits under the body rather than beside it. */
 export const ARTICLE_DISCLAIMER =
-  "mt-8 max-w-[800px] font-body text-[11.5px] leading-[1.5] text-ink-4";
+  "mt-8 max-w-[800px] font-body text-[12.5px] leading-[1.5] text-ink-4";
 
 /* ── save and share ─────────────────────────────────────────────────────── */
 
@@ -290,9 +304,9 @@ export const FOLDER_SELECT_CHEVRON =
 
 /** The filled action. Ink, not accent - the accent belongs to the console. */
 export const PRIMARY_PILL =
-  "rounded-full border-0 bg-invert px-5 py-3 font-body text-[11px] font-bold uppercase leading-none tracking-[0.12em] text-invert-fg transition-colors hover:bg-accent-ink disabled:opacity-50";
+  "rounded-full border-0 bg-invert px-5 py-3 font-body text-[12px] font-bold uppercase leading-none tracking-[0.12em] text-invert-fg transition-colors hover:bg-accent-ink disabled:opacity-50";
 export const SECONDARY_PILL =
-  "rounded-full border border-rule bg-transparent px-5 py-3 font-body text-[11px] font-bold uppercase leading-none tracking-[0.12em] text-ink transition-colors hover:border-ink";
+  "rounded-full border border-rule bg-transparent px-5 py-3 font-body text-[12px] font-bold uppercase leading-none tracking-[0.12em] text-ink transition-colors hover:border-ink";
 
 /* ── read more ──────────────────────────────────────────────────────────── */
 
@@ -304,7 +318,7 @@ export const RECS_GRID = "mt-5 grid grid-cols-1 gap-3.5 sm:grid-cols-3";
 export const REC_CARD =
   "block rounded-tile border border-rule-soft bg-surface px-5 pb-[22px] pt-5 transition-colors hover:border-ink";
 export const REC_KICKER =
-  "mb-2.5 font-body text-[9.5px] font-bold uppercase tracking-[0.13em] text-ink-3";
+  "mb-2.5 font-body text-[11px] font-bold uppercase tracking-[0.13em] text-ink-3";
 /** An article title again, in the recommendation cards. */
 export const REC_TITLE =
   "text-pretty font-ui text-[15.5px] font-bold leading-[1.22] tracking-[-0.015em] text-ink";
@@ -385,7 +399,7 @@ export const CITATION_CHIP =
   "ew-chip ml-0.5 inline-block font-body font-semibold leading-none tracking-[0.03em] text-ink-3 transition-colors hover:border-accent hover:text-accent-ink";
 
 export const SOURCE_POPOVER =
-  "absolute left-0 top-[calc(100%+9px)] z-30 block w-[296px] whitespace-normal rounded-field border border-rule-soft bg-surface px-3.5 pb-3.5 pt-[13px] shadow-pop";
+  "absolute left-0 top-[calc(100%+9px)] z-30 block w-[296px] max-w-[calc(100vw-16px)] whitespace-normal rounded-field border border-rule-soft bg-surface px-3.5 pb-3.5 pt-[13px] shadow-pop";
 export const POPOVER_KICKER =
   "block font-body text-kicker font-bold uppercase text-ink-3";
 export const POPOVER_TITLE =
@@ -462,7 +476,7 @@ export const SOURCES_SECTION =
   "mt-9 rounded-panel border border-rule-soft bg-surface-2 px-7 py-[26px]";
 export const SOURCES_HEAD = "flex items-baseline justify-between gap-2.5";
 export const SOURCES_TITLE = "font-heading text-[14px] font-bold text-ink";
-export const SOURCES_COUNT = "font-body text-[11.5px] text-ink-3";
+export const SOURCES_COUNT = "font-body text-[12.5px] text-ink-3";
 export const SOURCES_EMPTY_NOTE = "mt-3 font-body text-micro text-ink-3";
 export const SOURCES_FOOTNOTE = "mt-4 font-body text-micro text-ink-3";
 export const SOURCE_LIST = "mt-3.5 flex list-none flex-col gap-2.5 p-0";
@@ -481,7 +495,7 @@ export const SOURCE_ROW_HEAD = "flex items-baseline gap-2.5";
 
 /** The handle, as a pill - the same shape as the chip in the prose. */
 export const SOURCE_HANDLE =
-  "flex-none rounded-full border border-rule-soft px-2 py-0.5 font-body text-[10.5px] font-bold leading-none tracking-[0.06em] text-accent-ink";
+  "flex-none rounded-full border border-rule-soft px-2 py-0.5 font-body text-[11.5px] font-bold leading-none tracking-[0.06em] text-accent-ink";
 export const SOURCE_TITLE_LINK =
   "text-pretty font-body text-[13px] leading-[1.5] text-ink-2 hover:text-accent-ink";
 

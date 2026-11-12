@@ -29,7 +29,9 @@ export function MobileTabBar() {
     { name: "Feed", to: "/" },
     { name: "Categories", to: null },
     { name: "Saved", to: "/you" },
-    { name: signedIn ? "You" : "Join", to: signedIn ? "/you" : "/join" },
+    // "Sign in", not "Join": the header shows neither on a phone, and a
+    // returning reader has no other way in. The sign-in page links to Join.
+    { name: signedIn ? "You" : "Sign in", to: signedIn ? "/you" : "/signin" },
   ];
 
   return (

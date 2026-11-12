@@ -54,6 +54,10 @@ class Settings(BaseSettings):
     )
 
     debug: bool = False
+    #: ``production`` turns the development defaults below from a warning into a
+    #: refusal to start (``_production_runs_on_real_values``) and switches off
+    #: ``/docs``. Everything still boots with no ``.env`` while this is unset.
+    environment: Literal["development", "production"] = "development"
 
     # --- database ---
     database_url: str = "postgresql+asyncpg://youth:youth@localhost:5433/youth"
@@ -195,11 +199,14 @@ class Settings(BaseSettings):
     #: stage records ``cause: disabled`` and the article is drafted exactly as
     #: before it existed; nothing downstream requires the labels yet.
     appraisal_enabled: bool = True
+    #: VERIFY: one model call per cited paper, reading whether it states each
+    #: sentence that cites it. Warnings only; never fails a run or a draft.
+    support_check_enabled: bool = True
     #: How APPRAISE asks: ``one_call`` (quote the abstract's sentence about the
     #: claim's outcome, then label it) or ``two_call`` (relevance first, then a
     #: direction call shown only the relevant sources). One call is the default
     #: on measurement — level on flipped directions, slightly ahead on the rest,
-    #: half the calls (CLAUDE.md, APPRAISE). Two calls is kept for re-measuring
+    #: half the calls (app/pipeline/CLAUDE.md, APPRAISE). Two calls is kept for re-measuring
     #: when the appraisal model changes.
     appraisal_mode: Literal["one_call", "two_call"] = "one_call"
     #: Whether SYNTHESIZE uses APPRAISE's relevance calls to trim its prompt:
@@ -512,6 +519,38 @@ class Settings(BaseSettings):
     #: `search.list` calls a run may make (100 quota units each, of a default
     #: 10,000 a day). Statistics lookups cost 1 unit and are not counted here.
     youtube_max_searches_per_run: int = 10
+
+    # --- social listening and product discovery (app/social, app/products) ---
+    #: The collection scheduler (API process) enqueues a daily social
+    #: collection, a weekly social analysis and a weekly product discovery when
+    #: each is due. Enqueue only: the worker runs them.
+    collection_schedule_enabled: bool = True
+    #: Daily `search.list` calls for social listening (100 units each). Shares the
+    #: key's 10,000-unit day with the trend search (~1,010 a run), so keep the
+    #: sum well under it: a spent quota would make the trend search's YouTube
+    #: source fail and lower its scores' data coverage.
+    social_youtube_max_searches_per_day: int = 15
+    #: Posts published within this many days have their counters re-read daily.
+    social_track_days: int = 21
+    #: Raw posts not refreshed for this long are deleted, with their observations.
+    #: YouTube's developer policies allow at most 30 days. 28 because the prune runs
+    #: only with the daily collection: at 30, a post could reach almost 31.
+    social_retention_days: int = 28
+    #: Reader-model batches (20 texts each) a weekly run may spend; the rest wait.
+    social_max_reading_batches: int = 10
+    social_max_candidates: int = 10
+    #: A topic needs this many posts in the current week to be proposed.
+    social_min_posts: int = 3
+    #: A dismissed topic is not re-proposed within this many days unless its
+    #: independent creators have doubled. A promoted one is never re-proposed.
+    social_dismiss_cooloff_days: int = 28
+    #: Top social candidates per week that get a PubMed evidence count.
+    social_evidence_top: int = 5
+    #: News searches product discovery may make per run (one per category).
+    product_max_news_queries: int = 12
+    #: Official-page and FDA lookups per product discovery run.
+    product_max_confirmations: int = 10
+
     #: Candidates nobody promoted or dismissed are deleted this long after their
     #: run finished. Novelty reads only decided candidates, so undecided ones
     #: from an old run are never read again — and a run writes ~45 of them.
@@ -536,6 +575,8 @@ class Settings(BaseSettings):
     #: shortcut: placeholder until the editorial Gmail inbox exists; set
     #: CONTACT_NOTIFY_TO in the root .env, then --force-recreate backend.
     contact_notify_to: str = "editorial@example.com"
+    #: Where the public site is served, for links in emails (password reset).
+    public_site_url: str = "http://localhost:5173"
 
     # --- article media ---
     #: Per-file ceiling. Generous for a photo, small enough that a stray upload
@@ -645,6 +686,32 @@ class Settings(BaseSettings):
                 "JWT_SECRET is a placeholder published in this repository; anyone "
                 "with the source can sign reviewer tokens. Set a random value "
                 "(python -c 'import secrets; print(secrets.token_urlsafe(48))')."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _production_runs_on_real_values(self) -> Settings:
+        """Each of these works on a laptop and is an open door on a server."""
+        if self.environment != "production":
+            return self
+        local = ("localhost", "127.0.0.1")
+        problems = [
+            name
+            for name, bad in (
+                ("JWT_SECRET", self.jwt_secret in PUBLIC_JWT_SECRETS),
+                ("DATABASE_URL", "youth:youth@" in self.database_url),
+                ("PUBLIC_SITE_URL", any(host in self.public_site_url for host in local)),
+                (
+                    "CORS_ORIGINS",
+                    any(host in origin for origin in self.cors_origins for host in local),
+                ),
+            )
+            if bad
+        ]
+        if problems:
+            raise ValueError(
+                f"ENVIRONMENT=production but {', '.join(problems)} still "
+                f"{'holds its' if len(problems) == 1 else 'hold their'} development value"
             )
         return self
 
@@ -780,6 +847,16 @@ class Settings(BaseSettings):
                 f"must be at least {history_needed}: repeat suppression, novelty and "
                 "trend status read that far back"
             )
+        # Three equal analytics windows must fit inside what is kept, and what
+        # is kept must respect YouTube's 30-day storage limit, with room for the
+        # prune to run only about daily.
+        if not 21 <= self.social_retention_days <= 28:
+            raise ValueError(
+                f"social_retention_days ({self.social_retention_days}) must be 21-28: the "
+                "analytics compare three 7-day windows, and YouTube allows 30 days"
+            )
+        if self.social_track_days > self.social_retention_days:
+            raise ValueError("social_track_days must not exceed social_retention_days")
         return self
 
     def validate_embedding_dim(self, provider_dimension: int) -> None:

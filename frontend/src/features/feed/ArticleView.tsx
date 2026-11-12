@@ -15,6 +15,7 @@
  * article regardless of verdict, and it is deliberately not model output.
  */
 
+import { usePageMeta } from "@/lib/usePageMeta";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -90,6 +91,7 @@ export function ArticleView() {
   // numberings - but a reader checking a chip against the list is the whole use
   // of a citation, so it is worth being literal about there being one.
   const numbers = useMemo(() => citationNumbers(article?.sources ?? []), [article?.sources]);
+  usePageMeta(article?.headline, article?.summary);
 
   if (status === "pending") return <ArticleSkeleton />;
 
@@ -146,9 +148,16 @@ export function ArticleView() {
         <p className={ARTICLE_LEDE}>{article.summary}</p>
 
         <div className={ARTICLE_BYLINE}>
+          {/*
+            The person who approved it, by the name an admin gave them. Not a
+            "team" with implied credentials: a model drafts every article and
+            this one reviewer is who stands behind it.
+          */}
           <span>
-            Written by{" "}
-            <strong className={ARTICLE_BYLINE_STRONG}>You.th Medical Team</strong>
+            Checked and approved by{" "}
+            <strong className={ARTICLE_BYLINE_STRONG}>
+              {article.reviewerName ?? "a You.th reviewer"}
+            </strong>
           </span>
           <span className={ARTICLE_BYLINE_SEP}>|</span>
           <span>
@@ -165,10 +174,6 @@ export function ArticleView() {
           </span>
           <span className={ARTICLE_BYLINE_SEP}>|</span>
           <span>{sourceSummary(article.sources.length)}</span>
-          <span className={ARTICLE_BYLINE_SEP}>|</span>
-          <span className={ARTICLE_BYLINE_LIFT}>
-            Reviewed by a person before publishing
-          </span>
         </div>
 
         {/*
@@ -207,6 +212,16 @@ export function ArticleView() {
           numbers={numbers}
           activeHandle={activeHandle}
         />
+
+        {article.corrections.length > 0 ? (
+          <ul className={ARTICLE_DISCLAIMER} aria-label="Corrections">
+            {article.corrections.map((entry) => (
+              <li key={entry.at}>
+                Corrected {new Date(entry.at).toLocaleDateString()}: {entry.note}
+              </li>
+            ))}
+          </ul>
+        ) : null}
 
         <p className={ARTICLE_DISCLAIMER}>{article.disclaimer}</p>
 

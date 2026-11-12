@@ -184,6 +184,9 @@ class SynthesizeStage:
             {
                 "verdict": str(result.output.verdict),
                 "sources_in_prompt": len(payload.sources),
+                "sources_labelled_off_topic": (
+                    len(payload.sources) - len(_worth_citing(payload))
+                ),
                 "coverage_retry": retried,
                 "fresh_draft_after_contract_failure": fresh_draft,
                 # What ``fit_to_contract`` moved or cut instead of a new draft; None if nothing.
@@ -478,7 +481,7 @@ class SynthesizeStage:
         about fewer papers is not what was asked for, and a shorter draft that
         genuinely works through more of the evidence is.
         """
-        offered = payload.handle_set
+        offered = _worth_citing(payload)
         covered_set = _covered_handles(result.output, offered)
         covered = len(covered_set)
         cited = result.output.body.cited_handles()
@@ -492,7 +495,7 @@ class SynthesizeStage:
             "draft gives %d of %d sources a citation of their own (%d uncited, "
             "%d only in a long list); asking once for the rest",
             covered,
-            len(payload.sources),
+            len(offered),
             len(uncited),
             len(lumped),
         )
@@ -516,7 +519,7 @@ class SynthesizeStage:
             logger.info(
                 "coverage re-prompt covered %d of %d (was %d); keeping the first draft",
                 improved,
-                len(payload.sources),
+                len(offered),
                 covered,
             )
             return result
@@ -524,7 +527,7 @@ class SynthesizeStage:
         logger.info(
             "coverage re-prompt covered %d of %d (was %d)",
             improved,
-            len(payload.sources),
+            len(offered),
             covered,
         )
         return retry
@@ -871,6 +874,28 @@ def _fit_context(
     }
 
 
+def _relevant_claims(source: PromptSource) -> list[str]:
+    """The claims APPRAISE did not label this source off-topic for.
+
+    A claim with no label counts: a missing label means nobody looked.
+    """
+    return [
+        claim for claim in source.claims
+        if source.stances.get(claim) is not Stance.OFF_TOPIC
+    ]
+
+
+def _worth_citing(payload: SynthesisInput) -> set[str]:
+    """The sources the coverage re-prompt may ask about.
+
+    Asking for the rest is what wrote "What the other sources measured" into a
+    smart-ring article (VO2max, pregnancy), 2026-11-05. They stay in the prompt
+    because the labels are right only ~75% of the time, so the model can still
+    cite one it finds relevant; it is just never pushed to.
+    """
+    return {source.handle for source in payload.sources if _relevant_claims(source)}
+
+
 def _filter_by_relevance(payload: SynthesisInput) -> tuple[SynthesisInput, dict[str, object]]:
     """Trim the prompt to what APPRAISE found relevant (``synthesis_relevance_filter``).
 
@@ -889,10 +914,7 @@ def _filter_by_relevance(payload: SynthesisInput) -> tuple[SynthesisInput, dict[
     kept: list[PromptSource] = []
     narrowed = 0
     for source in payload.sources:
-        relevant = [
-            claim for claim in source.claims
-            if source.stances.get(claim) is not Stance.OFF_TOPIC
-        ]
+        relevant = _relevant_claims(source)
         if not relevant:
             continue
         if len(relevant) < len(source.claims):
@@ -928,11 +950,16 @@ def _body_words(draft: SynthesisOutput) -> int:
 
 
 def _is_thin(draft: SynthesisOutput, payload: SynthesisInput) -> bool:
-    """Ignoring most of its sources, *and* given plenty. Both halves required."""
+    """Ignoring most of its relevant sources, *and* given plenty. Both required.
+
+    "Plenty" counts every source: the labels are right only ~75% of the time, and
+    counting only the rest cost wt_098 its second look (5 of 12 usable, 2026-11-05).
+    """
     if len(payload.sources) < SECTIONS_EXPECTED_FROM:
         return False
-    covered = len(_covered_handles(draft, payload.handle_set))
-    return covered < len(payload.sources) * MIN_CITED_FRACTION
+    worth_citing = _worth_citing(payload)
+    covered = len(_covered_handles(draft, worth_citing))
+    return covered < len(worth_citing) * MIN_CITED_FRACTION
 
 
 def _covered_handles(draft: SynthesisOutput, offered: set[str]) -> set[str]:
@@ -980,9 +1007,8 @@ def _coverage_feedback(covered: int, uncited: list[str], lumped: list[str]) -> s
         "against it.\n\n"
         "Do not pad. Every sentence you add must state a specific finding from "
         "one of the sources above and carry its handle. If a source does not "
-        "bear on any claim, say so and cite it there. If a source genuinely has "
-        "nothing to add, leave it out: an article that works through the "
-        "evidence honestly is the goal, not a longer one."
+        "bear on any claim or has nothing to add, leave it out: an article that "
+        "works through the evidence honestly is the goal, not a longer one."
     )
 
 

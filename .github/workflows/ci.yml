@@ -1,0 +1,116 @@
+# Every gate CLAUDE.md lists, run on each push and pull request, so a red one
+# is found before merge instead of whenever someone next runs it by hand.
+#
+# Not here: the quality evaluation (`python -m evaluation.run`). It needs its
+# recorded cassettes or a model server, and neither is in the repository.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The published placeholder would only warn; tests set their own.
+  JWT_SECRET: ci-only-secret-that-is-at-least-32-characters
+  DISCOVERY_SCAN_ENABLED: "false"
+  COLLECTION_SCHEDULE_ENABLED: "false"
+  IMAGE_PROVIDER: none
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      # Same image and port as docker-compose.yml, so every default URL works.
+      db:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: youth
+          POSTGRES_PASSWORD: youth
+          POSTGRES_DB: youth
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U youth" --health-interval 5s --health-retries 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --locked
+      - name: Migrate the dev and test databases
+        run: |
+          PGPASSWORD=youth psql -h localhost -p 5433 -U youth -d youth -c "CREATE DATABASE youth_test"
+          uv run python -m scripts.migrate
+          DATABASE_URL=postgresql+asyncpg://youth:youth@localhost:5433/youth_test uv run python -m scripts.migrate
+      - run: uv run ruff check app tests scripts evaluation
+      - run: uv run mypy app
+      - name: pytest (a skipped suite fails the job)
+        # The database suites skip silently when Postgres is unreachable, and a
+        # green run that checked nothing is worse than a red one.
+        run: |
+          set -o pipefail
+          uv run pytest tests -q -rs | tee pytest.out
+          ! grep -q " skipped" pytest.out
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  browser:
+    # The built site against its own API and database, in Chromium.
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    services:
+      db:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: youth
+          POSTGRES_PASSWORD: youth
+          POSTGRES_DB: youth
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U youth" --health-interval 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Backend and its test database
+        working-directory: backend
+        run: |
+          uv sync --locked
+          PGPASSWORD=youth psql -h localhost -p 5433 -U youth -d youth -c "CREATE DATABASE youth_test"
+          DATABASE_URL=postgresql+asyncpg://youth:youth@localhost:5433/youth_test uv run python -m scripts.migrate
+      - name: Browser tests
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: frontend/playwright-report

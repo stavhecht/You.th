@@ -19,6 +19,7 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
+from typing import Any
 
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import insert
@@ -197,7 +198,7 @@ class DiscoveryService:
         earliest, latest = span.one()
         if earliest is None or latest is None:
             return 0
-        return (latest - earliest).days // window_days
+        return int((latest - earliest).days // window_days)
 
     # --- writing the ledger -------------------------------------------------
 
@@ -219,7 +220,7 @@ class DiscoveryService:
         status: DiscoveryScanStatus,
         records_seen: int = 0,
         descriptors_seen: int = 0,
-        error: dict | None = None,
+        error: dict[str, Any] | None = None,
     ) -> None:
         scan.status = status
         scan.records_seen = records_seen
@@ -613,7 +614,8 @@ class DiscoveryService:
             )
             .values(status=DiscoveryCandidateStatus.EXPIRED)
         )
-        return (await self._session.execute(statement)).rowcount or 0
+        result = await self._session.execute(statement)
+        return int(getattr(result, "rowcount", 0) or 0)
 
 
 def classify_all(

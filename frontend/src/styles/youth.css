@@ -31,6 +31,16 @@
  */
 
 @layer base {
+  /* iOS Safari zooms the whole page when a field under 16px takes focus, and does
+     not zoom back. Touch screens only, so the desktop's smaller fields stay. */
+  @media (hover: none) and (pointer: coarse) {
+    input,
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
+  }
+
   :root {
     /* ── Type ───────────────────────────────────────────────────────────────
        Instrument Serif is the interface face - headings, body, labels and
@@ -125,7 +135,7 @@
        A bracketed, boxed handle rather than a superscript: superscripts are a
        4px tap target and disappear at body size, and this chip is the primary
        affordance for checking a claim against its paper. */
-    --ew-chip-size: 11.5px;
+    --ew-chip-size: 12.5px;
     --ew-chip-va: baseline;
     --ew-chip-border: 1px solid var(--ew-rule-soft);
     --ew-chip-pad: 1px 5px;
@@ -326,6 +336,22 @@
       rgb(18 16 15 / 0.88),
       rgb(18 16 15 / 0.48) 54%,
       rgb(18 16 15 / 0)
+    );
+  }
+
+  /* The hero headline sits over moving sea and sky, and in the bright frames
+     the off-white text all but vanished. A soft dark pool behind the text
+     only, fading out well before the edges, so the footage still reads as
+     itself. Fixed dark stops for the same reason as the tile scrim.
+     With the headline at 90% opacity this gives 3.8:1 over the white dress,
+     the brightest frame (WCAG asks 3:1 for text this large); at 42% and 70%
+     opacity it was 2.6:1. */
+  .ew-hero-scrim {
+    background: radial-gradient(
+      ellipse 55% 60% at 50% 50%,
+      rgb(18 16 15 / 0.55),
+      rgb(18 16 15 / 0.25) 55%,
+      rgb(18 16 15 / 0) 100%
     );
   }
 

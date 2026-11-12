@@ -13,6 +13,7 @@
  * says so to anyone who lands here first.
  */
 
+import { usePageMeta } from "@/lib/usePageMeta";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 
@@ -93,6 +94,7 @@ const DATA_TABLE: { what: string; why: string; basis: string; kept: ReactNode }[
 ];
 
 export function PrivacyRoute() {
+  usePageMeta("Privacy");
   return (
     <main className={LEGAL_PAGE}>
       <Link to="/" className={PAGE_BACK_LINK}>

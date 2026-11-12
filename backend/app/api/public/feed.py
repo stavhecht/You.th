@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Response, status
 from sqlalchemy import text
 
 from app.api.deps import OptionalReaderDep, SessionDep
@@ -20,11 +20,19 @@ from app.services.feed import ArticleNotFound, FeedService
 
 router = APIRouter(tags=["public"])
 
+#: A minute, for anything every signed-out visitor is served identically. Long
+#: enough that a proxy or CDN absorbs a burst, short enough that a withdrawal
+#: or a correction is gone from every cache almost at once. ``Vary`` keeps a
+#: cache from handing the anonymous copy to a signed-in reader, whose feed is
+#: ordered for them.
+_PUBLIC_CACHE = {"Cache-Control": "public, max-age=60", "Vary": "Authorization"}
+
 
 @router.get("/feed", response_model=FeedPageOut)
 async def get_feed(
     session: SessionDep,
     reader: OptionalReaderDep,
+    response: Response,
     cursor: Annotated[str | None, Query(description="Opaque cursor from next_cursor")] = None,
     limit: Annotated[int, Query(ge=1, le=50)] = 24,
     verdict: Annotated[Verdict | None, Query(description="Filter by verdict")] = None,
@@ -57,6 +65,8 @@ async def get_feed(
     narrowed by ``verdict`` and ``subject`` as the feed is, and never
     personalised (``FeedService.search`` says why). A blank ``q`` is the feed.
     """
+    if reader is None:
+        response.headers.update(_PUBLIC_CACHE)
     query = (q or "").strip()
     if query:
         try:
@@ -67,7 +77,9 @@ async def get_feed(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Malformed cursor"
             ) from None
-        return FeedPageOut(items=found, next_cursor=next_cursor, match=match)
+        return FeedPageOut.model_validate(
+            {"items": found, "next_cursor": next_cursor, "match": match}
+        )
 
     interests: list[Subject] = []
     if reader is not None and personalise:
@@ -83,21 +95,22 @@ async def get_feed(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Malformed cursor"
         ) from None
-    return FeedPageOut(items=items, next_cursor=next_cursor)
+    return FeedPageOut.model_validate({"items": items, "next_cursor": next_cursor})
 
 
 @router.get("/feed/facets", response_model=FeedFacetsOut)
-async def get_feed_facets(session: SessionDep) -> FeedFacetsOut:
+async def get_feed_facets(session: SessionDep, response: Response) -> FeedFacetsOut:
     """Published counts per subject and per verdict, for the browse drawer.
 
     Declared **above** ``/articles/{slug}`` for no routing reason — it is a
     different prefix — but kept next to the feed it describes.
     """
+    response.headers.update(_PUBLIC_CACHE)
     return FeedFacetsOut(**await FeedService(session).facets())
 
 
 @router.get("/articles/{slug}", response_model=ArticleOut)
-async def get_article(slug: str, session: SessionDep) -> ArticleOut:
+async def get_article(slug: str, session: SessionDep, response: Response) -> ArticleOut:
     """Full article with citations and resolved sources.
 
     404 for any slug that is not published, including one that exists in
@@ -110,6 +123,7 @@ async def get_article(slug: str, session: SessionDep) -> ArticleOut:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Article not found"
         ) from None
+    response.headers.update(_PUBLIC_CACHE)
     return ArticleOut(**article)
 
 

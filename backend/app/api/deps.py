@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
+from datetime import timedelta
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Path, Request, status
@@ -16,13 +17,14 @@ from app.db import get_session_factory
 from app.domain.enums import UserRole
 from app.domain.models import Reader, User
 from app.security.auth import (
-    TOKEN_TYPE_READER,
     AuthenticatedReader,
     AuthenticatedReviewer,
     AuthError,
-    decode_token_subject,
+    decode_reader_token,
+    decode_reviewer_token,
+    password_unchanged,
 )
-from app.security.login_throttle import InMemoryLoginThrottle, LoginThrottle
+from app.security.login_throttle import Budget, InMemoryLoginThrottle, LoginThrottle
 from app.security.spend_throttle import InMemorySpendThrottle, SpendThrottle
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -114,6 +116,36 @@ def get_signup_throttle() -> LoginThrottle:
 
 SignupThrottleDep = Annotated[LoginThrottle, Depends(get_signup_throttle)]
 
+#: And one for "forgot your password", apart for the same reason: every request
+#: can send an email, and a burst must not lock anyone out of signing in.
+#: Three per address an hour, not the login's twenty per quarter hour: each one
+#: mails a stranger through the Gmail account the contact form shares, and a
+#: real reader needs one link, maybe two.
+_password_reset_throttle: LoginThrottle = InMemoryLoginThrottle(
+    account_budget=Budget(max_failures=3, window=timedelta(hours=1))
+)
+
+
+def get_password_reset_throttle() -> LoginThrottle:
+    return _password_reset_throttle
+
+
+PasswordResetThrottleDep = Annotated[LoginThrottle, Depends(get_password_reset_throttle)]
+
+#: The desk's "forgot your password", apart from the readers' for the reason
+#: every counter here is apart: a burst on the public form must not stop a
+#: reviewer getting their link.
+_reviewer_reset_throttle: LoginThrottle = InMemoryLoginThrottle(
+    account_budget=Budget(max_failures=3, window=timedelta(hours=1))
+)
+
+
+def get_reviewer_reset_throttle() -> LoginThrottle:
+    return _reviewer_reset_throttle
+
+
+ReviewerResetThrottleDep = Annotated[LoginThrottle, Depends(get_reviewer_reset_throttle)]
+
 #: And a fourth counter, of a different kind, for regenerating article imagery.
 #:
 #: Not a ``LoginThrottle`` instance, because it is not counting the same thing.
@@ -178,7 +210,9 @@ async def require_reviewer(
         raise _UNAUTHORIZED
 
     try:
-        user_id = decode_token_subject(credentials.credentials, settings.jwt_secret)
+        user_id, fingerprint = decode_reviewer_token(
+            credentials.credentials, settings.jwt_secret
+        )
     except AuthError:
         raise _UNAUTHORIZED from None
 
@@ -186,7 +220,9 @@ async def require_reviewer(
         select(User).where(User.id == user_id, User.is_active.is_(True))
     )
     user = result.scalar_one_or_none()
-    if user is None:
+    # A token from before the last password change: changing it signs out
+    # every other session, which is the point of changing it.
+    if user is None or not password_unchanged(fingerprint, user.password_hash):
         raise _UNAUTHORIZED
 
     return AuthenticatedReviewer(
@@ -210,8 +246,8 @@ async def _resolve_reader(
         return None
 
     try:
-        reader_id = decode_token_subject(
-            credentials.credentials, settings.jwt_secret, expect=TOKEN_TYPE_READER
+        reader_id, fingerprint = decode_reader_token(
+            credentials.credentials, settings.jwt_secret
         )
     except AuthError:
         return None
@@ -222,9 +258,15 @@ async def _resolve_reader(
     reader = result.scalar_one_or_none()
     if reader is None:
         return None
+    # A token from before the last password change: a reset signs out every device.
+    if fingerprint is not None and not password_unchanged(fingerprint, reader.password_hash):
+        return None
 
     return AuthenticatedReader(
-        id=reader.id, email=reader.email, display_name=reader.display_name
+        id=reader.id,
+        email=reader.email,
+        display_name=reader.display_name,
+        email_verified=reader.email_verified_at is not None,
     )
 
 

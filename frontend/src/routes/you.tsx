@@ -11,6 +11,7 @@
  * they change (see `ReaderAuthProvider.update`).
  */
 
+import { usePageMeta } from "@/lib/usePageMeta";
 import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
@@ -34,6 +35,7 @@ import {
   DELETE_FORM,
   FIELD,
   FORM_ERROR,
+  FORM_NOTE,
   EMPTY_SHELF,
   EMPTY_SHELF_BODY,
   EMPTY_SHELF_TITLE,
@@ -50,6 +52,8 @@ import {
   PROFILE_IDENTITY,
   PROFILE_META,
   PROFILE_NAME,
+  SUBMIT_BUTTON,
+  TEXTAREA,
   WIDE_PAGE,
   chip,
 } from "@/features/shell/pageStyles";
@@ -60,11 +64,14 @@ import {
   exportMyData,
   fetchSaved,
   readerKeys,
+  resendVerification,
+  submitContact,
 } from "@/lib/api/reader";
 import { ApiError } from "@/lib/api/client";
 import type { Subject } from "@/types/api";
 
 export function YouRoute() {
+  usePageMeta("Your account");
   const { reader, status, signedIn, update, logout } = useReader();
   const [folderId, setFolderId] = useState<string | null>(null);
   const [newFolder, setNewFolder] = useState("");
@@ -240,8 +247,140 @@ export function YouRoute() {
         </div>
       )}
 
+      <SuggestTopic />
       <YourData />
     </main>
+  );
+}
+
+/**
+ * Suggest a topic - for signed-in readers only, sent as the account.
+ *
+ * The suggestion lands in the editorial inbox like any message; it never starts
+ * an article on its own, and the copy says so. A link or a description is
+ * needed, either will do: the post that prompted it is often the quickest way
+ * to see what people are being told.
+ */
+function SuggestTopic() {
+  const { reader } = useReader();
+  const flash = useToast();
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    const link = String(form.get("link") ?? "").trim();
+    const note = String(form.get("note") ?? "").trim();
+    if (!link && !note) return setError("Add a link, or tell us what to look into.");
+    if (!formElement.checkValidity()) {
+      return setError("Paste the full link, starting with https://");
+    }
+
+    setBusy(true);
+    try {
+      await submitContact({
+        kind: "topic",
+        // The server uses the account's own; sent because the payload needs them.
+        name: reader?.displayName ?? "",
+        email: reader?.email ?? "",
+        link: link || null,
+        note,
+      });
+      formElement.reset();
+      flash("Thanks, your topic is with the editorial team");
+    } catch (caught) {
+      setError(
+        caught instanceof ApiError && caught.status === 429
+          ? "That is a lot of messages from one place. Try again in a few minutes."
+          : "Could not send that. Try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Signup takes any address, so a suggestion goes out under it only once the
+  // reader has opened the link mailed there. The server enforces the same.
+  if (reader && !reader.emailVerified) {
+    return (
+      <section className={DATA_SECTION} aria-labelledby="suggest-topic">
+        <h2 id="suggest-topic" className={DATA_TITLE}>
+          Suggest a topic
+        </h2>
+        <p className={DATA_BODY}>
+          Confirm your email first: we sent a link to {reader.email}. Suggestions are
+          sent under your address, so we check it is yours.
+        </p>
+        <button
+          type="button"
+          disabled={busy}
+          className={SUBMIT_BUTTON}
+          onClick={() => {
+            setBusy(true);
+            resendVerification()
+              .then(
+                () => flash("Sent. Check your inbox for the link"),
+                () => setError("Could not send it. Try again in a few minutes."),
+              )
+              .finally(() => setBusy(false));
+          }}
+        >
+          Send the link again →
+        </button>
+        {error ? (
+          <p role="alert" className={FORM_ERROR}>
+            {error}
+          </p>
+        ) : null}
+      </section>
+    );
+  }
+
+  return (
+    <section className={DATA_SECTION} aria-labelledby="suggest-topic">
+      <h2 id="suggest-topic" className={DATA_TITLE}>
+        Suggest a topic
+      </h2>
+      <p className={DATA_BODY}>
+        A claim you keep seeing, a video, or a question you want checked against the
+        research. A person on the editorial team reads every suggestion and decides what
+        gets researched.
+      </p>
+      <form onSubmit={onSubmit} noValidate className="max-w-[640px]">
+        <label className="mb-3.5 block">
+          <span className={`${FIELD_LABEL} pl-[10px]`}>Link (optional)</span>
+          <input
+            name="link"
+            type="url"
+            maxLength={2000}
+            placeholder="A post, video or article URL"
+            className={FIELD}
+          />
+        </label>
+        <label className="mb-5 block">
+          <span className={`${FIELD_LABEL} pl-[10px]`}>What should we look into?</span>
+          <textarea
+            name="note"
+            maxLength={4000}
+            rows={4}
+            placeholder="Describe it in a sentence or two"
+            className={TEXTAREA}
+          />
+        </label>
+        <button type="submit" disabled={busy} className={SUBMIT_BUTTON}>
+          {busy ? "Sending…" : "Suggest it →"}
+        </button>
+        {error ? (
+          <p role="alert" className={FORM_ERROR}>
+            {error}
+          </p>
+        ) : null}
+        <p className={FORM_NOTE}>Sent as {reader?.email}, so we can reply.</p>
+      </form>
+    </section>
   );
 }
 

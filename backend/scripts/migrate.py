@@ -97,7 +97,12 @@ async def run(status_only: bool = False) -> int:
             print(f"No .sql files in {MIGRATIONS_DIR}")
             return 0
 
+        # One runner at a time: two `migrate` containers starting together would
+        # both see a file as pending and both apply it. Released on disconnect.
+        await connection.execute("SELECT pg_advisory_lock(hashtext('youth_migrate'))")
+
         pending = 0
+        changed = 0
         for path in migrations:
             sql = prepare_sql(path.read_text(), settings.embedding_dim)
             digest = checksum(sql)
@@ -113,6 +118,7 @@ async def run(status_only: bool = False) -> int:
                         f"    Write a new migration rather than editing this one.",
                         file=sys.stderr,
                     )
+                    changed += 1
                 else:
                     print(f"  = {name}  already applied")
                 continue
@@ -139,6 +145,12 @@ async def run(status_only: bool = False) -> int:
             )
             print("    done")
 
+        if changed:
+            # Exit 1, so the compose `migrate` step fails and the API does not
+            # boot against a schema that no longer matches its files. It used
+            # to print the warning above and report success.
+            print(f"\n{changed} applied migration(s) changed on disk.", file=sys.stderr)
+            return 1
         if status_only:
             print(f"\n{pending} pending, {len(applied)} applied")
         elif pending == 0:

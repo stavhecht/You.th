@@ -1,5 +1,9 @@
 /**
- * "Let us know" - suggest a topic to cover, or send anything else.
+ * "Let us know" - a message to the editorial team.
+ *
+ * Suggesting a topic is not here: it needs an account and lives on the
+ * reader's profile (`/you`), sent under the account's own name and address.
+ * This page is the one form anyone can use.
  *
  * The submission lands in `contact_requests` and is read in the review desk's
  * inbox. It does **not** create a pipeline run: nothing reaches generation
@@ -8,10 +12,10 @@
  * implying an article is on its way.
  *
  * Name and email are required - without a way to reply, a request we can
- * answer looks exactly like one we cannot. A topic needs a link or a
- * description (either will do); anything else needs a description.
+ * answer looks exactly like one we cannot. The message itself is required.
  */
 
+import { usePageMeta } from "@/lib/usePageMeta";
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 
@@ -20,7 +24,6 @@ import { EMAIL_HINT, isEmail } from "@/lib/email";
 import { useReader } from "@/features/reader/auth";
 import { ApiError } from "@/lib/api/client";
 import {
-  CHIP_ROW,
   COLLECTION_NOTICE,
   DONE_ACTION,
   DONE_BODY,
@@ -39,9 +42,7 @@ import {
   SUBMIT_BUTTON,
   TEXTAREA,
   WIDE_PAGE,
-  chip,
 } from "@/features/shell/pageStyles";
-import type { ContactKind } from "@/types/api";
 
 /** The mark on a required label; the input's `required` is what a screen reader hears. */
 const REQUIRED_MARK = (
@@ -57,11 +58,7 @@ const ERROR = `${FIELD_ERROR} ${INDENT}`;
 
 const NAME_HINT = "Tell us your name so we know who is asking.";
 const EMAIL_MISSING = "We need your email address to reply.";
-const LINK_HINT = "Paste the full link, starting with https://";
 const NOTE_MISSING = "Tell us what this is about.";
-// A topic needs one of the two; both fields say so when both are empty.
-const LINK_OR_NOTE = "Add a link, or describe the topic below.";
-const NOTE_OR_LINK = "Describe what we should look into, or add a link above.";
 
 /** An empty email and a malformed one are different mistakes. */
 function emailMessage(input: HTMLInputElement): string | null {
@@ -78,18 +75,11 @@ function refusalReason(caught: unknown): string | null {
     : null;
 }
 
-// `fact_check` stays in ContactKind: older inbox rows carry it.
-const KINDS: { value: ContactKind; label: string }[] = [
-  { value: "topic", label: "Suggest a topic" },
-  { value: "other", label: "Something else" },
-];
-
 export function ContactRoute() {
-  const { reader } = useReader();
-  const [kind, setKind] = useState<ContactKind>("topic");
+  usePageMeta("Get in touch");
+  const { reader, signedIn } = useReader();
   const [nameError, setNameError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
-  const [linkError, setLinkError] = useState<string | null>(null);
   const [noteError, setNoteError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,22 +94,15 @@ export function ContactRoute() {
     const valid = event.currentTarget.checkValidity();
 
     const form = new FormData(event.currentTarget);
-    const link = String(form.get("link") ?? "").trim();
     const note = String(form.get("note") ?? "").trim();
-    if (kind === "topic" && !link && !note) {
-      setLinkError(LINK_OR_NOTE);
-      setNoteError(NOTE_OR_LINK);
-      return;
-    }
     if (!valid) return;
 
     setBusy(true);
     try {
       await submitContact({
-        kind,
+        kind: "other",
         name: String(form.get("name") ?? "").trim(),
         email: String(form.get("email") ?? "").trim(),
-        link: link || null,
         note,
       });
       setSent(true);
@@ -145,9 +128,8 @@ export function ContactRoute() {
         <div className={DONE_CARD}>
           <p className={DONE_TITLE}>Got it, thank you.</p>
           <p className={DONE_BODY}>
-            Your message is with the editorial team. A person reads every one.
-            If a study exists either way, you will hear back at the address you
-            gave us.
+            Your message is with the editorial team. A person reads every one,
+            and we reply to the address you gave us.
           </p>
           <button onClick={() => setSent(false)} className={DONE_ACTION}>
             Send another
@@ -165,30 +147,30 @@ export function ContactRoute() {
 
       <header>
         <div className={PAGE_KICKER}>Let us know</div>
-        <h1 className={PAGE_TITLE}>Saw something that needs checking?</h1>
+        <h1 className={PAGE_TITLE}>Get in touch.</h1>
         <p className={PAGE_STANDFIRST}>
-          Send us a claim, a video, or a topic you want covered. Requests go to the
-          editorial team. They do not start an article on their own, and a person
-          decides what gets researched.
+          A question, a correction, or anything else. Messages go to the editorial
+          team, and a person reads every one.
+        </p>
+        <p className={`${FORM_NOTE} mt-3`}>
+          Want us to look into a topic?{" "}
+          {signedIn ? (
+            <Link to="/you" className="underline">
+              Suggest it from your profile
+            </Link>
+          ) : (
+            <>
+              <Link to="/signin" className="underline">
+                Sign in
+              </Link>{" "}
+              to suggest one
+            </>
+          )}
+          .
         </p>
       </header>
 
       <form onSubmit={onSubmit} noValidate className="mt-8 max-w-[640px]">
-        <div className={LABEL}>What is this about?</div>
-        <div className={`${CHIP_ROW} mb-7`}>
-          {KINDS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => setKind(option.value)}
-              aria-pressed={kind === option.value}
-              className={chip(kind === option.value)}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-
         <div className={`${FORM_GRID} mb-3.5`}>
           <label>
             <span className={LABEL}>Your name{REQUIRED_MARK}</span>
@@ -250,61 +232,21 @@ export function ContactRoute() {
           </label>
         </div>
 
-        {/* A topic needs a link or a description, either one: the post or video
-            that prompted it is often the fastest way to see what people are told. */}
-        {kind === "topic" ? (
-          <>
-            <p className="mb-3.5 font-body text-[12.5px] text-ink-3">
-              Add a link, a description, or both. At least one is needed.
-            </p>
-            <label className="mb-3.5 block">
-              <span className={LABEL}>Link to the content{REQUIRED_MARK}</span>
-              <input
-                name="link"
-                type="url"
-                maxLength={2000}
-                placeholder="A post, video or article URL"
-                aria-invalid={linkError ? true : undefined}
-                aria-describedby={linkError ? "contact-link-error" : undefined}
-                onInput={(event) => {
-                  if (!event.currentTarget.validity.valid) return;
-                  setLinkError(null);
-                  if (event.currentTarget.value.trim() && noteError === NOTE_OR_LINK) {
-                    setNoteError(null);
-                  }
-                }}
-                onBlur={(event) =>
-                  setLinkError(event.currentTarget.validity.valid ? null : LINK_HINT)
-                }
-                onInvalid={() => setLinkError(LINK_HINT)}
-                className={FIELD}
-              />
-              {linkError ? (
-                <span id="contact-link-error" className={ERROR}>
-                  {linkError}
-                </span>
-              ) : null}
-            </label>
-          </>
-        ) : null}
-
         <label className="mb-5 block">
           <span className={LABEL}>
-            {kind === "topic" ? "What should we look into?" : "Tell us more"}
+            Your message
             {REQUIRED_MARK}
           </span>
           <textarea
             name="note"
-            required={kind !== "topic"}
+            required
             maxLength={4000}
             rows={5}
-            placeholder="Describe in a sentence or two what you want us to look into"
+            placeholder="What would you like to tell us?"
             aria-invalid={noteError ? true : undefined}
             aria-describedby={noteError ? "contact-note-error" : undefined}
             onInput={(event) => {
-              if (!event.currentTarget.value.trim()) return;
-              setNoteError(null);
-              if (linkError === LINK_OR_NOTE) setLinkError(null);
+              if (event.currentTarget.value.trim()) setNoteError(null);
             }}
             onInvalid={() => setNoteError(NOTE_MISSING)}
             className={TEXTAREA}
@@ -325,11 +267,6 @@ export function ContactRoute() {
             {error}
           </p>
         ) : null}
-
-        <p className={FORM_NOTE}>
-          We read everything. We answer the ones we can check against published
-          research.
-        </p>
 
         {/* Notice at collection - PPL s.11, GDPR Art 13. Asks the sender to
             leave health details out because the note is free text that the

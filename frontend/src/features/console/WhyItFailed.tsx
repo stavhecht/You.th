@@ -7,7 +7,13 @@
 import { useState } from "react";
 
 import type { ReviewSource, TipTapDoc, ValidationReport, Verdict } from "@/types/api";
-import { buildChecks, citedSentences, missingTerms, sentenceKey } from "./checks";
+import {
+  buildChecks,
+  citedSentences,
+  missingTerms,
+  sentenceKey,
+  uncitedParagraphs,
+} from "./checks";
 import { SECTION_LABEL } from "./controls";
 import {
   PANEL_BLOCK,
@@ -114,6 +120,12 @@ export function WhyItFailed({
               {c.ok ? "Pass" : "Check"} · {c.name}
             </b>
             : {c.detail}
+          </li>
+        ))}
+        {uncitedParagraphs(doc).map((text) => (
+          <li key={text} className={FAILED}>
+            <b>Check · paragraph cites nothing</b>: “{text.slice(0, 90)}
+            {text.length > 90 ? "…" : ""}”
           </li>
         ))}
       </ul>

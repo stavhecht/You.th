@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -91,6 +91,13 @@ class FeedPageOut(CamelModel):
     match: Literal["text", "similar"] | None = None
 
 
+class CorrectionOut(CamelModel):
+    """One published correction: when, and what changed."""
+
+    at: datetime
+    note: str
+
+
 class ArticleOut(CamelModel):
     """The full on-tap article."""
 
@@ -105,7 +112,7 @@ class ArticleOut(CamelModel):
     ingredients: list[str]
     #: TipTap document. Citation nodes carry ``sourceIds`` matching
     #: ``SourceOut.citation_handle``.
-    content: dict
+    content: dict[str, Any]
     sources: list[SourceOut]
     citations: list[CitationOut]
     evidence_grade: StudyType
@@ -115,6 +122,11 @@ class ArticleOut(CamelModel):
     #: conclusion still holds — but the reader is told before they read it.
     #: See scripts/check_retractions.py.
     retraction_notice: bool = False
+    #: Every change made to the text after publication, oldest first.
+    corrections: list[CorrectionOut] = Field(default_factory=list)
+    #: Who checked and approved it: the reviewer's name as an admin set it,
+    #: never an email. Null only if that reviewer's account was removed.
+    reviewer_name: str | None = None
     #: Set from a server constant, never from model output — the model cannot
     #: forget it, reword it, or drop it.
     disclaimer: str = Field(
@@ -154,10 +166,29 @@ class SignupRequest(CamelModel):
     @field_validator("password")
     @classmethod
     def _password_policy(cls, value: str) -> str:
-        missing = [name for name, rule in PASSWORD_RULES if not rule.search(value)]
-        if missing:
-            raise ValueError(f"password needs {', '.join(missing)}")
-        return value
+        return _check_password_policy(value)
+
+
+def _check_password_policy(value: str) -> str:
+    missing = [name for name, rule in PASSWORD_RULES if not rule.search(value)]
+    if missing:
+        raise ValueError(f"password needs {', '.join(missing)}")
+    return value
+
+
+class ForgotPasswordRequest(CamelModel):
+    email: EmailAddress
+
+
+class ResetPasswordRequest(CamelModel):
+    token: str = Field(min_length=1, max_length=2000)
+    #: Same policy as signup.
+    password: str = Field(min_length=8, max_length=200)
+
+    @field_validator("password")
+    @classmethod
+    def _password_policy(cls, value: str) -> str:
+        return _check_password_policy(value)
 
 
 class ReaderLoginRequest(CamelModel):
@@ -183,6 +214,12 @@ class ReaderOut(CamelModel):
     display_name: str
     interests: list[Subject]
     newsletter: bool
+    #: They opened the link mailed to ``email``.
+    email_verified: bool = False
+
+
+class VerifyEmailRequest(CamelModel):
+    token: str = Field(min_length=1, max_length=2000)
 
 
 class UpdateReaderRequest(CamelModel):

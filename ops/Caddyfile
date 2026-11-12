@@ -1,0 +1,46 @@
+# The production front door: TLS, the built site, and the API behind it.
+#
+# SITE_ADDRESS is the public hostname (Caddy gets its certificate by itself);
+# unset, it serves http://localhost for a smoke test.
+{$SITE_ADDRESS:http://localhost} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# No inline scripts and no third-party scripts at all. Inline *styles*
+		# stay allowed: the article renderer sets media widths as style
+		# attributes. The two YouTube hosts are the click-to-load video block.
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://i.ytimg.com; frame-src https://www.youtube-nocookie.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+	}
+
+	# Crawlers ask for these at the root; the API writes them.
+	rewrite /robots.txt /api/robots.txt
+	rewrite /sitemap.xml /api/sitemap.xml
+
+	# Link-preview bots run no scripts, so the app shell tells them nothing.
+	# They get a small HTML page with the article's title, summary and picture.
+	@preview {
+		path /a/*
+		header_regexp User-Agent (?i)(facebookexternalhit|twitterbot|slackbot|whatsapp|linkedinbot|discordbot|telegrambot|pinterest)
+	}
+	handle @preview {
+		uri replace /a/ /api/share/ 1
+		reverse_proxy backend:8000
+	}
+
+	handle /api/* {
+		reverse_proxy backend:8000
+	}
+
+	handle {
+		root * /srv
+		# Hashed build assets never change under a name.
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		try_files {path} /index.html
+		file_server
+	}
+}

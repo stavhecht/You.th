@@ -166,6 +166,23 @@ def compose_topic(substance_name: str, outcome_name: str | None) -> str:
     return f"{substance} for {outcome}"
 
 
+def topic_question(substance_name: str, outcome_name: str | None) -> str:
+    """The question a topic's article would answer, for the desk. No model call.
+
+    "affect" on purpose: the scan knows only that papers mention both, not which
+    way they point. ``compose_topic``'s string is still what a promotion generates
+    from. A substance with no outcome gets no invented one.
+    """
+    substance = humanise_descriptor(substance_name)
+    last = substance.split()[-1] if substance else ""
+    plural = last.endswith("s") and not last.endswith(("ss", "us", "is"))
+    verb = "Do" if plural else "Does"
+    outcome = humanise_descriptor(outcome_name) if outcome_name else ""
+    if not outcome or outcome == substance:
+        return f"{verb} {substance} have any proven health benefits?"
+    return f"{verb} {substance} affect {outcome}?"
+
+
 def rank_outcomes(
     counts: dict[str, int], names: dict[str, str]
 ) -> list[tuple[str, str]]:

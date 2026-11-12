@@ -1,0 +1,127 @@
+# A single-host production stack. Not the dev one: no source mounts, no
+# --reload, nothing published but 80/443, and every service restarts itself.
+#
+#   cp .env.example .env.production      # then fill it in (see the list below)
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+#
+# .env.production must set, or the API refuses to start (ENVIRONMENT=production):
+#   SITE_ADDRESS        the public hostname, e.g. you.example
+#   POSTGRES_PASSWORD   a real password (the dev default is refused)
+#   JWT_SECRET          python -c "import secrets; print(secrets.token_urlsafe(48))"
+#   PUBLIC_SITE_URL     https://<SITE_ADDRESS>
+#   CORS_ORIGINS        https://<SITE_ADDRESS>
+# plus the model, embedding and SMTP settings the pipeline needs. The model
+# server is not in this file: point LLM_PROVIDER and its URL or key at wherever
+# it runs.
+#
+# shortcut: one API process. The login throttles count in that process's memory,
+# so a second API replica needs them moved to shared storage first
+# (security/login_throttle.py::LoginThrottle is the seam).
+name: youth-prod
+
+x-backend: &backend
+  build:
+    context: ./backend
+  env_file:
+    - path: ./.env.production
+      required: true
+  environment:
+    ENVIRONMENT: production
+    DATABASE_URL: postgresql+asyncpg://youth:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/youth
+  restart: unless-stopped
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: youth
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: youth
+    volumes:
+      - youth_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U youth"]
+      interval: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # Runs once per `up` and exits; the API and worker wait for it. scripts/ is
+  # not in the image (it is maintenance tooling), so it is mounted read-only.
+  migrate:
+    <<: *backend
+    command: ["python", "-m", "scripts.migrate"]
+    restart: "no"
+    volumes:
+      - ./backend/scripts:/app/scripts:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
+  backend:
+    <<: *backend
+    # Only `web` can reach this port (nothing is published), so trusting its
+    # X-Forwarded-For is safe, and it is what makes the rate limits count the
+    # visitor instead of the proxy.
+    command:
+      - uvicorn
+      - app.main:app
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8000"
+      - --proxy-headers
+      - --forwarded-allow-ips
+      - "*"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/healthz')"
+      interval: 30s
+      retries: 3
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  worker:
+    <<: *backend
+    command: ["python", "-m", "app.pipeline.runner"]
+    # A synthesis call can run for minutes; give an in-flight run time to end.
+    stop_grace_period: 2m
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  web:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?set SITE_ADDRESS}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_data:/data
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # One dump a night into ./backups, 14 days kept (ops/backup-loop.sh).
+  backup:
+    image: pgvector/pgvector:pg16
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    entrypoint: ["/bin/sh", "/backup-loop.sh"]
+    volumes:
+      - ./ops/backup-loop.sh:/backup-loop.sh:ro
+      - ./backups:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  youth_pgdata:
+  caddy_data:

@@ -10,8 +10,9 @@
  * The design comp lays the feed out with plain CSS `column-count`, which is the
  * simpler mechanism and produces the same picture - but CSS columns render every
  * tile in the document, so it is the one part of the comp not carried over
- * literally. The measurements are: ~190px columns, 14px gutter, which lands at
- * six columns on the 1240px measure and reflows down to two on a phone.
+ * literally. The measurements are: columns of at least 200px (140px on a phone,
+ * which is what fits two there) and a 14px gutter, up to eight columns; masonic
+ * stretches the columns to fill the window, so a tile grows until the next one fits.
  *
  * Note for a future Next.js port (DESIGN.md §3.1): `masonic` measures DOM
  * nodes, so it is client-only. It would need `dynamic(..., { ssr: false })`
@@ -19,7 +20,7 @@
  * mobile layout, so the fallback is not wasted work.
  */
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 import { Masonry } from "masonic";
 
 import { ArticleCard } from "./ArticleCard";
@@ -45,6 +46,19 @@ interface Props extends Feed {
   query: string;
 }
 
+const PHONE = "(max-width: 480px)";
+
+function useIsPhone(): boolean {
+  return useSyncExternalStore(
+    (onChange) => {
+      const query = window.matchMedia(PHONE);
+      query.addEventListener("change", onChange);
+      return () => query.removeEventListener("change", onChange);
+    },
+    () => window.matchMedia(PHONE).matches,
+  );
+}
+
 export function MasonryFeed({
   items,
   status,
@@ -58,6 +72,7 @@ export function MasonryFeed({
   query,
 }: Props) {
   const sentinel = useRef<HTMLDivElement>(null);
+  const phone = useIsPhone();
 
   useEffect(() => {
     const node = sentinel.current;
@@ -105,8 +120,9 @@ export function MasonryFeed({
     <>
       <Masonry
         items={items}
-        columnWidth={190}
+        columnWidth={phone ? 140 : 200}
         columnGutter={14}
+        maxColumnCount={8}
         overscanBy={2}
         // A list, not masonic's default "grid": a grid role promises rows,
         // cells and arrow-key navigation, and masonic renders gridcells with

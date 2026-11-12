@@ -65,11 +65,61 @@ def _send(message: EmailMessage, settings: Settings) -> None:
         smtp.send_message(message)
 
 
-async def notify_editors(message: EmailMessage, settings: Settings) -> None:
+def password_reset_email(
+    to: str, link: str, settings: Settings, *, subject: str = "Reset your You.th password"
+) -> EmailMessage:
+    """The reset link for one account. The link is a credential: never log it."""
+    message = EmailMessage()
+    message["Subject"] = subject
+    message["From"] = settings.smtp_user
+    message["To"] = to
+    message.set_content(
+        "\n".join(
+            [
+                "Someone asked to reset the password for this You.th account.",
+                "",
+                "To choose a new password, open this link within 30 minutes:",
+                link,
+                "",
+                "If it was not you, ignore this email. Your password stays the same.",
+            ]
+        )
+    )
+    return message
+
+
+def verification_email(to: str, link: str, settings: Settings) -> EmailMessage:
+    """The "confirm this is your address" link mailed at signup."""
+    message = EmailMessage()
+    message["Subject"] = "Confirm your email for You.th"
+    message["From"] = settings.smtp_user
+    message["To"] = to
+    message.set_content(
+        "\n".join(
+            [
+                "Welcome to You.th.",
+                "",
+                "To confirm this is your email address, open this link:",
+                link,
+                "",
+                "If you did not create an account, ignore this email and nothing "
+                "will be sent to this address again.",
+            ]
+        )
+    )
+    return message
+
+
+async def send_email(message: EmailMessage, settings: Settings, what: str) -> None:
     """Send it, off the event loop. Unconfigured or failing: log, never raise."""
     if not settings.smtp_password:
+        logger.warning("%s not sent: SMTP_PASSWORD is not set", what)
         return
     try:
         await asyncio.to_thread(_send, message, settings)
     except Exception:
-        logger.exception("contact notification to the editorial inbox was not sent")
+        logger.exception("%s was not sent", what)
+
+
+async def notify_editors(message: EmailMessage, settings: Settings) -> None:
+    await send_email(message, settings, "contact notification to the editorial inbox")

@@ -15,27 +15,8 @@
          rather than linked from Google Fonts, so a page load sends no
          visitor's IP address to a third party. -->
 
-    <!--
-      Theme applied before first paint.
-
-      This has to be a blocking inline script rather than a React effect: an
-      effect runs after the first paint, so a reader on the dark theme gets a
-      full-screen flash of the light ground on every load. Kept in sync with
-      `src/lib/theme.ts`, which owns the same storage key.
-    -->
-    <script>
-      (function () {
-        try {
-          var stored = localStorage.getItem("youth.theme");
-          var dark = stored
-            ? stored === "dark"
-            : window.matchMedia("(prefers-color-scheme: dark)").matches;
-          document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
-        } catch (_) {
-          document.documentElement.setAttribute("data-theme", "light");
-        }
-      })();
-    </script>
+    <!-- Sets the theme before first paint. A file, so the production CSP can refuse inline scripts. -->
+    <script src="/theme.js"></script>
   </head>
   <body>
     <div id="root"></div>

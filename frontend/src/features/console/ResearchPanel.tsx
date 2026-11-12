@@ -76,6 +76,7 @@ import {
   CANDIDATES_SUPPRESSED_WHY,
   CANDIDATES_TITLE,
   CANDIDATES_TOGGLE,
+  RESEARCH_CATEGORIES,
   RESEARCH_CATEGORY,
   RESEARCH_DONE,
   RESEARCH_OPTION,
@@ -250,9 +251,11 @@ function ProposalRow({ candidate, runId }: { candidate: ResearchCandidate; runId
   return (
     <div className={CANDIDATE_ROW}>
       <div className={CANDIDATE_MAIN}>
-        <p className={CANDIDATE_TOPIC}>{candidate.canonicalTopic}</p>
+        <p className={CANDIDATE_TOPIC}>
+          {candidate.signals.reader_question ?? candidate.canonicalTopic}
+        </p>
         {candidate.signals.reader_question ? (
-          <p className={RESEARCH_QUESTION}>{candidate.signals.reader_question}</p>
+          <p className={RESEARCH_QUESTION}>{candidate.canonicalTopic}</p>
         ) : null}
         <p className={CANDIDATE_EVIDENCE}>{evidenceLine(candidate)}</p>
         {trendLine(candidate) ? <p className={CANDIDATE_MIX}>{trendLine(candidate)}</p> : null}
@@ -323,7 +326,7 @@ function ProposalRow({ candidate, runId }: { candidate: ResearchCandidate; runId
             value={reason}
             onChange={(event) => setReason(event.target.value)}
             placeholder="Why not? A close match will not be proposed again for months."
-            aria-label={`Reason for dismissing ${candidate.canonicalTopic}`}
+            aria-label={`Reason for dismissing ${candidate.signals.reader_question ?? candidate.canonicalTopic}`}
           />
           <button type="submit" className={SECONDARY} disabled={!reason.trim() || busy}>
             Save
@@ -516,16 +519,18 @@ export function ResearchPanel() {
                 <option value={14}>14 days</option>
               </select>
             </label>
-            {CATEGORIES.map((category) => (
-              <label key={category.value} className={RESEARCH_CATEGORY}>
-                <input
-                  type="checkbox"
-                  checked={categories.includes(category.value)}
-                  onChange={() => toggleCategory(category.value)}
-                />
-                {category.label}
-              </label>
-            ))}
+            <div className={RESEARCH_CATEGORIES}>
+              {CATEGORIES.map((category) => (
+                <label key={category.value} className={RESEARCH_CATEGORY}>
+                  <input
+                    type="checkbox"
+                    checked={categories.includes(category.value)}
+                    onChange={() => toggleCategory(category.value)}
+                  />
+                  {category.label}
+                </label>
+              ))}
+            </div>
           </div>
 
           <div className={CANDIDATES_LIST}>

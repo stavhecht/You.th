@@ -13,7 +13,7 @@ the grade floor. The scoring itself (``score``: cosine + grade bonus + recency
 bonus), the chunking (``chunk_text``), the top-k cut and the handle assignment
 are imported from production unchanged. The SQL's own properties (no ``LIMIT``
 reaching the planner, exact scan) are pinned separately by
-``tests/unitTest/test_rerank_plan.py`` against a live database.
+``tests/db/test_rerank_plan.py`` against a live database.
 
 One deliberate mirror of the real cache: a row keeps the fields it was first
 inserted with. ``SourceCache`` refreshes only identifiers and citation counts
@@ -34,7 +34,7 @@ from app.domain.enums import EVIDENCE_RANK, StudyType
 from app.llm.embeddings.base import EmbeddingProvider
 from app.retrieval.cache import CachedSource
 from app.retrieval.chunking import chunk_text
-from app.retrieval.rerank import RerankConfig, ranking_text, score
+from app.retrieval.rerank import RerankConfig, ranking_text, score, select_top
 from evaluation.schema import FaultSpec
 
 
@@ -188,7 +188,7 @@ class MemoryReranker:
                 )
             )
         ranked.sort(key=lambda entry: entry.final_score, reverse=True)
-        return ranked[: config.top_k]
+        return select_top(ranked, config.top_k)
 
 
 class _Scalars:

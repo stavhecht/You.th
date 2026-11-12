@@ -11,13 +11,16 @@ from pydantic import ValidationError
 from app.api.console.schemas import (
     ArticleDetailOut,
     CardPreviewOut,
+    CorrectionRequest,
     GeneratedFrameOut,
     IllustrationOut,
     QueuePageOut,
     RegenerateIllustrationRequest,
     RejectRequest,
     SaveContentRequest,
+    SetMetaRequest,
     SetSubjectRequest,
+    WithdrawRequest,
 )
 from app.api.deps import (
     IdPath,
@@ -61,7 +64,7 @@ async def list_queue(
         items, next_cursor = await ReviewService(session).queue(status_filter, cursor, limit)
     except ReviewError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    return QueuePageOut(items=items, next_cursor=next_cursor)
+    return QueuePageOut.model_validate({"items": items, "next_cursor": next_cursor})
 
 
 @router.get("/articles/{article_id}", response_model=ArticleDetailOut)
@@ -153,6 +156,74 @@ async def reject(
     """
     try:
         await ReviewService(session).reject(article_id, reviewer.id, payload.reason)
+    except ReviewError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+
+@router.patch("/articles/{article_id}/meta", status_code=status.HTTP_204_NO_CONTENT)
+async def set_meta(
+    article_id: IdPath, payload: SetMetaRequest, session: SessionDep, reviewer: ReviewerDep
+) -> None:
+    """Fix a draft's headline, summary or verdict.
+
+    409 when the article is not pending review, or when the verdict would rise
+    past the ceiling the cited evidence sets. The model's own values are kept.
+    """
+    try:
+        await ReviewService(session).set_meta(
+            article_id,
+            reviewer.id,
+            headline=payload.headline,
+            summary=payload.summary,
+            verdict=payload.verdict,
+        )
+    except ReviewError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+
+@router.patch("/articles/{article_id}/correction", status_code=status.HTTP_204_NO_CONTENT)
+async def save_correction(
+    article_id: IdPath,
+    payload: SaveContentRequest,
+    session: SessionDep,
+    reviewer: ReviewerDep,
+) -> None:
+    """Autosave a correction to a published article. Readers do not see it yet."""
+    conditional = {"base": payload.base} if "base" in payload.model_fields_set else {}
+    try:
+        await ReviewService(session).save_correction(
+            article_id, payload.content, reviewer.id, **conditional
+        )
+    except EditConflict as exc:
+        raise HTTPException(status.HTTP_412_PRECONDITION_FAILED, detail=str(exc)) from exc
+    except ReviewError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+
+@router.post("/articles/{article_id}/correction", status_code=status.HTTP_204_NO_CONTENT)
+async def publish_correction(
+    article_id: IdPath,
+    payload: CorrectionRequest,
+    session: SessionDep,
+    reviewer: ReviewerDep,
+) -> None:
+    """Put the typed correction live, with a note readers will see."""
+    try:
+        await ReviewService(session).publish_correction(article_id, reviewer.id, payload.note)
+    except ReviewError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+
+@router.post("/articles/{article_id}/withdraw", status_code=status.HTTP_204_NO_CONTENT)
+async def withdraw(
+    article_id: IdPath,
+    payload: WithdrawRequest,
+    session: SessionDep,
+    reviewer: ReviewerDep,
+) -> None:
+    """Take a published article down, with a required reason. Terminal."""
+    try:
+        await ReviewService(session).withdraw(article_id, reviewer.id, payload.reason)
     except ReviewError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 

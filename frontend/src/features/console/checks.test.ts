@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import type { ReviewSource, TipTapDoc, ValidationReport } from "@/types/api";
-import { buildChecks, citedSentences, missingTerms, sentenceKey } from "./checks";
+import {
+  buildChecks,
+  citedSentences,
+  missingTerms,
+  sentenceKey,
+  uncitedParagraphs,
+} from "./checks";
 
 const src = (over: Partial<ReviewSource>): ReviewSource =>
   ({
@@ -90,4 +96,24 @@ describe("missingTerms", () => {
 
 it("keys a sentence by its text and handles, not its position", () => {
   expect(sentenceKey({ text: "x.", handles: ["S1", "S2"] })).toBe("S1,S2|x.");
+});
+
+describe("uncitedParagraphs", () => {
+  const text = (value: string) => ({ type: "text", text: value });
+  const cite = { type: "citation", attrs: { sourceIds: ["S1"] } };
+
+  it("names body paragraphs with no citation and leaves the opening and closing alone", () => {
+    const doc = {
+      type: "doc",
+      content: [
+        { type: "paragraph", attrs: { beat: 1 }, content: [text("What it claims.")] },
+        { type: "paragraph", attrs: { beat: 2 }, content: [text("A trial found it."), cite] },
+        { type: "heading", content: [text("Dose")] },
+        { type: "paragraph", content: [text("It also cures everything.")] },
+        { type: "paragraph", content: [] },
+        { type: "paragraph", attrs: { beat: 3 }, content: [text("So: maybe.")] },
+      ],
+    } as TipTapDoc;
+    expect(uncitedParagraphs(doc)).toEqual(["It also cures everything."]);
+  });
 });

@@ -1,0 +1,35 @@
+# Known vulnerabilities in what we depend on. Weekly and on demand, not on every
+# push: a new advisory in someone else's package should raise a flag, not block
+# an unrelated change from merging.
+name: Dependency audit
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+jobs:
+  npm:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      # What ships to readers: high and critical fail the run.
+      - run: npm audit --omit=dev --audit-level=high
+
+  python:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv export --locked --no-dev --no-emit-project --format requirements-txt -o requirements.txt
+      - run: uvx pip-audit -r requirements.txt

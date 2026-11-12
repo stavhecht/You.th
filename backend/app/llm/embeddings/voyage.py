@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 
-import voyageai
+from voyageai.client_async import AsyncClient
 
 from app.llm.embeddings.base import EmbeddingError
 
@@ -27,7 +27,7 @@ MAX_BATCH_SIZE = 128
 
 
 class VoyageEmbeddingProvider:
-    def __init__(self, client: voyageai.AsyncClient, model: str = VOYAGE_MODEL) -> None:
+    def __init__(self, client: AsyncClient, model: str = VOYAGE_MODEL) -> None:
         self._client = client
         self._model = model
 
@@ -85,4 +85,4 @@ class VoyageEmbeddingProvider:
 
 
 def build_voyage_provider(api_key: str) -> VoyageEmbeddingProvider:
-    return VoyageEmbeddingProvider(voyageai.AsyncClient(api_key=api_key))
+    return VoyageEmbeddingProvider(AsyncClient(api_key=api_key))

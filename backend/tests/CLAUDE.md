@@ -1,0 +1,87 @@
+# Backend tests
+
+What a green `pytest` does and does not prove.
+
+Loaded when you work under this directory; the root [CLAUDE.md](../../CLAUDE.md) (commands, invariants, map) still applies.
+
+## Layout
+
+By what a test needs to run, not by app area (file prefixes already say the area):
+`unit/` needs nothing, `db/` needs Postgres and skips without it, `e2e/` needs `youth_test`.
+A new suite that opens a real connection goes in `db/` and gets a row in the table below.
+(Split 2026-11-10 from a single `unitTest/` that held both, which is how two DB suites
+went missing from this table.)
+
+## Testing gotchas
+
+**The nineteen suites in `db/` skip silently when no database is reachable**, and they are the ones covering
+guarantees a fake session cannot express — SQL semantics, transaction boundaries, and the
+query planner. A green `pytest` with the DB down is a much weaker signal than it looks:
+
+| Suite | What goes unverified when skipped |
+|---|---|
+| `test_db_invariants.py` | the CHECK constraint and the immutability trigger — invariants #1 and #4 — and SQL `NULL`, not JSON `null`, in the nullable JSON columns |
+| `test_source_cache.py` | resolve-then-update, the `SAVEPOINT` retry, split-row reporting, re-embedding replacing stale chunks, a new chunk size counting as stale |
+| `test_orchestrator_transactions.py` | per-stage commit, and persist+completion being atomic |
+| `test_worker_claim.py` | the claim `UPDATE`, and `attempts` counted at claim time |
+| `test_stale_recovery.py` | heartbeat sweep, requeue-vs-fail on a spent budget |
+| `test_rerank_plan.py` | the `EXPLAIN` assertion that no approximate scan is chosen, and a paper scoring as its best chunk |
+| `test_reader_accounts.py` | the composite FK on `reader_saves`, the save-is-a-move primary key, and folder-name uniqueness |
+| `test_discovery_db.py` | the one-live-proposal-per-substance index, the observation ledger's idempotence, the three decision CHECKs, the descriptor FK that forces the scan's write order, and `pipeline_runs.origin` defaulting |
+| `test_reader_privacy.py` | account export and erasure reaching exactly the caller's rows (the folder/save cascade), the password re-check and its throttle on `DELETE /readers/me`, and `privacy_request` erasing by address |
+| `test_feed_search.py` | `approve()` indexing the *edited* body through `article_search_document`, drafts never answering a search, citation markers and `topic` staying out of the index, and the typo fallback answering only when full text found nothing and the query used no `-word` |
+| `test_research_db.py` | the research candidates' three decision CHECKs, single-flight (the check *and* the `research_runs_one_active` index), the worker's claim, checkpoint upserts by primary key, topic resolution and observation upserts being idempotent, history pruning keeping referenced topics, and feed state storing SQL `NULL` (it deletes the rows it commits) |
+| `test_review_locking.py` | `approve`, `save_edits` and `reject` locking the article row, so an autosave racing Approve cannot write unapproved text onto a published article |
+| `test_social_db.py` | social listening and product discovery against `youth_test` (see below; it also skips when that database lacks migration 0002) |
+| `test_article_lifecycle.py` | withdrawal leaving every public surface, the withdrawn-needs-a-reason CHECK, a correction draft never reaching readers until published, `set_meta` keeping the model's values and refusing a verdict above the ceiling |
+| `test_promote_locking.py` | two presses of Generate draft queueing one run, on the MeSH and research desks (**`youth_test`**: its rows are committed, and a queued run in the dev database is claimed by the docker worker) |
+| `test_reviewer_account.py` | a password change signing out the old session, the wrong-current-password refusal, a forgotten password reset from the emailed link (captured, never sent; single use; signs out old sessions), the same answer for an unknown address, a reader's reset link refused, and a token with no `typ` refused |
+| `test_email_verification.py` | signup mailing a link (captured, never sent), the link confirming only the address it names, and topic suggestions refused until then |
+| `test_seo.py` | the sitemap and share page showing published articles only, HTML escaping on the share page, and the one-minute cache headers on anonymous reads |
+| `test_retraction_sweep.py` | the weekly sweep marking the source and flagging the citing article, and a dry run writing nothing (**`youth_test`**, with a fake bibliographic source) |
+
+Point them elsewhere with `TEST_DATABASE_URL`; they otherwise use `database_url` from
+settings. `test_discovery_db.py` runs against a *populated* database on purpose — after a
+`scan_trends --bootstrap` the observations table holds tens of thousands of rows — so its fixtures
+use synthetic descriptor UIs (`D9999xx`) and generated PMIDs rather than real ones. Assertions
+scoped to real MeSH terms fail for reasons that have nothing to do with the guarantee being
+checked. `test_worker_claim.py` and `test_stale_recovery.py` also skip when the queue is
+already non-empty — they need to see the whole table, so a leftover `queued` or `running` row
+from a manual run turns them into passes. Clear it before trusting them. Worse than skipping:
+they also *claim* such a row, so a leftover queued run can flip to `running` mid-suite and make
+the failure look intermittent. Promoting a trend candidate by hand leaves exactly that residue.
+
+**Stop llama-server before the browser tests** (`llama-server/manage.sh stop`). With its ~8 GB
+wired and swap full, `npm run test:e2e` took 31-38 minutes with 2-3 random timeouts; stopped, all
+23 passed in 21 s (2026-11-05). A timeout there is memory until proven otherwise.
+
+**`tests/e2e/` runs the whole product against its own database, `youth_test`**, never
+the dev one: a topic queued over HTTP, generated by the real worker and orchestrator (only
+the models, paper search and embedder are faked, in `tests/e2e/support.py`), reviewed and
+approved over HTTP, then read, searched and saved by a reader. Separate for two reasons:
+each test starts from truncated tables, and a run queued in the dev database would be
+claimed by the docker worker within five seconds and generated with the real model. The
+fixture refuses to truncate any database whose name does not end in `_test`. Create it
+once: `CREATE DATABASE youth_test`, then `DATABASE_URL=…/youth_test python -m
+scripts.migrate` (and again after every new migration). Skipped when absent; point
+elsewhere with `E2E_DATABASE_URL`. The e2e engine uses `NullPool` because `TestClient`
+runs the app on its own event loop. Its fake abstracts must stay over RANK's
+`MIN_ABSTRACT_CHARS` (200), or every paper is filtered and the run silently becomes a
+`no_evidence` draft.
+
+**`tests/conftest.py` sets `DISCOVERY_SCAN_ENABLED=false`**: every `TestClient(create_app())`
+runs the lifespan, whose scheduler ticks at once, so with the ledger's last scan over a
+day old each API test started a real PubMed scan against the dev database.
+It sets **`COLLECTION_SCHEDULE_ENABLED=false`** for the same reason: the collection scheduler
+would queue social and product runs in the dev database.
+
+**`test_social_db.py` runs against `youth_test`, not the dev database** (override with
+`SOCIAL_TEST_DATABASE_URL`), and truncates only the social/product tables around each test:
+the daily and weekly runs read *whole* tables, so dev data would change their answers and
+`prune` would delete real posts. It skips when `youth_test` lacks migration 0002 — apply it
+there with `DATABASE_URL=…/youth_test python -m scripts.migrate`. A test that inserts a
+reviewer must remove `social_candidates` first: deleting a user SET-NULLs `decided_by`, which
+the decided-has-reviewer CHECK refuses.
+
+The remaining suites use `FakeSession` from `tests/conftest.py` and need no database.
+`asyncio_mode = "auto"`, so async tests need no decorator.

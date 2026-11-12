@@ -19,9 +19,9 @@ from typing import Any
 from sqlalchemy import select, text, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.enums import ArticleStatus, StudyType, Subject
+from app.domain.enums import ArticleStatus, StudyType, Subject, Verdict
 from app.domain.models import Article, ArticleSource, Source
-from app.evidence.grading import is_weak_evidence
+from app.evidence.grading import VERDICT_STRENGTH, is_weak_evidence
 from app.services.card import derive_card
 from app.services.media import UnsafeMediaError, assert_media_is_ours
 from app.services.tiptap import cited_handles_in_doc
@@ -46,7 +46,12 @@ class ReviewService:
         self._session = session
 
     async def save_edits(
-        self, article_id: str, content: dict, reviewer_id: str, *, base: Any = _UNCHECKED
+        self,
+        article_id: str,
+        content: dict[str, Any],
+        reviewer_id: str,
+        *,
+        base: Any = _UNCHECKED,
     ) -> None:
         """Autosave the editor's content into ``edited_content``.
 
@@ -84,20 +89,49 @@ class ReviewService:
                 f"cannot edit an article in state '{article.status}'; "
                 "only drafts pending review are editable"
             )
-        if base is not _UNCHECKED and base != article.edited_content:
+        self._check_save(content, base, article.edited_content)
+        article.edited_content = content
+        await self._session.flush()
+        logger.debug("autosaved edits to article %s by reviewer %s", article_id, reviewer_id)
+
+    async def save_correction(
+        self,
+        article_id: str,
+        content: dict[str, Any],
+        reviewer_id: str,
+        *,
+        base: Any = _UNCHECKED,
+    ) -> None:
+        """Autosave a correction to a *published* article into ``correction_draft``.
+
+        Never into ``edited_content``: the feed serves that column live, so an
+        autosave there would publish a half-typed sentence. Its own method
+        rather than a branch in ``save_edits``, so a stale editor's autosave
+        landing just after Approve is still refused there instead of quietly
+        becoming a correction nobody meant to start.
+        """
+        article = await self._get(article_id, lock=True)
+        if article.status != ArticleStatus.PUBLISHED:
+            raise ReviewError(
+                f"cannot correct an article in state '{article.status}'; "
+                "only published articles take corrections"
+            )
+        self._check_save(content, base, article.correction_draft)
+        article.correction_draft = content
+        await self._session.flush()
+        logger.debug("autosaved a correction to article %s by %s", article_id, reviewer_id)
+
+    @staticmethod
+    def _check_save(content: dict[str, Any], base: Any, current: Any) -> None:
+        if base is not _UNCHECKED and base != current:
             raise EditConflict(
                 "another reviewer saved this draft since you opened it; "
                 "copy your change and reload"
             )
-
         try:
             assert_media_is_ours(content)
         except UnsafeMediaError as exc:
             raise ReviewError(str(exc)) from exc
-
-        article.edited_content = content
-        await self._session.flush()
-        logger.debug("autosaved edits to article %s by reviewer %s", article_id, reviewer_id)
 
     async def approve(self, article_id: str, reviewer_id: str) -> None:
         """Publish an article. The only path to ``published``.
@@ -128,24 +162,8 @@ class ReviewService:
                 "only drafts pending review can be published"
             )
 
-        content = article.edited_content or article.original_content
-        await self._assert_citations_still_resolve(article_id, content)
-        try:
-            assert_media_is_ours(content)
-        except UnsafeMediaError as exc:
-            raise ReviewError(str(exc)) from exc
-
-        card = derive_card(
-            article.headline,
-            content,
-            article.verdict,
-            generated=article.generated_imagery,
-        )
+        await self._materialise(article, article.edited_content or article.original_content)
         now = datetime.now(UTC)
-
-        article.card_headline = card.headline
-        article.card_excerpt = card.excerpt
-        article.card_verdict = card.verdict
         # Derived here rather than uploaded separately, so the feed tile cannot
         # show a picture that is not in the article the reader lands on.
         #
@@ -154,10 +172,8 @@ class ReviewService:
         # the document's first image is still the landscape frame drawn beside
         # it — so the tile is a reframing of the article's own picture, never an
         # independent one. That predicate is also where the cover gets the
-        # MEDIA_SRC_RE check `assert_media_is_ours` above cannot give it, since
-        # that walks the document and the cover is not in it.
-        article.card_image = card.image
-        article.card_image_alt = card.image_alt
+        # MEDIA_SRC_RE check `assert_media_is_ours` cannot give it, since that
+        # walks the document and the cover is not in it. (`_materialise`.)
         article.status = ArticleStatus.PUBLISHED
         article.reviewed_by = reviewer_id
         article.reviewed_at = now
@@ -170,6 +186,133 @@ class ReviewService:
         # article is indexed exactly as the older ones were.
         await self._session.execute(_INDEX_FOR_SEARCH, {"article_id": article_id})
         logger.info("article %s published by reviewer %s", article_id, reviewer_id)
+
+    async def _materialise(self, article: Article, content: dict[str, Any]) -> None:
+        """Check ``content`` and derive the feed card from it.
+
+        What ``approve`` and ``publish_correction`` share: both put text in
+        front of readers, so both re-check citations and media and both derive
+        the tile from the text they are about to serve.
+        """
+        await self._assert_citations_still_resolve(article.id, content)
+        # Editing can delete every citation, and the check above passes an
+        # empty set. A draft that cited studies must still cite one when it
+        # goes out, or its verdict is a claim readers can check against nothing.
+        if cited_handles_in_doc(article.original_content) and not cited_handles_in_doc(content):
+            raise ReviewError(
+                "cannot publish: the edited text no longer cites any source. "
+                "Restore a citation, or reject the draft."
+            )
+        try:
+            assert_media_is_ours(content)
+        except UnsafeMediaError as exc:
+            raise ReviewError(str(exc)) from exc
+        card = derive_card(
+            article.headline, content, article.verdict, generated=article.generated_imagery
+        )
+        article.card_headline = card.headline
+        article.card_excerpt = card.excerpt
+        article.card_verdict = card.verdict
+        article.card_image = card.image
+        article.card_image_alt = card.image_alt
+
+    async def publish_correction(self, article_id: str, reviewer_id: str, note: str) -> None:
+        """Replace a published article's text with its typed correction.
+
+        The note is required and public: the article page lists every
+        correction with its date, which is what makes changing published text
+        honest. The status does not change, so ``approve()`` stays the only
+        assignment of ``published``.
+        """
+        article = await self._get(article_id, lock=True)
+        if article.status != ArticleStatus.PUBLISHED:
+            raise ReviewError(
+                f"cannot correct an article in state '{article.status}'; "
+                "only published articles take corrections"
+            )
+        content = article.correction_draft
+        if content is None:
+            raise ReviewError("no correction has been typed for this article yet")
+
+        await self._materialise(article, content)
+        article.edited_content = content
+        article.correction_draft = None
+        article.corrections = [
+            *article.corrections,
+            {"at": datetime.now(UTC).isoformat(), "by": reviewer_id, "note": note},
+        ]
+        await self._session.flush()
+        await self._session.execute(_INDEX_FOR_SEARCH, {"article_id": article_id})
+        logger.info("article %s corrected by reviewer %s", article_id, reviewer_id)
+
+    async def withdraw(self, article_id: str, reviewer_id: str, reason: str) -> None:
+        """Take a published article off every public surface. Terminal.
+
+        The row stays, like a rejection: the feed, search, the article page and
+        the saved shelf all filter on ``published``, so changing the status is
+        the whole takedown, and the reason is the record of why.
+        """
+        article = await self._get(article_id, lock=True)
+        if article.status != ArticleStatus.PUBLISHED:
+            raise ReviewError(
+                f"cannot withdraw an article in state '{article.status}'; "
+                "only published articles can be withdrawn"
+            )
+        article.status = ArticleStatus.WITHDRAWN
+        article.withdrawal_reason = reason
+        article.withdrawn_by = reviewer_id
+        article.withdrawn_at = datetime.now(UTC)
+        await self._session.flush()
+        logger.info("article %s withdrawn by reviewer %s", article_id, reviewer_id)
+
+    async def set_meta(
+        self,
+        article_id: str,
+        reviewer_id: str,
+        *,
+        headline: str | None = None,
+        summary: str | None = None,
+        verdict: Verdict | None = None,
+    ) -> None:
+        """Let a reviewer fix the headline, summary or verdict of a draft.
+
+        ``None`` leaves a field alone. The model's own values are copied into
+        ``original_meta`` before the first change, so what it wrote stays on
+        record. A verdict may be lowered freely and raised only up to the
+        ceiling validation computed from the cited evidence (invariant #3);
+        with no ceiling on record it may only be lowered. Changing the verdict
+        drops the qualifier, which was written for the old one.
+        """
+        article = await self._get(article_id, lock=True)
+        if article.status != ArticleStatus.PENDING_REVIEW:
+            raise ReviewError(
+                f"cannot edit an article in state '{article.status}'; "
+                "only drafts pending review are editable"
+            )
+        if verdict is not None and verdict != article.verdict:
+            stored = (article.validation_report or {}).get("verdict_ceiling")
+            ceiling = Verdict(stored) if stored else article.verdict
+            if VERDICT_STRENGTH[verdict] > VERDICT_STRENGTH[ceiling]:
+                raise ReviewError(
+                    f"the cited evidence sets a ceiling of '{ceiling.value}'; "
+                    f"the verdict cannot be raised to '{verdict.value}'"
+                )
+        if article.original_meta is None:
+            article.original_meta = {
+                "headline": article.headline,
+                "summary": article.summary,
+                "verdict": article.verdict.value,
+                "verdict_qualifier": article.verdict_qualifier,
+            }
+        if headline is not None:
+            article.headline = headline.strip()
+        if summary is not None:
+            article.summary = summary.strip()
+        if verdict is not None and verdict != article.verdict:
+            article.verdict = verdict
+            article.verdict_qualifier = None
+        await self._session.flush()
+        logger.info("article %s headline/summary/verdict edited by %s", article_id, reviewer_id)
 
     async def set_subject(
         self, article_id: str, subject: Subject | None, reviewer_id: str
@@ -188,7 +331,11 @@ class ReviewService:
         classification.
         """
         article = await self._get(article_id, lock=True)
-        if article.status in (ArticleStatus.REJECTED, ArticleStatus.DRAFT_FAILED):
+        if article.status in (
+            ArticleStatus.REJECTED,
+            ArticleStatus.DRAFT_FAILED,
+            ArticleStatus.WITHDRAWN,
+        ):
             raise ReviewError(
                 f"cannot classify an article in state '{article.status}'"
             )
@@ -320,7 +467,9 @@ class ReviewService:
         await self._session.flush()
         logger.info("article %s rejected by reviewer %s", article_id, reviewer_id)
 
-    async def _assert_citations_still_resolve(self, article_id: str, content: dict) -> None:
+    async def _assert_citations_still_resolve(
+        self, article_id: str, content: dict[str, Any]
+    ) -> None:
         """Every handle in the edited body must still map to a linked source."""
         emitted = cited_handles_in_doc(content)
         if not emitted:
@@ -393,6 +542,7 @@ class ReviewService:
                 "evidence_grade": article.evidence_grade,
                 "validation_badge": _badge(article.validation_report),
                 "has_weak_evidence": is_weak_evidence(StudyType(article.evidence_grade)),
+                "retraction_flagged": article.retraction_flagged_at is not None,
                 "subject": article.subject,
                 "created_at": article.created_at,
             }
@@ -475,6 +625,12 @@ class ReviewService:
             "pipeline_run_id": article.pipeline_run_id,
             "retraction_flagged_at": article.retraction_flagged_at,
             "retraction_detail": article.retraction_detail,
+            "correction_draft": article.correction_draft,
+            "corrections": article.corrections,
+            "withdrawal_reason": article.withdrawal_reason,
+            "withdrawn_at": article.withdrawn_at,
+            "original_meta": article.original_meta,
+            "published_at": article.published_at,
             "created_at": article.created_at,
         }
 

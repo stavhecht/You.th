@@ -15,10 +15,11 @@ from datetime import UTC, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.contracts import SynthesisInput, ValidationFailure
-from app.domain.enums import ArticleStatus
+from app.domain.enums import ArticleStatus, Verdict
 from app.domain.models import Article, ArticleSource
 from app.evidence.validation import (
     STANCE_WARNING_CODES,
+    claim_not_backed,
     summarise_failures,
     validate_draft,
 )
@@ -60,10 +61,36 @@ class ValidateStage:
             final_round=ctx.revise_round >= MAX_REVISE_ROUNDS,
         )
 
+        # Only a draft going on to PERSIST: a revision is shown the draft it corrects.
+        draft = ctx.draft
+        lowered_from = None
+        if report.passed and draft.verdict in (Verdict.MIXED, Verdict.SUPPORTED):
+            sentence = claim_not_backed(draft, ctx.synthesis_input.target_claims)
+            if sentence is not None:
+                lowered_from = draft.verdict
+                draft = draft.model_copy(update={"verdict": Verdict.WEAK})
+                report = await validate_draft(
+                    self._session,
+                    draft,
+                    ctx.synthesis_input,
+                    final_round=ctx.revise_round >= MAX_REVISE_ROUNDS,
+                )
+                report.warnings.append(
+                    ValidationFailure(
+                        code="verdict_lowered_by_text",
+                        message=(
+                            f"Verdict lowered from {lowered_from} to weak because the "
+                            f'article\'s conclusion says: "{sentence}". If that covers '
+                            "only part of the claim, check the verdict."
+                        ),
+                    )
+                )
+
         ctx.record_metrics(
             self.name,
             {
                 "passed": report.passed,
+                "verdict_lowered_from": str(lowered_from) if lowered_from else None,
                 "citations_resolved": report.citations_resolved,
                 "citations_total": report.citations_total,
                 "best_evidence_grade": str(report.best_evidence_grade),
@@ -80,7 +107,7 @@ class ValidateStage:
             },
         )
 
-        return ctx.model_copy(update={"validation": report})
+        return ctx.model_copy(update={"draft": draft, "validation": report})
 
 
 class PersistStage:

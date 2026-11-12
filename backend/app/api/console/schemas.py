@@ -8,12 +8,13 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
 from app.api.public.schemas import FeedCardOut
 from app.api.schemas_base import CamelModel
-from app.discovery.manual import ManualScanStatus
 from app.domain.enums import (
     ArticleStatus,
     ContactKind,
@@ -42,6 +43,22 @@ from app.research.contracts import (
 class LoginRequest(CamelModel):
     email: str
     password: str
+
+
+class ChangePasswordRequest(CamelModel):
+    current_password: str = Field(max_length=200)
+    #: Twelve, the floor ``scripts/seed_admin.py`` sets for the same accounts.
+    new_password: str = Field(min_length=12, max_length=200)
+
+
+class ReviewerForgotRequest(CamelModel):
+    email: str = Field(max_length=254)
+
+
+class ReviewerResetRequest(CamelModel):
+    token: str = Field(min_length=1, max_length=2000)
+    #: Same floor as a password change.
+    password: str = Field(min_length=12, max_length=200)
 
 
 class TokenResponse(BaseModel):
@@ -79,6 +96,8 @@ class QueueItemOut(CamelModel):
     #: True when the verdict rests on in-vitro/animal/case-report evidence.
     #: Surfaced in the list so a reviewer can triage before opening anything.
     has_weak_evidence: bool
+    #: A cited source was retracted after this article was written.
+    retraction_flagged: bool = False
     #: Reviewer-set. Drives the left rule's colour in the queue, and the tile's
     #: on the public feed. Null means nobody has classified it yet.
     subject: Subject | None = None
@@ -142,7 +161,7 @@ class ReviewSourceOut(CamelModel):
 class ValidationFailureOut(CamelModel):
     code: str
     message: str
-    detail: dict = Field(default_factory=dict)
+    detail: dict[str, Any] = Field(default_factory=dict)
 
 
 class ValidationReportOut(CamelModel):
@@ -188,10 +207,10 @@ class ArticleDetailOut(CamelModel):
     verdict_qualifier: str | None
     evidence_grade: StudyType
     #: The immutable AI draft. Rendered read-only beside the editor.
-    original_content: dict
+    original_content: dict[str, Any]
     #: Human edits, null until first autosave. The editor loads
     #: ``edited_content or original_content``.
-    edited_content: dict | None
+    edited_content: dict[str, Any] | None
     validation_report: ValidationReportOut
     #: Grouped by claim in handle order, so the panel renders without
     #: client-side joining.
@@ -201,15 +220,26 @@ class ArticleDetailOut(CamelModel):
     #: written. The article keeps its status — this raises it for a human,
     #: it does not withdraw it.
     retraction_flagged_at: datetime | None = None
-    retraction_detail: dict | None = None
+    retraction_detail: dict[str, Any] | None = None
+    #: A correction being typed on a published article; the editor loads it
+    #: ahead of ``edited_content``. Readers never see it until it is published.
+    correction_draft: dict[str, Any] | None = None
+    #: Published corrections, oldest first: ``{at, by, note}``.
+    corrections: list[dict[str, Any]] = Field(default_factory=list)
+    withdrawal_reason: str | None = None
+    withdrawn_at: datetime | None = None
+    #: The model's own headline, summary, verdict and qualifier, kept from the
+    #: first time a reviewer changed one. Null means none was changed.
+    original_meta: dict[str, Any] | None = None
+    published_at: datetime | None = None
     created_at: datetime
 
 
 class SaveContentRequest(CamelModel):
     """Autosave payload. Debounced ~800ms from the editor."""
 
-    content: dict = Field(description="TipTap document")
-    base: dict | None = Field(
+    content: dict[str, Any] = Field(description="TipTap document")
+    base: dict[str, Any] | None = Field(
         default=None,
         description="The edited content this edit started from (null if unedited). "
         "When sent, the save is refused with 412 if the draft has changed since.",
@@ -248,6 +278,25 @@ class RejectRequest(CamelModel):
     #: Required. Rejection reasons are the best available signal for improving
     #: the synthesis prompt, so the API refuses to discard one.
     reason: str = Field(min_length=1, max_length=2000)
+
+
+class WithdrawRequest(CamelModel):
+    #: Required, like a rejection reason: it is the record of why a published
+    #: article came down.
+    reason: str = Field(min_length=1, max_length=2000)
+
+
+class CorrectionRequest(CamelModel):
+    #: Shown to readers under the article, with the date.
+    note: str = Field(min_length=1, max_length=500)
+
+
+class SetMetaRequest(CamelModel):
+    """A reviewer's fix to a draft's headline, summary or verdict. Omitted fields stay."""
+
+    headline: str | None = Field(default=None, min_length=1, max_length=200)
+    summary: str | None = Field(default=None, min_length=1, max_length=600)
+    verdict: Verdict | None = None
 
 
 class CardPreviewOut(FeedCardOut):
@@ -343,8 +392,8 @@ class StageRunOut(CamelModel):
     stage: str
     ordinal: int
     status: RunStatus
-    error: dict | None
-    metrics: dict | None
+    error: dict[str, Any] | None
+    metrics: dict[str, Any] | None
     #: Provider-namespaced model this stage called; null for the four that call
     #: none. Recorded from the call itself, so it is what actually ran rather
     #: than what the settings say now.
@@ -366,7 +415,7 @@ class RunOut(CamelModel):
     topic: str
     status: RunStatus
     article_id: str | None
-    error: dict | None
+    error: dict[str, Any] | None
     #: Lifetime totals across every attempt, so a run that retried reports what
     #: it really spent. Not priceable as a unit — the stages may have run on
     #: different models — which is why the cost below is summed per stage.
@@ -432,6 +481,8 @@ class DiscoveryCandidateOut(CamelModel):
 
     id: str
     topic: str
+    #: The same topic as a question, for the desk. A promotion generates from ``topic``.
+    question: str
     substance_ui: str
     substance_name: str
     outcome_name: str | None
@@ -478,14 +529,26 @@ class SuppressedTopicOut(CamelModel):
     reason: str
 
 
-class TrendScanOut(CamelModel):
-    """The state of a manually triggered scan.
+class ManualScanStatus(StrEnum):
+    """Where the desk's scan button is, read from the latest ``mesh_scan`` run.
 
-    Deliberately not a ``discovery_scans`` row. That table is the window ledger
-    — ``next_window`` reads only its succeeded rows — and this is a UI
-    affordance about *this process's* last press, which a restart forgets. The
-    one field that does come from the ledger is ``last_scan_at``, so the desk
-    can still say when a scan last completed after a deploy.
+    ``IDLE``: no scan has been queued yet. A queued run reads as ``RUNNING``:
+    to the reviewer both mean "asked for, not finished".
+    """
+
+    IDLE = "idle"
+    RUNNING = "running"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+
+
+class TrendScanOut(CamelModel):
+    """The state of the trend scan: the latest ``mesh_scan`` worker run.
+
+    Not a ``discovery_scans`` row: that table is the window ledger, and
+    ``next_window`` reads only its succeeded rows. The one field that does come
+    from the ledger is ``last_scan_at``, which also covers a scan run from the
+    command line.
     """
 
     status: ManualScanStatus
@@ -575,8 +638,8 @@ class ResearchCandidateOut(CamelModel):
     evidence_status: str | None
     overall: float | None
     rank: int | None
-    scores: dict
-    signals: dict
+    scores: dict[str, Any]
+    signals: dict[str, Any]
     pipeline_run_id: str | None
     decided_at: datetime | None
     dismiss_reason: str | None
@@ -590,11 +653,11 @@ class ResearchRunOut(CamelModel):
     mode: ResearchRunMode
     status: ResearchRunStatus
     stage: str | None
-    params: dict
-    provider_status: dict
-    stage_log: list
-    notes: list
-    error: dict | None
+    params: dict[str, Any]
+    provider_status: dict[str, Any]
+    stage_log: list[Any]
+    notes: list[Any]
+    error: dict[str, Any] | None
     created_at: datetime
     started_at: datetime | None
     finished_at: datetime | None

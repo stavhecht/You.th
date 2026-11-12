@@ -23,6 +23,8 @@ class ArticleStatus(StrEnum):
     REJECTED = "rejected"
     VALIDATION_FAILED = "validation_failed"
     DRAFT_FAILED = "draft_failed"
+    #: Was published, taken down by a reviewer with a reason. Terminal.
+    WITHDRAWN = "withdrawn"
 
 
 class Verdict(StrEnum):
@@ -181,6 +183,8 @@ class RunOrigin(StrEnum):
     DISCOVERY = "discovery"
     #: A reviewer promoting a topic the research agent proposed (research_runs).
     RESEARCH = "research"
+    #: A reviewer promoting a social-listening topic (social_candidates).
+    SOCIAL = "social"
 
 
 class ResearchRunMode(StrEnum):

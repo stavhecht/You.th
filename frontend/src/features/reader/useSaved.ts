@@ -12,7 +12,7 @@
  * one place the reason for signing up is obvious.
  */
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useReader } from "./auth";
@@ -48,7 +48,9 @@ export function useSaved(): SavedState {
     staleTime: 5 * 60_000,
   });
 
-  const index = query.data ?? {};
+  // Memoised: a fresh `{}` per render made isSaved, folderOf and toggle new
+  // functions on every render, so every tile using them re-rendered too.
+  const index = useMemo(() => query.data ?? {}, [query.data]);
 
   const mutation = useMutation({
     mutationFn: async ({

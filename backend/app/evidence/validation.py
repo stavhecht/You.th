@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 from sqlalchemy import select
@@ -680,6 +681,65 @@ def check_body_parses(output: SynthesisOutput) -> list[ValidationFailure]:
             )
         ]
     return []
+
+
+#: A conclusion saying the research does not back the claim. Written on the pilot's
+#: drafts, then checked on 86 other cases (2026-11-06). It cannot tell the whole claim
+#: from part of it ("not supported across all populations"), which is why the reviewer
+#: is told: see ``claim_not_backed``.
+_CLAIM_NOT_BACKED = re.compile(
+    r"doesn['\u2019]t support|not support(ed)?\b"
+    r"|not (been )?(proven|established|shown|demonstrated)"
+    r"|no (clear|good|strong|reliable|solid) (evidence|benefit|effect)"
+    r"|not enough evidence|insufficient evidence|too (weak|thin|limited)|not strong enough"
+    r"|lacks? (good |strong |solid )?evidence|cannot (conclude|confirm)",
+    re.IGNORECASE,
+)
+
+
+_STUDIES_SPLIT = re.compile(r"\bothers\b", re.IGNORECASE)
+
+_SAFETY_CLAIM = re.compile(r"\bsafe(ly|ty)?\b", re.IGNORECASE)
+#: Found no harm, which backs a safety claim: "no clear evidence of harm", "does not support
+#: worries that it harms", "has not been shown to damage". Not "insufficient evidence of
+#: harm", which says nobody knows. A "safe" or "harmless" before the harm word is what the
+#: negation denies ("not been proven harmless", "does not support that it is safe and free
+#: of side effects"), so the harm word must come first; "harm" is matched whole for that.
+_NO_HARM_FOUND = re.compile(
+    r"(?:no (?:clear|good|strong|reliable|solid) evidence|doesn['\u2019]t support"
+    r"|not support(?:ed)?|not (?:been )?(?:shown|proven|demonstrated|found))\b"
+    r"(?:(?!\bsafe|\bharmless)[^.])*?"
+    r"\b(?:harm(?:s|ful|ed)?|adverse|side effects?|risks?"
+    r"|toxic\w*|damag\w*|danger\w*|injur\w*)\b",
+    re.IGNORECASE,
+)
+
+#: A sentence end: not the point inside "0.5".
+_SENTENCE_END = re.compile(r"[.!?](?=\s|$)")
+
+
+def claim_not_backed(output: SynthesisOutput, claims: Iterable[str] = ()) -> str | None:
+    """The sentence of the bottom line or summary saying the claim is not backed.
+
+    Only those two: they are where the article gives its answer, and a section may
+    fairly report one negative trial among positive ones. ``claims`` are the article's
+    target claims: "no clear evidence of harm" disowns "damages the kidneys", and backs
+    "is safe".
+    """
+    about_safety = any(_SAFETY_CLAIM.search(claim) for claim in claims)
+    text = f"{output.body.beat_3_bottom_line} {output.summary}"
+    for match in _CLAIM_NOT_BACKED.finditer(text):
+        ends = _SENTENCE_END.finditer(text, 0, match.start())
+        start = max((m.end() for m in ends), default=0)
+        end = _SENTENCE_END.search(text, match.end())
+        sentence = text[start : end.start() if end else None].strip()
+        if about_safety and _NO_HARM_FOUND.search(sentence):
+            continue
+        # "while others found no clear effect" reports a split, which is what ``mixed`` means
+        # (wt_061, 2026-11-06).
+        if not _STUDIES_SPLIT.search(sentence):
+            return sentence
+    return None
 
 
 async def validate_draft(

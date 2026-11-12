@@ -27,10 +27,12 @@ MESH_HINTS: dict[str, str] = {
     "withania somnifera": "Withania",
     "withania": "Withania",
     "turmeric": "Curcuma",
+    "ginger": "Ginger",
     "curcumin": "Curcumin",
     "melatonin": "Melatonin",
     "magnesium": "Magnesium",
     "creatine": "Creatine",
+    "beta-alanine": '"beta-Alanine"',
     "rhodiola": "Rhodiola",
     "valerian": "Valerian",
     "l-theanine": "Theanine",
@@ -44,6 +46,29 @@ MESH_HINTS: dict[str, str] = {
     "ginseng": "Panax",
     "sunscreen": '"Sunscreening Agents"',
     "menstrual cycle": '"Menstrual Cycle"',
+    # Not MeSH: the several wordings of one thing, since a quoted phrase matches only its
+    # own. PubMed hits beside the outcome went 1 -> 109, 3 -> 105, 0 -> 147 and, for the
+    # monitors, 53 -> 417 against the questions' wording (2026-11-07). Written on
+    # evaluation cases, so they say nothing about names not listed here.
+    **dict.fromkeys(
+        ("ice bath", "ice baths", "cold plunge", "cold plunges"),
+        '("cold water immersion"[tiab] OR "ice bath"[tiab] OR "ice baths"[tiab] OR '
+        '"cold plunge"[tiab] OR "cold plunges"[tiab])',
+    ),
+    **dict.fromkeys(
+        ("alcohol reduction", "reducing alcohol", "cutting down on alcohol"),
+        '("alcohol reduction"[tiab] OR "reducing alcohol"[tiab] OR "reduced alcohol"[tiab])',
+    ),
+    "lemon water": '("lemon water"[tiab] OR "lemon juice"[tiab])',
+    **dict.fromkeys(
+        (
+            "continuous glucose monitor",
+            "continuous glucose monitors",
+            "continuous glucose monitoring",
+        ),
+        '("continuous glucose monitoring"[tiab] OR "continuous glucose monitor"[tiab] OR '
+        '"continuous glucose monitors"[tiab])',
+    ),
 }
 
 #: Claim word -> the vocabulary papers actually use. "reduces stress" searches
@@ -96,6 +121,15 @@ _STOPWORDS = frozenset(
         "decrease", "decreases", "boost", "boosts", "prevent", "prevents",
         "cause", "causes", "worsen", "worsens", "enhance", "enhances",
         "promote", "promotes",
+        # How a question words its claim, not what papers are about (2026-11-05):
+        # "replaces commercial gym" searched for papers with the word "replaces".
+        "replace", "replaces", "detect", "detects", "measure", "measures",
+        "track", "tracks", "accurate", "accurately",
+        # "benefits women" is a claim about who, and its word is in no useful paper's title.
+        "benefit", "benefits",
+        # A claim's wording around timing and comparison ("when done before exercise",
+        # "as much as running"): ANDed in, each word empties the search.
+        "when", "done", "before", "after", "much",
     }
 )  # fmt: skip
 
@@ -120,11 +154,72 @@ _USAGE_WORDS = frozenset(
     }
 )  # fmt: skip
 
+#: Two names in one field. Quoted whole, each pair is a phrase no paper uses: "foam rolling
+#: or fascia release". The comma needs a space after it, or "10,000 steps" is two names; the
+#: slash needs letters both sides, or "16/8 intermittent fasting" is. Never a plain "and": it
+#: joins a subject to its outcome ("vitamin d and depression", "protein timing and muscle
+#: hypertrophy"), so each half would search on its own and find papers off the subject.
+_NAME_SEPARATOR = re.compile(
+    r"\s+(?:and/or|or|vs\.?|versus)\s+|(?<=[a-z])\s*/\s*(?=[a-z])|,\s+"
+)
+
+#: When, where and with what: "bulletproof coffee with butter or mct oil" names one drink.
+_NAME_CONTEXT = re.compile(r"\s+(?:in|at|during|while|with|per|marketed)\s+.*$")
+
+#: Always timing, even after one word: "stretching before or after a workout" is stretching.
+_NAME_TIMING = re.compile(r"\s+(?:before|after)\s+.*$")
+
+#: A bracket saying how much or how often: "sauna (3 times a week)", "fasting (low dose)".
+_DOSE = re.compile(r"\d|\b(?:doses?|dosage|dosing|daily|weekly)\b")
+
+#: Words of a name no abstract need contain for it to be about the thing.
+_NAME_SMALL_WORDS = frozenset(
+    {
+        "a", "an", "and", "at", "day", "days", "in", "of", "on", "or", "the", "to", "while",
+        "with", "your",
+    }
+)  # fmt: skip
+
+_NAME_MIN_LONG_WORD = 4
+
+#: A last word no paper's name for the thing needs: "vagus nerve stimulation devices".
+_GENERIC_LAST_WORDS = frozenset(
+    {
+        "device", "devices", "treatment", "treatments", "product", "products", "system",
+        "systems", "routine", "routines", "practice", "practices", "program", "programs",
+        "programme", "programmes", "serum", "serums",
+    }
+)  # fmt: skip
+
+#: Who a claim is about -> the words papers use. Hand-made, as ``MESH_HINTS`` is.
+#: "without diabetes" had no review in PubMed; with "nondiabetic" beside it, 9 (2026-11-07).
+POPULATION_HINTS: dict[str, str] = {
+    "without diabetes": (
+        '("without diabetes"[tiab] OR nondiabetic[tiab] OR "non-diabetic"[tiab])'
+    ),
+    "women": "(women[tiab] OR woman[tiab] OR female[tiab] OR females[tiab])",
+    "men": "(men[tiab] OR male[tiab] OR males[tiab])",
+    "older adults": '("older adults"[tiab] OR elderly[tiab] OR "older people"[tiab])',
+    "children": "(children[tiab] OR pediatric[tiab] OR paediatric[tiab])",
+    "teenagers": "(teenagers[tiab] OR adolescents[tiab])",
+    "adolescents": "(teenagers[tiab] OR adolescents[tiab])",
+    "pregnant": "(pregnant[tiab] OR pregnancy[tiab])",
+    "pregnancy": "(pregnant[tiab] OR pregnancy[tiab])",
+    "athletes": "(athletes[tiab] OR athletic[tiab])",
+}
+
+#: What a claim is compared with. It stays in the claim for ranking and the article, and
+#: leaves the search: "skin aging effectively retinol" is in no abstract.
+_COMPARISON = re.compile(
+    r"\s+(?:as\s+\w+\s+as|(?:more|better|less|worse|safer)\s+than|than|compared\s+(?:with|to)|versus|vs\.?)\s+.*$"
+)
+
 #: What extraction is told to write when a question names no substance.
 _NO_SUBJECT = frozenset({"unspecified", "none", "unknown", "n/a", "na"})
 
 #: More words than any substance or practice name, unless it maps to a known one.
 _MAX_NAME_WORDS = 8
+_MAX_LISTED_NAME_WORDS = 4
 
 #: Reviews are scarce, so their pass needs fewer results; the general pass
 #: carries the breadth. 30, not 15, since 2026-10-23: of 77 gold papers, mostly
@@ -184,14 +279,18 @@ class TemplateQueryStrategy:
     def build(self, claim: str, product: str, ingredients: list[str]) -> list[SearchQuery]:
         """``<substance> AND <outcome>``, or just the substance if the claim has no keywords."""
         subject = self._subject(claim, product, ingredients)
-        outcome = _outcome_group(claim)
-        terms = f"{subject} AND {outcome}" if outcome else subject
+        population, about = _population_group(claim)
+        parts = (subject, population, _outcome_group(about))
+        terms = " AND ".join(part for part in parts if part)
         return _review_and_general(claim, terms, self._min_year)
 
     def broaden(self, claim: str, product: str, ingredients: list[str]) -> list[SearchQuery]:
         """The substance alone, with no year limit: a claim short on recent
         work is exactly where an older trial is worth having."""
-        return _review_and_general(claim, self._subject(claim, product, ingredients), None)
+        subject = self._subject(claim, product, ingredients)
+        population, _ = _population_group(claim)
+        terms = f"{subject} AND {population}" if population else subject
+        return _review_and_general(claim, terms, None)
 
     @staticmethod
     def _subject(claim: str, product: str, ingredients: list[str]) -> str:
@@ -239,24 +338,132 @@ def _subject_group(substances: list[str]) -> str:
     # "smart rings like the oura ring" -> both, each quoted: as one phrase it matched nothing.
     examples = (re.split(r"\s+(?:like|such as|including)\s+(?:the\s+)?", s) for s in substances)
     for substance in (part for parts in examples for part in parts):
-        name = substance.strip().lower()
+        # "smart ring for sleep" -> the thing only: quoted whole, it matches nothing, and
+        # a substance named after "for" is the outcome, not the subject.
+        name = re.split(r"\s+for\s+", substance.strip().lower(), maxsplit=1)[0]
         if not name:
             continue
-        # "ashwagandha (withania somnifera)" -> also try both halves.
-        names = [name]
-        if match := re.search(r"\(([^)]+)\)", name):
-            names.append(match.group(1).strip())
-            names.append(re.sub(r"\s*\([^)]*\)", "", name).strip())
-
-        mapped = next((MESH_HINTS[n] for n in names if n in MESH_HINTS), None)
-        mapped = mapped or _mesh_within(name)
-        if mapped is None and not _is_a_name(name):
-            continue
-        core = " ".join(w for w in names[-1].split() if w not in _USAGE_WORDS)
-        terms.append(mapped or f'"{core or names[-1]}"')
+        # Asked of the whole field: split first, and each half of a long description
+        # would pass as a name of eight words or fewer.
+        is_a_name = _is_a_name(re.sub(r"\s*\([^)]*\)", "", name))
+        for part in _names_within(name):
+            # Context is no substance: "creatine during the menstrual cycle" is creatine.
+            hint = MESH_HINTS.get(part) or _mesh_within(_NAME_CONTEXT.sub("", part))
+            if hint:
+                terms.append(hint)
+            elif is_a_name:
+                terms.extend(_name_term(form) for form in _word_forms(_name_core(part)))
 
     unique = list(dict.fromkeys(term for term in terms if term))
     return f"({' OR '.join(unique)})" if unique else ""
+
+
+def _name_term(name: str) -> str:
+    """A name in title and abstract: as a phrase, or with all its words apart.
+
+    [tiab], or PubMed drops the quotes from a phrase it has not indexed and searches the
+    loose words: "glazed-donut skin" found 1,059,975 papers on skin. The words apart, or a
+    tagged phrase finds nothing for a real topic: "whole-body vibration plate training" had
+    0 as a phrase and 46 so, while "glazed-donut skin" stayed at 0 (2026-11-07). The phrase
+    stays for the providers without tags, where it asks for the words together.
+    """
+    words = [word for word in name.split() if word not in _NAME_SMALL_WORDS]
+    # "one" AND "meal" AND "day" found 4,411 papers, the phrase 21: short words are everywhere.
+    if sum(len(word) >= _NAME_MIN_LONG_WORD for word in words) < 2:
+        return f'"{name}"[tiab]'
+    together = " AND ".join(f'"{word}"[tiab]' for word in words)
+    return f'("{name}"[tiab] OR ({together}))'
+
+
+def _names_within(name: str) -> list[str]:
+    """The separate names in a field: "ashwagandha (withania somnifera)" has two, and so
+    has "foam rolling or fascia release"."""
+    base = re.sub(r"\s*\([^)]*\)", "", name).strip()
+    # An unmapped bracket beside a known substance or stating a dose qualifies, not names:
+    # searched, "intermittent fasting (low dose)" found 357,271 papers (2026-11-07).
+    brackets = [
+        text
+        for text in re.findall(r"\(([^)]+)\)", name)
+        if _mesh_within(text) or not (_mesh_within(base) or _DOSE.search(text))
+    ]
+    return [part for text in (base, *brackets) for part in _split_name(text)]
+
+
+def _split_name(text: str) -> list[str]:
+    text = _NAME_TIMING.sub("", text)
+    context = _NAME_CONTEXT.search(text)
+    if context:
+        # "sleeping with an onion in your sock" is defined by its context: bare "sleeping"
+        # would find the whole sleep literature for a question nobody has studied.
+        if len(text[: context.start()].split()) < 2:
+            return [text]
+        text = text[: context.start()]
+    found = [part.strip() for part in _NAME_SEPARATOR.split(text) if part.strip()]
+    # "hyaluronic acid serums or supplements" names one thing, not "supplements" as well.
+    parts = [part for part in found if not set(part.split()) <= _USAGE_WORDS] or found
+    # "hot or cold compresses": a lone word beside a longer name is half of that name, and
+    # searched alone it finds everything saying "hot". A comma lists whole names.
+    longer = [part for part in parts if " " in part]
+    if ", " in text or not longer or len(longer) == len(parts):
+        return parts
+    last_word = longer[-1].split()[-1]
+    return [
+        part if " " in part or part in MESH_HINTS else f"{part} {last_word}" for part in parts
+    ]
+
+
+def _name_core(part: str) -> str:
+    """A name without its usage words and generic last word. Never empties it."""
+    words = [word for word in part.split() if word not in _USAGE_WORDS] or part.split()
+    if len(words) > 1 and words[-1] in _GENERIC_LAST_WORDS:
+        words.pop()
+    return " ".join(words)
+
+
+def _population_group(claim: str) -> tuple[str, str]:
+    """Who the claim is about in indexed vocabulary, and the claim without them: as an
+    outcome word, the "diabetes" of "without diabetes" finds the papers on diabetics.
+    Not one of ``POPULATION_HINTS``: nothing is narrowed, as before."""
+    lowered = claim.lower()
+    found = [key for key in POPULATION_HINTS if re.search(rf"\b{key}\b", lowered)]
+    if not found:
+        return "", claim
+    for key in found:
+        lowered = re.sub(
+            rf"\s*\b(?:(?:in|for|among)\s+)?(?:(?:people|adults|patients|those)\s+)?{key}\b",
+            "",
+            lowered,
+        )
+    # "pregnant women" is one group: as an OR, any study in women would qualify.
+    pregnancy = {"pregnant", "pregnancy"} & set(found)
+    named = [key for key in found if key != "women" or not pregnancy]
+    hints = list(dict.fromkeys(POPULATION_HINTS[key] for key in named))
+    return (hints[0] if len(hints) == 1 else f"({' OR '.join(hints)})"), lowered
+
+
+def _word_forms(phrase: str) -> list[str]:
+    """A name with its last word singular and plural. A quoted phrase matches one form
+    only: measured 2026-11-05, "smart rings" found 17 papers where "smart ring" found 36.
+    A form nobody uses ("citicolines") matches no paper only because it is tagged [tiab]:
+    see ``_subject_group``. Words in
+    -ing are activities ("foam rolling"), except the short ones ("smart ring"). A lone
+    plural stays as written: "dates" -> "date" matches every abstract saying "to date"."""
+    head, _, last = phrase.rpartition(" ")
+    no_plural = last.endswith(("ss", "us", "is", "x", "ch", "sh")) or (
+        last.endswith("ing") and len(last) > 4
+    )
+    lone_plural = not head and last.endswith("s")
+    if len(last) < 3 or not last.isalpha() or no_plural or lone_plural:
+        return [phrase]
+    if last.endswith("ies") and len(last) > 4:
+        other = f"{last[:-3]}y"
+    elif last.endswith("s"):
+        other = last[:-1]
+    elif last.endswith("y") and last[-2] not in "aeiou":
+        other = f"{last[:-1]}ies"
+    else:
+        other = f"{last}s"
+    return [phrase, f"{head} {other}".strip()]
 
 
 def _is_a_name(phrase: str) -> bool:
@@ -276,28 +483,48 @@ def _is_a_name(phrase: str) -> bool:
         return False
     if phrase.rstrip().endswith("?") or words[0] in _INTERROGATIVES:
         return False
-    return len(words) <= _MAX_NAME_WORDS
+    # A list of short names is not a sentence, however many it lists; a half-sentence
+    # ("doing yoga help muscle gain") runs longer than a name does.
+    parts = _NAME_SEPARATOR.split(phrase)
+    return len(words) <= _MAX_NAME_WORDS or (
+        len(parts) > 1 and all(len(part.split()) <= _MAX_LISTED_NAME_WORDS for part in parts)
+    )
 
 
 def _mesh_within(phrase: str) -> str | None:
-    """A known substance inside a longer name ("Creatine Monohydrate Powder").
+    """The known substances inside a longer name ("Creatine Monohydrate Powder"), so
+    "creatine and beta-alanine" searches both.
 
-    Longest match wins, so "withania somnifera" beats "withania"; whole words
-    only, so "zinc" does not match "zincate".
+    A key inside a longer match does not count, so "withania somnifera" beats
+    "withania"; whole words only, so "zinc" does not match "zincate".
     """
     matches = [
         (key, term)
         for key, term in MESH_HINTS.items()
         if re.search(rf"\b{re.escape(key)}\b", phrase)
     ]
-    if not matches:
-        return None
-    return max(matches, key=lambda pair: len(pair[0]))[1]
+    kept = [
+        term
+        for key, term in matches
+        if not any(key != other and key in other for other, _ in matches)
+    ]
+    return " OR ".join(dict.fromkeys(kept)) or None
+
+
+def _content_words(text: str) -> list[str]:
+    return [
+        word
+        for word in re.findall(r"[a-z0-9\-]+", text)
+        if word not in _STOPWORDS and len(word) > 2
+    ]
 
 
 def _outcome_group(claim: str) -> str:
     """The claim's outcome in indexed vocabulary, or its keywords as a fallback."""
-    lowered = claim.lower()
+    lowered = _COMPARISON.sub("", claim.lower())
+    # "is as effective as a multi-step routine" is nothing but its comparison.
+    if not _content_words(lowered):
+        lowered = claim.lower()
     # Several can match ("improves sleep and reduces stress"): OR them all.
     # At a word start: "stress" inside "gastrointestinal distress" searched anxiety
     # papers (2026-10-26); plurals ("joints") still match.
@@ -310,11 +537,7 @@ def _outcome_group(claim: str) -> str:
             if not any(keyword != other and keyword in other for other in matched)
         )
     )
-    words = [
-        word
-        for word in re.findall(r"[a-z0-9\-]+", lowered)
-        if word not in _STOPWORDS and len(word) > 2
-    ]
+    words = _content_words(lowered)
     if len(hints) == 1 and len(words) > 1:
         # The claim's own phrase beside the hint: "reduces sleep latency" mapped
         # to the generic sleep vocabulary, and the meta-analysis on sleep onset

@@ -20,11 +20,13 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, status
 from app.api.deps import (
     ClientIpDep,
     ContactThrottleDep,
+    OptionalReaderDep,
     SessionDep,
     SettingsDep,
     too_many_attempts,
 )
 from app.api.public.schemas import ContactRequestIn
+from app.domain.enums import ContactKind
 from app.services.contact import ContactError, ContactService
 from app.services.notify import contact_email, notify_editors
 
@@ -41,6 +43,7 @@ async def submit_contact(
     ip: ClientIpDep,
     settings: SettingsDep,
     background: BackgroundTasks,
+    reader: OptionalReaderDep,
 ) -> dict[str, str]:
     """Record a request for the editorial team.
 
@@ -53,7 +56,26 @@ async def submit_contact(
     limit through a proxy pool and one IP cannot walk around it by varying the
     address.
     """
-    retry_after = throttle.retry_after(ip=ip, email=payload.email)
+    # Suggesting a topic is for signed-in readers, and it is sent as them: the
+    # name and address come from the account, not from the form.
+    name, email = payload.name, payload.email
+    if payload.kind == ContactKind.TOPIC:
+        if reader is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Sign in to suggest a topic",
+            )
+        # ...and only once that address is proven theirs. Signup takes any
+        # address, so without this a suggestion could reach the editors "from"
+        # someone who never wrote it, with their address as the Reply-To.
+        if not reader.email_verified:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Confirm your email address first. The link is in your inbox.",
+            )
+        name, email = reader.display_name, reader.email
+
+    retry_after = throttle.retry_after(ip=ip, email=email)
     if retry_after is not None:
         raise too_many_attempts(retry_after, "Too many messages from here. Try again later.")
     # Counted here, with no `await` between check and count: counted after the
@@ -61,14 +83,14 @@ async def submit_contact(
     # counted, and each one was saved and emailed. Every attempt spends the
     # budget, refused ones too; a person sending one message a week never
     # reaches the limit.
-    throttle.record_failure(ip=ip, email=payload.email)
+    throttle.record_failure(ip=ip, email=email)
 
     try:
         request = await ContactService(session).submit(
             kind=payload.kind,
-            email=payload.email,
+            email=email,
             note=payload.note,
-            name=payload.name,
+            name=name,
             link=payload.link,
         )
     except ContactError as exc:

@@ -19,6 +19,8 @@ from app.domain.contracts import (
     ReaderEditInput,
     ReaderEditOutput,
     RelevanceOutput,
+    SupportInput,
+    SupportOutput,
     SynthesisInput,
     SynthesisOutput,
 )
@@ -131,6 +133,11 @@ class AppraisalClient(Protocol):
     async def direction(self, payload: AppraisalInput) -> LLMResult[DirectionOutput]:
         """``two_call`` mode, second call: which way each source points. Given
         only the sources the first call accepted."""
+        ...
+
+    async def support(self, payload: SupportInput) -> LLMResult[SupportOutput]:
+        """VERIFY: whether one cited paper states each sentence that cites it.
+        The same small labelling job as appraisal, so the same client."""
         ...
 
 

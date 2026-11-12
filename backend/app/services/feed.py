@@ -29,7 +29,7 @@ from sqlalchemy import (
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.enums import ArticleStatus, Subject, Verdict
-from app.domain.models import Article, ArticleSource, Source
+from app.domain.models import Article, ArticleSource, Source, User
 
 
 class ArticleNotFound(LookupError):
@@ -329,6 +329,26 @@ class FeedService:
             "verdicts": {str(verdict): count for verdict, count in verdict_rows.all()},
         }
 
+    async def sitemap(self) -> list[tuple[str, datetime]]:
+        """Every published slug with when it last changed, newest first.
+
+        shortcut: one response, capped at 50,000 (a sitemap file's own limit);
+        a sitemap index is the upgrade when the feed gets there.
+        """
+        rows = await self._session.execute(
+            _published_only(select(Article.slug, Article.updated_at))
+            .order_by(Article.published_at.desc())
+            .limit(50_000)
+        )
+        return [(slug, changed) for slug, changed in rows.all()]
+
+    async def card_image(self, slug: str) -> str | None:
+        """The published article's tile picture path, if it has one."""
+        image: str | None = await self._session.scalar(
+            _published_only(select(Article.card_image).where(Article.slug == slug))
+        )
+        return image
+
     async def article(self, slug: str) -> dict[str, Any]:
         """Full article with citations and resolved sources.
 
@@ -411,6 +431,15 @@ class FeedService:
             # automatically invalidate a conclusion — but the reader is told
             # before they read it rather than after.
             "retraction_notice": article.retraction_flagged_at is not None,
+            # The byline: the name an admin gave the approving reviewer
+            # (`scripts.seed_admin --name`), never their email.
+            "reviewer_name": await self._session.scalar(
+                select(User.display_name).where(User.id == article.reviewed_by)
+            ),
+            # Date and note only: who made the correction is desk information.
+            "corrections": [
+                {"at": entry["at"], "note": entry["note"]} for entry in article.corrections
+            ],
         }
 
 

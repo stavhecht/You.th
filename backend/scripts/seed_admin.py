@@ -60,6 +60,15 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    # The name is printed on every article this reviewer approves ("Checked and
+    # approved by ..."), so it has to be a name, never the login address.
+    display_name = args.display_name.strip()
+    if not display_name or "@" in display_name:
+        print("--name must be the reviewer's name as readers should see it, not an email.",
+              file=sys.stderr)
+        return 1
+    args.display_name = display_name
+
     password = getpass.getpass("Password: ")
     if len(password) < MIN_PASSWORD_LENGTH:
         print(

@@ -67,6 +67,12 @@ READER_TOKEN_TTL = timedelta(days=30)
 #: A password-reset link. Short, because it travels by email.
 TOKEN_TYPE_READER_RESET = "reader_reset"
 RESET_TOKEN_TTL = timedelta(minutes=30)
+#: The same link for a reviewer who forgot their desk password.
+TOKEN_TYPE_REVIEWER_RESET = "reviewer_reset"
+
+#: The "confirm your email" link mailed at signup.
+TOKEN_TYPE_READER_VERIFY = "reader_verify"
+VERIFY_TOKEN_TTL = timedelta(days=7)
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,6 +98,8 @@ class AuthenticatedReader:
     id: str
     email: str
     display_name: str
+    #: They opened the link mailed to ``email``. False until then.
+    email_verified: bool = False
 
 
 def hash_password(plaintext: str) -> str:
@@ -128,12 +136,18 @@ async def equalise_timing() -> None:
     await check_password("wrong", DUMMY_HASH)
 
 
-def create_access_token(reviewer: AuthenticatedReviewer, secret: str) -> tuple[str, int]:
+def create_access_token(
+    reviewer: AuthenticatedReviewer, secret: str, password_hash: str
+) -> tuple[str, int]:
     """Issue a JWT. Returns (token, expires_in_seconds).
 
     Claims are ``sub``, ``role``, ``exp``, ``iat`` — deliberately no email or
     display name. Those change, and a token asserting a stale one is worse than
     a token that requires a lookup.
+
+    ``pwd`` is a fingerprint of the password hash, as on a reader token:
+    ``require_reviewer`` refuses a token whose fingerprint no longer matches,
+    so changing the password signs out every other session at once.
     """
     now = datetime.now(UTC)
     expires = now + ACCESS_TOKEN_TTL
@@ -141,6 +155,7 @@ def create_access_token(reviewer: AuthenticatedReviewer, secret: str) -> tuple[s
         "sub": reviewer.id,
         "role": str(reviewer.role),
         "typ": TOKEN_TYPE_REVIEWER,
+        "pwd": _password_fingerprint(password_hash),
         "iat": int(now.timestamp()),
         "exp": int(expires.timestamp()),
     }
@@ -176,17 +191,20 @@ def _password_fingerprint(password_hash: str) -> str:
     return hashlib.sha256(password_hash.encode()).hexdigest()[:16]
 
 
-def create_reset_token(reader_id: str, password_hash: str, secret: str) -> str:
+def create_reset_token(
+    account_id: str, password_hash: str, secret: str, *, typ: str = TOKEN_TYPE_READER_RESET
+) -> str:
     """A signed, 30-minute reset link token, no table needed.
 
     It carries a fingerprint of the current password hash, so it stops working
     the moment the password changes, its own use included. Its ``typ`` means
-    neither surface accepts it as a session token.
+    neither surface accepts it as a session token, and a reader's link cannot
+    reset a reviewer (``TOKEN_TYPE_REVIEWER_RESET``) or the reverse.
     """
     now = datetime.now(UTC)
     payload = {
-        "sub": reader_id,
-        "typ": TOKEN_TYPE_READER_RESET,
+        "sub": account_id,
+        "typ": typ,
         "pwd": _password_fingerprint(password_hash),
         "iat": int(now.timestamp()),
         "exp": int((now + RESET_TOKEN_TTL).timestamp()),
@@ -194,15 +212,44 @@ def create_reset_token(reader_id: str, password_hash: str, secret: str) -> str:
     return jwt.encode(payload, secret, algorithm=JWT_ALGORITHM)
 
 
-def reset_token_subject(token: str, secret: str) -> tuple[str, str]:
-    """(reader id, password fingerprint) from a reset token, or ``AuthError``."""
+def create_verify_token(reader_id: str, email: str, secret: str) -> str:
+    """The link mailed at signup: proves whoever opens it reads that inbox.
+
+    A week, not the reset link's half hour: nothing is unlocked by it but the
+    account's own address, and people open a welcome email days later. It names
+    the address it was mailed to, so it confirms that address and no other.
+    """
+    now = datetime.now(UTC)
+    payload = {
+        "sub": reader_id,
+        "typ": TOKEN_TYPE_READER_VERIFY,
+        "eml": email,
+        "iat": int(now.timestamp()),
+        "exp": int((now + VERIFY_TOKEN_TTL).timestamp()),
+    }
+    return jwt.encode(payload, secret, algorithm=JWT_ALGORITHM)
+
+
+def verify_token_subject(token: str, secret: str) -> tuple[str, str]:
+    """(reader id, the address the link was mailed to), or ``AuthError``."""
+    payload = _decode(token, secret, TOKEN_TYPE_READER_VERIFY)
+    email = payload.get("eml")
+    if not isinstance(email, str):
+        raise AuthError("invalid token")
+    return payload["sub"], email
+
+
+def reset_token_subject(
+    token: str, secret: str, *, typ: str = TOKEN_TYPE_READER_RESET
+) -> tuple[str, str]:
+    """(account id, password fingerprint) from a reset token, or ``AuthError``."""
     try:
         payload = jwt.decode(token, secret, algorithms=[JWT_ALGORITHM])
     except jwt.PyJWTError as exc:
         raise AuthError("invalid token") from exc
     subject, fingerprint = payload.get("sub"), payload.get("pwd")
     if (
-        payload.get("typ") != TOKEN_TYPE_READER_RESET
+        payload.get("typ") != typ
         or not isinstance(subject, str)
         or not isinstance(fingerprint, str)
     ):
@@ -250,6 +297,15 @@ def decode_token_subject(
     return str(_decode(token, secret, expect)["sub"])
 
 
+def decode_reviewer_token(token: str, secret: str) -> tuple[str, str]:
+    """(reviewer id, password fingerprint). A token without one is refused."""
+    payload = _decode(token, secret, TOKEN_TYPE_REVIEWER)
+    fingerprint = payload.get("pwd")
+    if not isinstance(fingerprint, str):
+        raise AuthError("invalid token")
+    return payload["sub"], fingerprint
+
+
 def _decode(token: str, secret: str, expect: str) -> dict[str, Any]:
     """Signature, expiry, surface and a non-empty subject, or ``AuthError``."""
     try:
@@ -257,7 +313,9 @@ def _decode(token: str, secret: str, expect: str) -> dict[str, Any]:
     except jwt.PyJWTError as exc:
         raise AuthError("invalid token") from exc
 
-    if payload.get("typ", TOKEN_TYPE_REVIEWER) != expect:
+    # No default: a token that does not say which surface it was minted for is
+    # refused, never read as the more privileged one.
+    if payload.get("typ") != expect:
         raise AuthError("invalid token")
 
     subject = payload.get("sub")

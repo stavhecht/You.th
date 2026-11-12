@@ -19,15 +19,19 @@
  * the queue must never be crawlable.
  */
 
+import { usePageMeta } from "@/lib/usePageMeta";
 import { Route, Routes } from "react-router-dom";
 
+import { AccountPanel } from "@/features/console/AccountPanel";
 import { RequireAuth } from "@/features/console/auth";
+import { ReviewerReset } from "@/features/console/ReviewerReset";
 import { LoginForm } from "@/features/console/LoginForm";
 import { ReviewDetail } from "@/features/console/ReviewDetail";
 import { ReviewHeader } from "@/features/console/ReviewHeader";
 import { ReviewQueue } from "@/features/console/ReviewQueue";
 
 export default function ReviewRoutes() {
+  usePageMeta("Review desk");
   return (
     /*
       `ew-type-console` retypes the whole desk back to Archivo - see the type
@@ -41,11 +45,21 @@ export default function ReviewRoutes() {
       <Routes>
         {/* Paths are relative to /review/* */}
         <Route path="login" element={<LoginForm />} />
+        {/* Unauthenticated, like login: whoever needs it has no session. */}
+        <Route path="reset" element={<ReviewerReset />} />
         <Route
           index
           element={
             <RequireAuth>
               <ReviewQueue />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="account"
+          element={
+            <RequireAuth>
+              <AccountPanel />
             </RequireAuth>
           }
         />

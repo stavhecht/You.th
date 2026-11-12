@@ -14,9 +14,11 @@
  * says which surface this is; the rest is the product a reviewer already knows.
  */
 
+import { ApiError } from "@/lib/api/client";
 import { useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
+import { PasswordField } from "./PasswordField";
 import { useAuth } from "./auth";
 import {
   FIELD_LABEL,
@@ -45,6 +47,7 @@ export function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
+  const justReset = Boolean((location.state as { reset?: boolean } | null)?.reset);
   const destination =
     (location.state as { from?: { pathname: string } } | null)?.from?.pathname ??
     "/review";
@@ -56,8 +59,12 @@ export function LoginForm() {
     try {
       await login(email, password);
       void navigate(destination, { replace: true });
-    } catch {
-      setError("Incorrect email or password.");
+    } catch (caught) {
+      setError(
+        caught instanceof ApiError && caught.status === 429
+          ? "Too many attempts. Wait a minute and try again."
+          : "Incorrect email or password.",
+      );
     } finally {
       setPending(false);
     }
@@ -90,16 +97,21 @@ export function LoginForm() {
 
             <div className={LOGIN_FIELD_GROUP}>
               <FieldLabel htmlFor="review-password">Password</FieldLabel>
-              <input
+              <PasswordField
                 id="review-password"
-                type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 required
                 autoComplete="current-password"
-                className={LOGIN_FIELD}
               />
             </div>
+
+
+            {justReset && !error ? (
+              <p role="status" className={LOGIN_STANDFIRST}>
+                Your password is changed. Sign in with the new one.
+              </p>
+            ) : null}
 
             {error ? (
               <p role="alert" className={LOGIN_ERROR}>
@@ -110,6 +122,11 @@ export function LoginForm() {
             <button type="submit" disabled={pending} className={LOGIN_SUBMIT}>
               {pending ? "Signing in…" : "Sign in →"}
             </button>
+            <p className={LOGIN_FOOTNOTE}>
+              <Link to="/review/reset" className={LOGIN_FOOTNOTE_LINK}>
+                Forgot your password?
+              </Link>
+            </p>
           </form>
         </div>
 

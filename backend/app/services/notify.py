@@ -65,10 +65,12 @@ def _send(message: EmailMessage, settings: Settings) -> None:
         smtp.send_message(message)
 
 
-def password_reset_email(to: str, link: str, settings: Settings) -> EmailMessage:
-    """The reset link for one reader. The link is a credential: never log it."""
+def password_reset_email(
+    to: str, link: str, settings: Settings, *, subject: str = "Reset your You.th password"
+) -> EmailMessage:
+    """The reset link for one account. The link is a credential: never log it."""
     message = EmailMessage()
-    message["Subject"] = "Reset your You.th password"
+    message["Subject"] = subject
     message["From"] = settings.smtp_user
     message["To"] = to
     message.set_content(
@@ -80,6 +82,28 @@ def password_reset_email(to: str, link: str, settings: Settings) -> EmailMessage
                 link,
                 "",
                 "If it was not you, ignore this email. Your password stays the same.",
+            ]
+        )
+    )
+    return message
+
+
+def verification_email(to: str, link: str, settings: Settings) -> EmailMessage:
+    """The "confirm this is your address" link mailed at signup."""
+    message = EmailMessage()
+    message["Subject"] = "Confirm your email for You.th"
+    message["From"] = settings.smtp_user
+    message["To"] = to
+    message.set_content(
+        "\n".join(
+            [
+                "Welcome to You.th.",
+                "",
+                "To confirm this is your email address, open this link:",
+                link,
+                "",
+                "If you did not create an account, ignore this email and nothing "
+                "will be sent to this address again.",
             ]
         )
     )

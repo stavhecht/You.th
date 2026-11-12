@@ -208,7 +208,11 @@ async def test_a_reset_signs_out_every_device() -> None:
     from fastapi.security import HTTPAuthorizationCredentials
 
     reader = SimpleNamespace(
-        id=READER_ID, email="ada@example.com", display_name="Ada", password_hash="old-hash"
+        id=READER_ID,
+        email="ada@example.com",
+        display_name="Ada",
+        password_hash="old-hash",
+        email_verified_at=None,
     )
 
     class _Result:

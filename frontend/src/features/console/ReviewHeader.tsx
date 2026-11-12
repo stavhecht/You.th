@@ -68,7 +68,9 @@ export function ReviewHeader() {
               </Link>
 
               <span className={SIGNED_IN_AS}>
-                <span className={WIDE_ONLY}>{reviewer.displayName}</span>
+                <Link to="/review/account" title="Password and two-step sign-in" className={`${REVIEW_NAV_LINK} ${WIDE_ONLY}`}>
+                  {reviewer.displayName}
+                </Link>
                 <button onClick={logout} className={SIGN_OUT_ACTION}>
                   Sign out
                 </button>

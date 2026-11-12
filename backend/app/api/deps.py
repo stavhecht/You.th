@@ -21,7 +21,7 @@ from app.security.auth import (
     AuthenticatedReviewer,
     AuthError,
     decode_reader_token,
-    decode_token_subject,
+    decode_reviewer_token,
     password_unchanged,
 )
 from app.security.login_throttle import Budget, InMemoryLoginThrottle, LoginThrottle
@@ -132,6 +132,20 @@ def get_password_reset_throttle() -> LoginThrottle:
 
 PasswordResetThrottleDep = Annotated[LoginThrottle, Depends(get_password_reset_throttle)]
 
+#: The desk's "forgot your password", apart from the readers' for the reason
+#: every counter here is apart: a burst on the public form must not stop a
+#: reviewer getting their link.
+_reviewer_reset_throttle: LoginThrottle = InMemoryLoginThrottle(
+    account_budget=Budget(max_failures=3, window=timedelta(hours=1))
+)
+
+
+def get_reviewer_reset_throttle() -> LoginThrottle:
+    return _reviewer_reset_throttle
+
+
+ReviewerResetThrottleDep = Annotated[LoginThrottle, Depends(get_reviewer_reset_throttle)]
+
 #: And a fourth counter, of a different kind, for regenerating article imagery.
 #:
 #: Not a ``LoginThrottle`` instance, because it is not counting the same thing.
@@ -196,7 +210,9 @@ async def require_reviewer(
         raise _UNAUTHORIZED
 
     try:
-        user_id = decode_token_subject(credentials.credentials, settings.jwt_secret)
+        user_id, fingerprint = decode_reviewer_token(
+            credentials.credentials, settings.jwt_secret
+        )
     except AuthError:
         raise _UNAUTHORIZED from None
 
@@ -204,7 +220,9 @@ async def require_reviewer(
         select(User).where(User.id == user_id, User.is_active.is_(True))
     )
     user = result.scalar_one_or_none()
-    if user is None:
+    # A token from before the last password change: changing it signs out
+    # every other session, which is the point of changing it.
+    if user is None or not password_unchanged(fingerprint, user.password_hash):
         raise _UNAUTHORIZED
 
     return AuthenticatedReviewer(
@@ -245,7 +263,10 @@ async def _resolve_reader(
         return None
 
     return AuthenticatedReader(
-        id=reader.id, email=reader.email, display_name=reader.display_name
+        id=reader.id,
+        email=reader.email,
+        display_name=reader.display_name,
+        email_verified=reader.email_verified_at is not None,
     )
 
 

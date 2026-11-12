@@ -18,7 +18,12 @@ from app.config import Settings, get_settings
 from app.main import create_app
 
 #: Reachable without a token by design: you cannot log in after logging in.
-PUBLIC_CONSOLE_PATHS = {"/api/console/auth/login"}
+PUBLIC_CONSOLE_PATHS = {
+    "/api/console/auth/login",
+    # A reviewer who forgot their password has no session to send.
+    "/api/console/auth/password/forgot",
+    "/api/console/auth/password/reset",
+}
 DUMMY_ID = "00000000-0000-0000-0000-000000000000"
 
 

@@ -170,7 +170,7 @@ def test_a_reviewer_token_is_refused_by_the_reader_decoder() -> None:
         display_name="R",
         role=UserRole.REVIEWER,
     )
-    token, _ = create_access_token(reviewer, "a-test-secret")
+    token, _ = create_access_token(reviewer, "a-test-secret", "a-password-hash")
 
     with pytest.raises(AuthError):
         decode_token_subject(token, "a-test-secret", expect=TOKEN_TYPE_READER)

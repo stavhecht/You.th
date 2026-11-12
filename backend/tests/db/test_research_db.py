@@ -244,10 +244,16 @@ async def test_undecided_candidates_of_old_runs_are_pruned_and_decisions_kept(
             .where(ResearchRun.id == run_id)
             .values(finished_at=datetime.now(UTC) - timedelta(days=90))
         )
-        user_id = await db.scalar(sa.text("SELECT id FROM users LIMIT 1"))
-        if user_id is None:
-            await db.rollback()
-            pytest.skip("no reviewer row to attribute a dismissal to")
+        # Its own reviewer, never "whoever is in the table": an empty database
+        # (CI's) has nobody, and a skip there fails the job.
+        user_id = str(uuid.uuid4())
+        await db.execute(
+            sa.text(
+                "INSERT INTO users (id, email, password_hash, display_name, role)"
+                " VALUES (:id, :email, 'x', 'Prune Test', 'reviewer')"
+            ),
+            {"id": user_id, "email": f"prune-{user_id[:8]}@example.com"},
+        )
         undecided, dismissed = str(uuid.uuid4()), str(uuid.uuid4())
         for candidate_id, status, extra in (
             (undecided, ResearchCandidateStatus.SELECTED, {}),
@@ -291,7 +297,10 @@ async def test_undecided_candidates_of_old_runs_are_pruned_and_decisions_kept(
         assert left == [dismissed]
     finally:
         async with factory() as db:
+            # The run first: its candidates go with it, and a dismissed one
+            # must not outlive the reviewer it names (decided-has-reviewer).
             await db.execute(sa.delete(ResearchRun).where(ResearchRun.id == run_id))
+            await db.execute(sa.text("DELETE FROM users WHERE id = :id"), {"id": user_id})
             await db.commit()
 
 

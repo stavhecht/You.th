@@ -25,6 +25,7 @@ import {
   FEED_PAGE,
   FEED_TITLE,
   HERO,
+  HERO_SCRIM,
   HERO_STATEMENT,
   HERO_TOGGLE,
   HERO_VIDEO,
@@ -195,16 +196,18 @@ function Hero() {
       <video
         ref={video}
         src="/media/hero.mp4"
+        // The video's own first frame, so the hero is a picture from the first
+        // paint instead of a blank band until the video arrives (seconds on a
+        // phone). Regenerate it if the video changes - see frontend/CLAUDE.md.
+        poster="/media/hero-poster.jpg"
         autoPlay
         loop
         muted
         playsInline
         aria-hidden
-        // A poster would be a second asset to keep in step with the video for
-        // the few hundred milliseconds before the first frame decodes; the tile
-        // ground behind it covers that, in the right colour, for free.
         className={HERO_VIDEO}
       />
+      <div aria-hidden className={HERO_SCRIM} />
       <p className={HERO_STATEMENT}>Simplifying your way to stay young</p>
       <button
         type="button"

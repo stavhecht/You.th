@@ -46,6 +46,8 @@ export const FEED_PAGE = "pb-16";
  */
 export const HERO =
   "relative aspect-[29/10] max-h-[68vh] min-h-[240px] w-full overflow-hidden bg-tile";
+/** Between the video and the headline; see `.ew-hero-scrim` in youth.css. */
+export const HERO_SCRIM = "ew-hero-scrim pointer-events-none absolute inset-0";
 export const HERO_VIDEO =
   "absolute left-1/2 aspect-[29/10] h-full min-w-full max-w-none -translate-x-1/2 object-cover object-[50%_25%] saturate-[0.72]";
 /**
@@ -72,7 +74,7 @@ export const HERO_TOGGLE =
  * demanding to be finished before the picture is looked at.
  */
 export const HERO_STATEMENT =
-  "pointer-events-none absolute left-1/2 top-1/2 w-[min(90%,16ch)] -translate-x-1/2 -translate-y-1/2 text-balance text-center font-heading text-[clamp(28px,3.6vw,60px)] uppercase leading-[1.1] text-[#f4f0ed] opacity-70";
+  "pointer-events-none absolute left-1/2 top-1/2 w-[min(90%,16ch)] -translate-x-1/2 -translate-y-1/2 text-balance text-center font-heading text-[clamp(28px,3.6vw,60px)] uppercase leading-[1.1] text-[#f4f0ed] opacity-90";
 
 /** No `max-w-page`: the grid follows the window, as the site bar above it does. */
 export const FEED_BODY = "px-gutter";
@@ -87,11 +89,11 @@ export const FEED_ACTIONS = "flex flex-wrap items-center gap-2";
 
 /** A pill that clears or toggles something. Outlined - never the accent fill. */
 export const PILL_BUTTON =
-  "inline-flex items-center gap-2 rounded-full border border-rule bg-transparent px-3.5 py-[7px] font-body text-[10.5px] font-semibold uppercase leading-none tracking-[0.12em] text-ink transition-colors hover:border-ink";
+  "inline-flex items-center gap-2 rounded-full border border-rule bg-transparent px-3.5 py-[7px] font-body text-[11.5px] font-semibold uppercase leading-none tracking-[0.12em] text-ink transition-colors hover:border-ink";
 
 /** The same pill, filled, for a narrowing that is currently on. */
 export const PILL_BUTTON_ON =
-  "inline-flex items-center gap-2 rounded-full border border-invert bg-invert px-3.5 py-[7px] font-body text-[10.5px] font-semibold uppercase leading-none tracking-[0.12em] text-invert-fg transition-opacity hover:opacity-90";
+  "inline-flex items-center gap-2 rounded-full border border-invert bg-invert px-3.5 py-[7px] font-body text-[11.5px] font-semibold uppercase leading-none tracking-[0.12em] text-invert-fg transition-opacity hover:opacity-90";
 
 /**
  * The standing promise under the feed.
@@ -286,7 +288,7 @@ export const SOURCE_RETRACTED =
 
 /** Tracks the prose measure, so it sits under the body rather than beside it. */
 export const ARTICLE_DISCLAIMER =
-  "mt-8 max-w-[800px] font-body text-[11.5px] leading-[1.5] text-ink-4";
+  "mt-8 max-w-[800px] font-body text-[12.5px] leading-[1.5] text-ink-4";
 
 /* ── save and share ─────────────────────────────────────────────────────── */
 
@@ -302,9 +304,9 @@ export const FOLDER_SELECT_CHEVRON =
 
 /** The filled action. Ink, not accent - the accent belongs to the console. */
 export const PRIMARY_PILL =
-  "rounded-full border-0 bg-invert px-5 py-3 font-body text-[11px] font-bold uppercase leading-none tracking-[0.12em] text-invert-fg transition-colors hover:bg-accent-ink disabled:opacity-50";
+  "rounded-full border-0 bg-invert px-5 py-3 font-body text-[12px] font-bold uppercase leading-none tracking-[0.12em] text-invert-fg transition-colors hover:bg-accent-ink disabled:opacity-50";
 export const SECONDARY_PILL =
-  "rounded-full border border-rule bg-transparent px-5 py-3 font-body text-[11px] font-bold uppercase leading-none tracking-[0.12em] text-ink transition-colors hover:border-ink";
+  "rounded-full border border-rule bg-transparent px-5 py-3 font-body text-[12px] font-bold uppercase leading-none tracking-[0.12em] text-ink transition-colors hover:border-ink";
 
 /* ── read more ──────────────────────────────────────────────────────────── */
 
@@ -316,7 +318,7 @@ export const RECS_GRID = "mt-5 grid grid-cols-1 gap-3.5 sm:grid-cols-3";
 export const REC_CARD =
   "block rounded-tile border border-rule-soft bg-surface px-5 pb-[22px] pt-5 transition-colors hover:border-ink";
 export const REC_KICKER =
-  "mb-2.5 font-body text-[9.5px] font-bold uppercase tracking-[0.13em] text-ink-3";
+  "mb-2.5 font-body text-[11px] font-bold uppercase tracking-[0.13em] text-ink-3";
 /** An article title again, in the recommendation cards. */
 export const REC_TITLE =
   "text-pretty font-ui text-[15.5px] font-bold leading-[1.22] tracking-[-0.015em] text-ink";
@@ -474,7 +476,7 @@ export const SOURCES_SECTION =
   "mt-9 rounded-panel border border-rule-soft bg-surface-2 px-7 py-[26px]";
 export const SOURCES_HEAD = "flex items-baseline justify-between gap-2.5";
 export const SOURCES_TITLE = "font-heading text-[14px] font-bold text-ink";
-export const SOURCES_COUNT = "font-body text-[11.5px] text-ink-3";
+export const SOURCES_COUNT = "font-body text-[12.5px] text-ink-3";
 export const SOURCES_EMPTY_NOTE = "mt-3 font-body text-micro text-ink-3";
 export const SOURCES_FOOTNOTE = "mt-4 font-body text-micro text-ink-3";
 export const SOURCE_LIST = "mt-3.5 flex list-none flex-col gap-2.5 p-0";
@@ -493,7 +495,7 @@ export const SOURCE_ROW_HEAD = "flex items-baseline gap-2.5";
 
 /** The handle, as a pill - the same shape as the chip in the prose. */
 export const SOURCE_HANDLE =
-  "flex-none rounded-full border border-rule-soft px-2 py-0.5 font-body text-[10.5px] font-bold leading-none tracking-[0.06em] text-accent-ink";
+  "flex-none rounded-full border border-rule-soft px-2 py-0.5 font-body text-[11.5px] font-bold leading-none tracking-[0.06em] text-accent-ink";
 export const SOURCE_TITLE_LINK =
   "text-pretty font-body text-[13px] leading-[1.5] text-ink-2 hover:text-accent-ink";
 

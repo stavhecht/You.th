@@ -1,13 +1,13 @@
 # Pipeline: stages, orchestrator, worker, synthesis
 
-The nine stages, the graph that orders them, transaction boundaries, the worker, and what SYNTHESIZE does to a draft.
+The ten stages, the graph that orders them, transaction boundaries, the worker, and what SYNTHESIZE does to a draft.
 
 Loaded when you work under this directory; the root [CLAUDE.md](../../../CLAUDE.md) (commands, invariants, map) still applies. The reasoning behind the design is in [docs/design/03a-frontend-auth-pipeline.md](../../../docs/design/03a-frontend-auth-pipeline.md) §3.3.
 
 ## Stages and the graph
 
-**The pipeline is nine ordered stages** — extract → retrieve → rank → full_text → appraise →
-synthesize → illustrate → validate → persist — in `pipeline/steps/`, driven by `pipeline/orchestrator.py`.
+**The pipeline is ten ordered stages** — extract → retrieve → rank → full_text → appraise →
+synthesize → illustrate → validate → verify → persist — in `pipeline/steps/`, driven by `pipeline/orchestrator.py`.
 Each stage is `(input, ctx) -> output` and maps 1:1 onto a future Step Functions state, so keep
 stages free of transport concerns. `ILLUSTRATE` sits where it does for a reason at both ends:
 it needs `ctx.draft`, so it must follow SYNTHESIZE, and **PERSIST must stay last** because its
@@ -418,3 +418,37 @@ it cited (`repair.sentences_dropped`); only then does the whole-article rewrite 
 (`misattributed_sentences`, 2026-10-28). The final round only *warns* on
 `misattributed_citation` (in [evidence/CLAUDE.md](../evidence/CLAUDE.md)), so the repair is the last place it can be stopped: in the
 107-case wellness run, 4 of the 5 judged hallucinations were repairs that kept or introduced one.
+
+## VERIFY: does each cited paper say what the sentence says (2026-11-12)
+
+**A model reads each cited paper against the sentences citing it, and warns; it never fails a
+run or blocks publishing** (`pipeline/steps/verify.py`, prompt `prompts/support.py`,
+`SUPPORT_CHECK_ENABLED`, on by default). One call per cited paper (title, abstract, full-text
+excerpts) with only the sentences that cite it, numbered; per sentence the model quotes the
+paper's own sentence first, then says `supported | partly | not_supported`. Each sentence not
+read as supported becomes a `citation_not_supported` / `citation_partly_supported` warning on
+the report, which the desk lists under "Need to be checked". The lexical checks (shared words,
+numbers, best source) cannot see a sentence built from a paper's words that claims what the
+paper does not; this reads meaning.
+
+- **Its own stage, between VALIDATE and PERSIST.** VALIDATE queries the database, and the
+  orchestrator commits between stages, so these model calls run with no transaction open.
+  It sees passed drafts only, which reach it once (a failed draft is revised or stored as
+  `validation_failed`). Runs recorded before it carry `persist` one ordinal lower.
+- **A `supported` with a quote not found in the paper is reported as `partly`**
+  (`metrics.verify.unanchored`): the model may be judging from memory. A sentence it skipped
+  is `missing`, never supported. Causes: `disabled`, `not_passed`, `nothing_cited`,
+  `model_error`, `partial_model_error`, `unexpected`.
+- **At most `MAX_SOURCES` (12) papers per run, the most-cited first** (2026-11-12); the rest are
+  listed in `metrics.verify.unchecked_sources`. Sequential calls on a one-job-at-a-time worker:
+  uncapped, an article citing 24 papers added ~40 minutes and held up the queue.
+- **Runs on the appraisal client** (same small labelling job, same provider and model).
+- **Not in the evaluation yet** (`harness/pipeline.py::NOT_EVALUATED`): it has no recording
+  key, so a replay would call the model live on every case. Add one before evaluating it.
+- **Measured on one article only (2026-11-12, Bonsai):** 48–118 s per cited paper, so about
+  5–15 minutes more per run. On "tin fluorides" it caught a real fault: the article said a
+  toothpaste trial "made no difference in caries outcomes" when that trial (S3) measured tooth
+  sensitivity. It first flagged "the human evidence is limited to one in situ trial" against
+  that trial, a sentence about the evidence base, not a finding; the prompt now says such a
+  sentence is supported by the studies it describes, and the re-run read it as supported. No
+  hand-labelled accuracy yet; treat the warnings as pointers for the reviewer.

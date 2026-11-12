@@ -46,6 +46,7 @@ from app.pipeline.steps.persist import PersistStage, ValidateStage
 from app.pipeline.steps.rank import RankStage
 from app.pipeline.steps.retrieve import RetrieveStage
 from app.pipeline.steps.synthesize import SynthesizeStage
+from app.pipeline.steps.verify import VerifyStage
 from app.retrieval.cache import SourceCache
 from app.retrieval.factory import (
     build_doi_client,
@@ -533,7 +534,7 @@ class PipelineOrchestrator:
 
 
 def build_default_pipeline(session: AsyncSession, settings: Settings) -> list[Stage]:
-    """Assemble the nine stages with their dependencies.
+    """Assemble the ten stages with their dependencies.
 
     The single place where concrete clients (Ollama or Claude, an embedding
     provider, PubMed) are bound to the Protocols the stages depend on — so
@@ -610,5 +611,13 @@ def build_default_pipeline(session: AsyncSession, settings: Settings) -> list[St
             session,
         ),
         ValidateStage(session),
+        # Its own stage, after VALIDATE's commit, so no transaction is held
+        # open across its model calls (VALIDATE queries the database). Runs on
+        # passed drafts only, which reach it exactly once: a failed one goes
+        # back to SYNTHESIZE or to `validation_failed`. Constructed with no
+        # client when switched off, like APPRAISE.
+        VerifyStage(
+            build_appraisal_client(settings) if settings.support_check_enabled else None
+        ),
         PersistStage(session),
     ]

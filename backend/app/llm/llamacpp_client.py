@@ -59,6 +59,8 @@ from app.domain.contracts import (
     ReaderEditInput,
     ReaderEditOutput,
     RelevanceOutput,
+    SupportInput,
+    SupportOutput,
     SynthesisInput,
     SynthesisOutput,
 )
@@ -93,6 +95,7 @@ from app.llm.prompts.reader_edit import (
     READER_EDIT_SYSTEM_PROMPT,
     build_reader_edit_user_prompt,
 )
+from app.llm.prompts.support import SUPPORT_SYSTEM_PROMPT, build_support_user_prompt
 from app.llm.prompts.synthesis import (
     SYNTHESIS_SYSTEM_PROMPT,
     build_synthesis_user_prompt,
@@ -365,6 +368,13 @@ class LlamaCppAppraisalClient:
         return await self._call(
             "appraisal direction", DIRECTION_SYSTEM_PROMPT,
             build_direction_user_prompt(payload), DirectionOutput,
+        )
+
+    async def support(self, payload: SupportInput) -> LLMResult[SupportOutput]:
+        """VERIFY: whether one cited paper states each sentence that cites it."""
+        return await self._call(
+            "support check", SUPPORT_SYSTEM_PROMPT, build_support_user_prompt(payload),
+            SupportOutput,
         )
 
     async def _call(

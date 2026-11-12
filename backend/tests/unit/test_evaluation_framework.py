@@ -28,7 +28,7 @@ from evaluation.harness.faults import FaultInjector, fault_response
 from evaluation.harness.http import classify, result_count, sanitize
 from evaluation.harness.pipeline import NOT_EVALUATED, check_stage_parity, classify_outcome
 from evaluation.metrics import agent, retrieval
-from evaluation.metrics.answers import behavior_ok, verdict_ok
+from evaluation.metrics.answers import behavior_ok, uncertainty_appropriate, verdict_ok
 from evaluation.metrics.performance import percentile, summary
 from evaluation.report import status
 from evaluation.schema import Behavior, EvalCase, FaultSpec, Outcome
@@ -201,6 +201,17 @@ def test_default_behaviour_ranges() -> None:
     assert verdict_ok(_case(), "supported") is None  # no verdict constraint stated
 
 
+def test_hedging_is_the_judges_call_and_the_word_count_only_a_fallback() -> None:
+    uncertain = _case(expected_behavior="acknowledge_uncertainty")
+    plain = "Smart rings track sleep well, but not perfectly."  # hedged, no listed word
+    check = uncertainty_appropriate
+    assert check(uncertain, "weak", plain, "appropriate") is True
+    assert check(uncertain, "weak", plain, "overconfident") is False
+    assert check(uncertain, "supported", plain, "appropriate") is False  # verdict out of range
+    assert check(uncertain, "weak", plain, None) is False  # no judge: count the words
+    assert check(uncertain, "weak", "May help; evidence is limited.", None) is True
+
+
 def test_a_case_needs_an_input_and_forbids_unknown_fields() -> None:
     with pytest.raises(ValueError):
         EvalCase.model_validate({"id": "x", "category": "simple_factual"})
@@ -306,7 +317,7 @@ def test_the_eval_runs_the_production_stage_order() -> None:
     from app.config import get_settings
 
     assert check_stage_parity(get_settings()) == []
-    assert {str(name) for name in NOT_EVALUATED} == {"illustrate", "persist"}
+    assert {str(name) for name in NOT_EVALUATED} == {"illustrate", "verify", "persist"}
 
 
 def test_outcomes_are_read_from_the_error_not_from_a_message() -> None:

@@ -13,7 +13,7 @@ article instead of padding to reach a floor.
 from __future__ import annotations
 
 import re
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import (
     BaseModel,
@@ -460,6 +460,53 @@ class Excerpt(BaseModel):
 
     section: str | None
     text: str
+
+
+class SupportInput(BaseModel):
+    """One cited paper and the article's sentences that cite it (VERIFY)."""
+
+    handle: str = Field(pattern=r"^S\d+$")
+    title: str
+    abstract: str
+    sentences: list[str] = Field(min_length=1)
+
+
+class SupportItem(BaseModel):
+    """One sentence's reading against the paper, quote first.
+
+    The quote comes before the verdict for the reason APPRAISE quotes first: a
+    small model fills the grammar top to bottom, so it finds the paper's own
+    sentence and then judges the article's sentence against that, instead of
+    judging from memory. ``pipeline/steps/verify.py`` does not believe a
+    ``supported`` whose quote is not in the paper.
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": "The paper's sentence behind one article sentence, then the verdict."
+        }
+    )
+
+    sentence: int = Field(ge=1, description="The number of the article sentence.")
+    quote: str = Field(
+        description=(
+            "Copied word for word from the paper: the sentence that states what the "
+            "article sentence says. none if the paper states no such thing."
+        )
+    )
+    verdict: Literal["supported", "partly", "not_supported"] = Field(
+        description=(
+            "supported: the paper states it. partly: the paper states some of it, "
+            "and the article sentence adds something the paper does not say. "
+            "not_supported: the paper does not state it, or says otherwise."
+        )
+    )
+
+
+class SupportOutput(BaseModel):
+    """One reading for every article sentence listed."""
+
+    items: list[SupportItem] = Field(min_length=1)
 
 
 class PromptSource(BaseModel):

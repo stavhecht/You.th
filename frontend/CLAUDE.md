@@ -111,7 +111,7 @@ wrapped to two lines, and drops the reviewer's name and the public-feed link (`W
 The TipTap editor and its custom nodes live in `features/console/editor/` (split out of
 `console/` 2026-11-10); the review panels stay in `console/`.
 
-**TipTap 3** (3.32.1, pinned exactly, 2026-11-12; 2.x carried a prototype-pollution
+**TipTap 3** (3.33.0 via Dependabot #16, pinned exactly; 3.x since 2026-11-12; 2.x carried a prototype-pollution
 advisory in `mergeAttributes`, fixed from 3.30.4). Three v3 changes the type checker does not
 see, each handled in `ArticleEditor.tsx` and each pinned by a browser test in
 `e2e/review.spec.ts`: StarterKit 3 adds **Link, Underline and TrailingNode**, all switched off

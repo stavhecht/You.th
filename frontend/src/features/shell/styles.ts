@@ -107,7 +107,7 @@ export const NAV_LINK_ACCENT = `${NAV_LINK} text-accent-ink hover:text-accent`;
 
 /** The avatar. Ink-filled, so it reads as a person rather than a control. */
 export const AVATAR =
-  "flex h-7 w-7 flex-none items-center justify-center rounded-full bg-invert font-ui text-[10.5px] font-bold leading-none tracking-[0.04em] text-invert-fg";
+  "flex h-7 w-7 flex-none items-center justify-center rounded-full bg-invert font-ui text-[11.5px] font-bold leading-none tracking-[0.04em] text-invert-fg";
 
 export const THEME_TOGGLE =
   "flex flex-none items-center justify-center rounded-full border border-rule bg-transparent p-[7px] leading-none text-ink-3 transition-colors hover:border-ink hover:text-ink";
@@ -135,7 +135,7 @@ export function drawerRow(active: boolean): string {
 }
 
 /** Rides inside a drawer row, so it takes the row's face rather than the page's. */
-export const DRAWER_COUNT = "font-ui text-[11.5px] font-normal text-ink-4";
+export const DRAWER_COUNT = "font-ui text-[12.5px] font-normal text-ink-4";
 export const DRAWER_FOOTER =
   "mt-7 flex flex-col gap-3.5 border-t border-rule-soft pt-5";
 export const DRAWER_LINK =
@@ -156,7 +156,7 @@ export const TAB_BAR =
   "sticky bottom-0 z-40 grid grid-cols-4 border-t border-rule-soft bg-ground sm:hidden";
 
 export function tabButton(active: boolean): string {
-  return `min-h-[44px] border-0 border-t-2 bg-transparent px-0 pb-4 pt-3.5 font-ui text-[10px] font-bold uppercase leading-none tracking-[0.11em] transition-colors ${
+  return `min-h-[44px] border-0 border-t-2 bg-transparent px-0 pb-4 pt-3.5 font-ui text-[11px] font-bold uppercase leading-none tracking-[0.11em] transition-colors ${
     active ? "border-accent text-ink" : "border-transparent text-ink-3"
   }`;
 }

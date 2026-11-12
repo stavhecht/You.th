@@ -77,7 +77,7 @@ export const CHECKBOX_LABEL = "font-body text-[12.5px] leading-[1.5] text-ink-2"
 export const SUBMIT_BUTTON =
   "w-full rounded-full border-0 bg-accent px-6 py-4 text-left font-body text-[12px] font-bold uppercase leading-none tracking-[0.12em] text-accent-on transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50";
 
-export const FORM_NOTE = "mt-3.5 font-body text-[11.5px] text-ink-4";
+export const FORM_NOTE = "mt-3.5 font-body text-[12.5px] text-ink-4";
 
 /**
  * The password requirements under the sign-up fields, ticked off as they are
@@ -118,7 +118,7 @@ export function chip(active: boolean): string {
   }`;
 }
 
-export const CHIP_COUNT = "text-[10.5px] opacity-60";
+export const CHIP_COUNT = "text-[11.5px] opacity-60";
 
 /* ── the two-column pages (Join, Let us know) ───────────────────────────── */
 
@@ -167,7 +167,7 @@ export const DONE_CARD =
 export const DONE_TITLE = "mb-2 font-heading text-[19px] font-bold text-ink";
 export const DONE_BODY = "mb-[22px] font-body text-[14px] leading-[1.6] text-ink-2";
 export const DONE_ACTION =
-  "rounded-full border-0 bg-invert px-[22px] py-3.5 font-body text-[11px] font-bold uppercase leading-none tracking-[0.12em] text-invert-fg transition-colors hover:bg-accent-ink";
+  "rounded-full border-0 bg-invert px-[22px] py-3.5 font-body text-[12px] font-bold uppercase leading-none tracking-[0.12em] text-invert-fg transition-colors hover:bg-accent-ink";
 
 /* --- legal pages and the site footer ------------------------------------ */
 
@@ -200,10 +200,10 @@ export const LEGAL_DRAFT_NOTE =
 
 /** The one line under every collection form that says what happens to it. */
 export const COLLECTION_NOTICE =
-  "mt-3.5 font-body text-[11.5px] leading-[1.5] text-ink-3";
+  "mt-3.5 font-body text-[12.5px] leading-[1.5] text-ink-3";
 
 export const SITE_FOOTER =
-  "mx-auto flex w-full max-w-page flex-wrap items-center gap-x-5 gap-y-2 border-t border-rule-soft px-gutter py-6 font-body text-[11px] uppercase tracking-[0.12em] text-ink-3";
+  "mx-auto flex w-full max-w-page flex-wrap items-center gap-x-5 gap-y-2 border-t border-rule-soft px-gutter py-6 font-body text-[12px] uppercase tracking-[0.12em] text-ink-3";
 export const SITE_FOOTER_LINK = "transition-colors hover:text-ink";
 
 /* --- "Your data" on /you --------------------------------------------------- */
@@ -214,7 +214,7 @@ export const DATA_TITLE =
 export const DATA_BODY = "mb-5 max-w-[60ch] font-body text-[14px] leading-[1.6] text-ink-2";
 export const DATA_ACTIONS = "mb-6 flex flex-wrap items-center gap-3";
 export const DANGER_BUTTON =
-  "inline-flex items-center gap-2 rounded-full border border-accent bg-transparent px-3.5 py-[7px] font-body text-[10.5px] font-semibold uppercase leading-none tracking-[0.12em] text-accent-ink transition-colors hover:bg-accent-wash disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex items-center gap-2 rounded-full border border-accent bg-transparent px-3.5 py-[7px] font-body text-[11.5px] font-semibold uppercase leading-none tracking-[0.12em] text-accent-ink transition-colors hover:bg-accent-wash disabled:cursor-not-allowed disabled:opacity-50";
 export const DELETE_FORM =
   "mt-2 max-w-[420px] rounded-field border border-rule px-4 py-4";
 

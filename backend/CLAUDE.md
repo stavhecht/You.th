@@ -214,3 +214,43 @@ tells you which code to trust):
   password`** from the same endpoint is not a permission problem at all — it is a revoked key
   still baked into a running container, because Docker resolves `env_file` at container
   creation and `restart` does not re-read it. See the config trap above.
+
+## Changes of 2026-11-11 (audit follow-up)
+
+- **Reviewer accounts.** A reviewer token carries the password-hash fingerprint (`pwd`), as a
+  reader token does, and `require_reviewer` refuses one that no longer matches: changing the
+  password (`POST /console/auth/password`, which answers with a fresh token) signs out every
+  other session. A token with no `typ` is refused; it used to be read as `reviewer`.
+  **A forgotten password is reset by email** (2026-11-12): `POST /console/auth/password/forgot`
+  mails a 30-minute link to `/review/reset` (`typ: reviewer_reset`, so a reader's link cannot
+  reset a reviewer), answers the same for any address, and has its own throttle (three an hour
+  per address); `/password/reset` sets the new one, which also signs out every session. Both
+  are unauthenticated, listed in `test_console_auth_coverage.py`. Two-step sign-in was added on
+  2026-11-11 and withdrawn the next day, before any push (its migrations were deleted): the
+  real gap was a reviewer who forgot their password, which it made worse. `scripts.seed_admin`
+  still resets a password from a shell. **Roles are still not enforced** (admin and reviewer can do
+  the same things); there is no user-management endpoint to restrict.
+- **Reader email is verified** (`readers.email_verified_at`, 0010). Signup mails a 7-day link
+  (`typ: reader_verify`, naming the address); `POST /readers/verify` confirms it and
+  `/readers/verify/resend` shares the forgot-password budget. Until then a reader cannot suggest
+  a topic (403). **Tests must never send mail**: `tests/conftest.py` forces `SMTP_PASSWORD=""`
+  and so does `frontend/playwright.config.ts`. Before that, two suite runs mailed made-up
+  addresses through the real account in the root `.env`.
+- **The API process runs nothing but a timer.** The MeSH scan moved to the worker
+  (`CollectionKind.MESH_SCAN`), next to the weekly `RETRACTION_SWEEP`; both are model-free. The
+  API and the worker each paced PubMed to NCBI's whole per-IP budget, so a scan landing on a
+  RETRIEVE sent twice the allowance. **Restart the worker after adding a collection kind**: it
+  does not reload, and an old one fails the run with "unknown collection kind".
+- **Observability.** Every response carries `X-Request-ID` and every log line it caused has the
+  same id in brackets (`logging_setup.request_id`; "-" outside a request). `GET /console/status`
+  is what the desk's status line reads: queue depths, what is running, and `stalled` when work
+  has waited two minutes with nothing running (worker stopped, or holding for the model server).
+- **Public reads are cacheable for a minute** when anonymous (`Cache-Control: public,
+  max-age=60`, `Vary: Authorization`), and `api/public/seo.py` serves `/api/sitemap.xml`,
+  `/api/robots.txt` and `/api/share/{slug}` (link-preview HTML; `ops/Caddyfile` routes bots there).
+- **`llm/pricing.py`**: Opus 5 and Sonnet 5 were priced at an older generation's rates; corrected,
+  and the 5.5 models added. Still no Anthropic call has been made from this codebase.
+- **The login throttles are still per process.** `docker-compose.prod.yml` runs one API process
+  for that reason; a second replica needs `LoginThrottle` on shared storage first.
+- **Production**: `docker-compose.prod.yml` + `ops/Caddyfile` + `frontend/Dockerfile` (not yet
+  run anywhere), `ops/backup.sh`, `.github/workflows/ci.yml` (not yet run on GitHub).

@@ -14,7 +14,7 @@ went missing from this table.)
 
 ## Testing gotchas
 
-**The thirteen suites in `db/` skip silently when no database is reachable**, and they are the ones covering
+**The nineteen suites in `db/` skip silently when no database is reachable**, and they are the ones covering
 guarantees a fake session cannot express — SQL semantics, transaction boundaries, and the
 query planner. A green `pytest` with the DB down is a much weaker signal than it looks:
 
@@ -33,6 +33,12 @@ query planner. A green `pytest` with the DB down is a much weaker signal than it
 | `test_research_db.py` | the research candidates' three decision CHECKs, single-flight (the check *and* the `research_runs_one_active` index), the worker's claim, checkpoint upserts by primary key, topic resolution and observation upserts being idempotent, history pruning keeping referenced topics, and feed state storing SQL `NULL` (it deletes the rows it commits) |
 | `test_review_locking.py` | `approve`, `save_edits` and `reject` locking the article row, so an autosave racing Approve cannot write unapproved text onto a published article |
 | `test_social_db.py` | social listening and product discovery against `youth_test` (see below; it also skips when that database lacks migration 0002) |
+| `test_article_lifecycle.py` | withdrawal leaving every public surface, the withdrawn-needs-a-reason CHECK, a correction draft never reaching readers until published, `set_meta` keeping the model's values and refusing a verdict above the ceiling |
+| `test_promote_locking.py` | two presses of Generate draft queueing one run, on the MeSH and research desks (**`youth_test`**: its rows are committed, and a queued run in the dev database is claimed by the docker worker) |
+| `test_reviewer_account.py` | a password change signing out the old session, the wrong-current-password refusal, a forgotten password reset from the emailed link (captured, never sent; single use; signs out old sessions), the same answer for an unknown address, a reader's reset link refused, and a token with no `typ` refused |
+| `test_email_verification.py` | signup mailing a link (captured, never sent), the link confirming only the address it names, and topic suggestions refused until then |
+| `test_seo.py` | the sitemap and share page showing published articles only, HTML escaping on the share page, and the one-minute cache headers on anonymous reads |
+| `test_retraction_sweep.py` | the weekly sweep marking the source and flagging the citing article, and a dry run writing nothing (**`youth_test`**, with a fake bibliographic source) |
 
 Point them elsewhere with `TEST_DATABASE_URL`; they otherwise use `database_url` from
 settings. `test_discovery_db.py` runs against a *populated* database on purpose — after a

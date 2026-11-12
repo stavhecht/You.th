@@ -60,6 +60,37 @@ text, so both tabs stay mounted (`hidden`) to keep them; and a new Tailwind colo
 `docker compose restart web`, because Vite does not reload `tailwind.config.ts`.
 Failed-check text is `text-danger-ink` (`--ew-danger-ink`), the one red in the theme.
 
+**The review screen has three shapes, by status** (2026-11-11). *Pending*: `MetaEditor`
+makes the headline, summary and verdict editable (each saves on blur through `PATCH /meta`;
+verdict chips above the evidence ceiling are disabled), with the usual Publish/Reject block.
+*Published*: the editor autosaves to the article's **correction draft** (`saveCorrection`,
+passed to `useAutosave` as its save target), and `PublishedDecision` replaces the decision
+block with Publish correction (note required, shown to readers) and Withdraw (reason
+required). *Withdrawn*: read the reason at the top. Retractions show in three places: a flag on
+the queue row, a banner on the draft, and a mark on the source row; Publish asks first when a
+cited source is retracted. `errors.ts::describeError` is the one place a server `detail` is
+turned into words.
+
+**Page titles, 404 and the error boundary** (2026-11-11). `lib/usePageMeta.ts` sets the tab
+title and description per route (every page used to share one). `routes/not-found.tsx` is the
+`*` route inside `PublicLayout`, and `shell/ErrorBoundary.tsx` wraps the routes. The theme
+script is `public/theme.js`, not inline, so the production CSP can refuse inline scripts. The
+desk also has `/review/account` (change a known password), `/review/reset` ("Forgot your
+password?" on the sign-in page: email a link, then choose a new one), a worker status line and a
+reader-messages panel (`DeskStatus.tsx`).
+
+**The home hero** (2026-11-12). `public/media/hero-poster.jpg` is the video's exact first
+frame, shown until the video plays; **regenerate it whenever `hero.mp4` changes**, or the page
+opens on a picture from a different video: `swift ops/first_frame.swift
+frontend/public/media/hero.mp4 frontend/public/media/hero-poster.jpg 0.72` (macOS's own
+AVFoundation; no ffmpeg needed). The headline sits on `.ew-hero-scrim`, a soft dark pool behind
+the text only, at 90% opacity: 3.8:1 over the brightest frame, where it was 2.6:1.
+
+**The byline is the approving reviewer's name** ("Checked and approved by …",
+`ArticleOut.reviewer_name` from `users.display_name`), never an email; `scripts.seed_admin`
+refuses a blank name or one containing `@`. It replaced "Written by You.th Medical Team", which
+claimed medical authorship nobody had.
+
 ## Navigation
 
 **The browse drawer offers subject only.** It listed the four verdicts for a while and they
@@ -79,6 +110,17 @@ wrapped to two lines, and drops the reviewer's name and the public-feed link (`W
 
 The TipTap editor and its custom nodes live in `features/console/editor/` (split out of
 `console/` 2026-11-10); the review panels stay in `console/`.
+
+**TipTap 3** (3.32.1, pinned exactly, 2026-11-12; 2.x carried a prototype-pollution
+advisory in `mergeAttributes`, fixed from 3.30.4). Three v3 changes the type checker does not
+see, each handled in `ArticleEditor.tsx` and each pinned by a browser test in
+`e2e/review.spec.ts`: StarterKit 3 adds **Link, Underline and TrailingNode**, all switched off
+(a link mark would store a pasted URL that neither the media check nor the renderer reads, and
+the trailing node appended a paragraph on load that autosave wrote back as an edit);
+`shouldRerenderOnTransaction` is **set to true**, because v3 stopped re-rendering per keystroke
+and the toolbar reads `editor.isActive()` during render; and `setContent` takes
+`{ emitUpdate: false }`, not `false`. History is now `undoRedo`. `@tiptap/pm` is a direct
+dependency because `MediaNodes.ts` imports from it.
 
 **A new block type has to be declared in the console editor's `StarterKit`, or it is silently
 destroyed.** TipTap drops nodes its schema does not know: with `heading: false` the editor

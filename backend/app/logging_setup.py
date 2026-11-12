@@ -14,8 +14,13 @@ from __future__ import annotations
 
 import logging
 import re
+from contextvars import ContextVar
 
-FORMAT = "%(asctime)s %(levelname)-8s %(name)s: %(message)s"
+#: The id of the HTTP request being served, set by the middleware in
+#: ``main.py``. "-" outside a request: the worker, a script, startup.
+request_id: ContextVar[str] = ContextVar("request_id", default="-")
+
+FORMAT = "%(asctime)s %(levelname)-8s [%(request_id)s] %(name)s: %(message)s"
 
 #: A credential in a query string. Named parameters only, so an ordinary
 #: ``key=`` in prose or a DOI is left alone.
@@ -26,6 +31,9 @@ _SECRET_PARAM_RE = re.compile(
 
 class RedactSecrets(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
+        # Here because this filter already sits on every handler; the format
+        # string needs the attribute on every record.
+        record.request_id = request_id.get()
         message = record.getMessage()
         redacted = _SECRET_PARAM_RE.sub(r"\1=<redacted>", message)
         if redacted != message:

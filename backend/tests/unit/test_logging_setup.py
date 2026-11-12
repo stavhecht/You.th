@@ -40,3 +40,34 @@ def test_an_ordinary_key_word_is_not_a_secret() -> None:
     RedactSecrets().filter(record)
 
     assert record.getMessage() == "sorted by key=relevance for monkey=1"
+
+
+# --- request ids ----------------------------------------------------------------
+
+
+def test_every_record_carries_the_request_id_the_format_prints() -> None:
+    from app.logging_setup import FORMAT, request_id
+
+    record = _record("hello")
+    token = request_id.set("abc123")
+    try:
+        RedactSecrets().filter(record)
+    finally:
+        request_id.reset(token)
+
+    assert "[abc123]" in logging.Formatter(FORMAT).format(record)
+
+
+def test_a_response_names_its_request_and_a_forged_id_is_replaced() -> None:
+    from fastapi.testclient import TestClient
+
+    from app.main import create_app
+
+    with TestClient(create_app()) as http:
+        minted = http.get("/api/robots.txt").headers["X-Request-ID"]
+        kept = http.get("/api/robots.txt", headers={"X-Request-ID": "proxy42"})
+        forged = http.get("/api/robots.txt", headers={"X-Request-ID": "x y\tINFO fake line"})
+
+    assert minted.isalnum() and len(minted) == 12
+    assert kept.headers["X-Request-ID"] == "proxy42"
+    assert forged.headers["X-Request-ID"] != "x y\tINFO fake line"

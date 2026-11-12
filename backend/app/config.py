@@ -54,6 +54,10 @@ class Settings(BaseSettings):
     )
 
     debug: bool = False
+    #: ``production`` turns the development defaults below from a warning into a
+    #: refusal to start (``_production_runs_on_real_values``) and switches off
+    #: ``/docs``. Everything still boots with no ``.env`` while this is unset.
+    environment: Literal["development", "production"] = "development"
 
     # --- database ---
     database_url: str = "postgresql+asyncpg://youth:youth@localhost:5433/youth"
@@ -195,6 +199,9 @@ class Settings(BaseSettings):
     #: stage records ``cause: disabled`` and the article is drafted exactly as
     #: before it existed; nothing downstream requires the labels yet.
     appraisal_enabled: bool = True
+    #: VERIFY: one model call per cited paper, reading whether it states each
+    #: sentence that cites it. Warnings only; never fails a run or a draft.
+    support_check_enabled: bool = True
     #: How APPRAISE asks: ``one_call`` (quote the abstract's sentence about the
     #: claim's outcome, then label it) or ``two_call`` (relevance first, then a
     #: direction call shown only the relevant sources). One call is the default
@@ -679,6 +686,32 @@ class Settings(BaseSettings):
                 "JWT_SECRET is a placeholder published in this repository; anyone "
                 "with the source can sign reviewer tokens. Set a random value "
                 "(python -c 'import secrets; print(secrets.token_urlsafe(48))')."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _production_runs_on_real_values(self) -> Settings:
+        """Each of these works on a laptop and is an open door on a server."""
+        if self.environment != "production":
+            return self
+        local = ("localhost", "127.0.0.1")
+        problems = [
+            name
+            for name, bad in (
+                ("JWT_SECRET", self.jwt_secret in PUBLIC_JWT_SECRETS),
+                ("DATABASE_URL", "youth:youth@" in self.database_url),
+                ("PUBLIC_SITE_URL", any(host in self.public_site_url for host in local)),
+                (
+                    "CORS_ORIGINS",
+                    any(host in origin for origin in self.cors_origins for host in local),
+                ),
+            )
+            if bad
+        ]
+        if problems:
+            raise ValueError(
+                f"ENVIRONMENT=production but {', '.join(problems)} still "
+                f"{'holds its' if len(problems) == 1 else 'hold their'} development value"
             )
         return self
 

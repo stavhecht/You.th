@@ -14,6 +14,7 @@ live behind a router-level dependency and cannot lose one.
 from __future__ import annotations
 
 import logging
+import secrets
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -30,14 +31,15 @@ from app.api.console import pipeline as console_pipeline
 from app.api.console import research as console_research
 from app.api.console import review as console_review
 from app.api.console import social as console_social
+from app.api.console import status as console_status
 from app.api.public import contact as public_contact
 from app.api.public import feed as public_feed
 from app.api.public import media as public_media
 from app.api.public import readers as public_readers
+from app.api.public import seo as public_seo
 from app.config import get_settings
 from app.db import dispose_engine, get_session_factory
-from app.discovery.schedule import ScanScheduler
-from app.logging_setup import configure_logging
+from app.logging_setup import configure_logging, request_id
 from app.security.auth import AuthError
 from app.services.reader import ReaderError
 from app.services.review import ReviewError
@@ -66,21 +68,15 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
             "(the public feed and console are unaffected)"
         )
 
-    # Fills the trend desk on a timer so nobody has to press the button. Started
-    # here rather than in the worker because `manual_scan` — the single-flight
-    # runner it shares with the console's button — lives in this process, and
-    # two runners would be two guards. See `discovery/schedule.py`.
-    scheduler = ScanScheduler(settings, get_session_factory())
-    scheduler.start()
-    # Queues the daily social collection and the weekly social and product
-    # runs when due; the worker executes them. See `social/schedule.py`.
+    # Queues what is due for the worker: the daily social collection, the weekly
+    # social, product and retraction runs, and the trend scan. Nothing but this
+    # timer runs in the API process. See `social/schedule.py`.
     collections = CollectionScheduler(settings, get_session_factory())
     collections.start()
     try:
         yield
     finally:
         await collections.stop()
-        await scheduler.stop()
         await dispose_engine()
 
 
@@ -88,7 +84,16 @@ def create_app() -> FastAPI:
     settings = get_settings()
     configure_logging(logging.DEBUG if settings.debug else logging.INFO)
 
-    app = FastAPI(title="You.th API", version="0.1.0", lifespan=lifespan)
+    # /docs lists every console route. Fine on a laptop, a map on a server.
+    production = settings.environment == "production"
+    app = FastAPI(
+        title="You.th API",
+        version="0.1.0",
+        lifespan=lifespan,
+        docs_url=None if production else "/docs",
+        redoc_url=None if production else "/redoc",
+        openapi_url=None if production else "/openapi.json",
+    )
 
     app.add_middleware(
         CORSMiddleware,
@@ -111,7 +116,17 @@ def create_app() -> FastAPI:
         JSON and images, and the policy that matters is the SPA's, which is
         served by whatever hosts ``frontend/dist`` in production — not this app.
         """
-        response = await call_next(request)
+        # One id per request, on every log line it causes and on the response,
+        # so "it failed at 14:02" can be matched to what the server logged. A
+        # proxy's id is kept if it is plain; anything else could forge log lines.
+        given = request.headers.get("X-Request-ID", "")
+        rid = given if given.isalnum() and len(given) <= 64 else secrets.token_hex(6)
+        token = request_id.set(rid)
+        try:
+            response = await call_next(request)
+        finally:
+            request_id.reset(token)
+        response.headers["X-Request-ID"] = rid
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
@@ -130,11 +145,12 @@ def create_app() -> FastAPI:
     # deployment already route that prefix — media needs no new rule in either
     # place, and article documents hold these paths verbatim.
     app.include_router(public_media.router, prefix="/api")                     # images
+    app.include_router(public_seo.router, prefix="/api")                       # crawlers
     app.include_router(console_auth.auth_router, prefix="/api/console")       # login
     # Reviewer-only from here on, each router carrying the auth dependency. In
     # the order the routes sat in the one file they came from.
     for console in (console_review, console_media, console_pipeline, console_contact,
-                    console_discovery):
+                    console_discovery, console_status):
         app.include_router(console.router, prefix="/api/console")
     app.include_router(console_research.router, prefix="/api/console")        # research
     app.include_router(console_social.router, prefix="/api/console")          # social, products

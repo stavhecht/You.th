@@ -1,0 +1,10 @@
+# Only the site image (frontend/Dockerfile) builds from the repo root, and it
+# needs two things. Everything else stays out of the build context, .env first.
+*
+!frontend
+!ops/Caddyfile
+frontend/node_modules
+frontend/dist
+frontend/e2e
+frontend/test-results
+frontend/playwright-report

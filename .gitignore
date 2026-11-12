@@ -2,6 +2,9 @@ __pycache__/
 *.py[cod]
 .venv/
 .env
+# .env.production and any other variant: secrets. The template stays tracked.
+.env.*
+!.env.example
 .mypy_cache/
 .pytest_cache/
 .ruff_cache/
@@ -21,3 +24,6 @@ frontend/blob-report/
 
 # TypeScript incremental build state
 *.tsbuildinfo
+
+# ops/backup.sh output
+/backups

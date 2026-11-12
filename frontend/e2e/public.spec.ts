@@ -24,6 +24,9 @@ test("a card opens its article, with the verdict and its sources", async ({ page
   await expect(page).toHaveURL(/\/a\//);
   await expect(page.getByRole("heading", { level: 1, name: PUBLISHED.creatine })).toBeVisible();
   await expect(page.getByText("Supported", { exact: false }).first()).toBeVisible();
+  // The byline names the reviewer who approved it, as an admin named them.
+  await expect(page.getByText("Checked and approved by Browser Reviewer")).toBeVisible();
+  await expect(page.getByText("Medical Team")).toHaveCount(0);
 });
 
 test("an unknown article is a not-found page, not a crash", async ({ page }) => {
@@ -126,4 +129,19 @@ test("a citation card stays on a phone screen @phone", async ({ page }) => {
     expect(box!.x + box!.width, "right edge").toBeLessThanOrEqual(width);
     await chips.nth(index).tap();
   }
+});
+
+test("an unknown address says so and offers a way back", async ({ page }) => {
+  await page.goto("/no-such-page");
+  await expect(page.getByRole("heading", { level: 1, name: "Page not found" })).toBeVisible();
+  await page.getByRole("link", { name: "Back to the feed" }).click();
+  await expect(page).toHaveURL("/");
+});
+
+test("an article names itself in the tab title", async ({ page }) => {
+  await page.goto("/");
+  await card(page, PUBLISHED.foam).click();
+  await expect(page).toHaveTitle(`${PUBLISHED.foam} · You.th`);
+  await page.goBack();
+  await expect(page).toHaveTitle(/simplifying your way/);
 });

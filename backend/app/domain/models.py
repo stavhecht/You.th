@@ -285,6 +285,18 @@ class Article(Base):
     #: at the paragraph rather than at the article.
     retraction_detail: Mapped[dict[str, Any] | None] = mapped_column(NullableJSONB)
 
+    # Withdrawal and corrections of a published article; see 0008.
+    withdrawal_reason: Mapped[str | None] = mapped_column(Text)
+    withdrawn_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    withdrawn_by: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("users.id")
+    )
+    correction_draft: Mapped[dict[str, Any] | None] = mapped_column(NullableJSONB)
+    corrections: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+    original_meta: Mapped[dict[str, Any] | None] = mapped_column(NullableJSONB)
+
     pipeline_run_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -430,6 +442,9 @@ class Reader(Base):
     is_active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("true")
     )
+    #: When the reader opened the link mailed to this address. NULL: not yet
+    #: confirmed, never "confirmed long ago" (0010).
+    email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

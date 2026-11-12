@@ -5,7 +5,14 @@ Schema history and the squash rule. Loaded when you work under this directory; t
 
 Files: `0001_initial.sql`, `0002_social_products.sql`, `0003_social_topic_question.sql`,
 `0004_drop_social_post_write_only_columns.sql`, `0005_product_confirmation_checked_at.sql`,
-`0006_drop_collection_write_only_columns.sql`. **Next is 0007.** Apply with
+`0006_drop_collection_write_only_columns.sql`, `0007_article_status_withdrawn.sql`,
+`0008_article_corrections.sql`, `0009_collection_kinds.sql`, `0010_reader_email_verified.sql`.
+**Next is 0011.** (2026-11-12: a two-step sign-in column was added and withdrawn before the
+branch was ever pushed; both files were deleted and `0011` renumbered to `0010`, with
+`schema_migrations` in the dev and test databases edited to match. Do that only before a
+migration has left your machine; after, write a new migration.)
+**A new enum value needs a file of its own with no `BEGIN`** (0007): Postgres refuses to use
+a value in the transaction that added it, and 0008's CHECK names `withdrawn`. Apply with
 `python -m scripts.migrate` (asyncpg, no psql needed); `--status` shows what is applied. After a
 new migration, also apply it to `youth_test` (see [backend/tests/CLAUDE.md](../tests/CLAUDE.md)).
 

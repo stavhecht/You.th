@@ -26,6 +26,7 @@ from __future__ import annotations
 import hashlib
 import os
 import uuid
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -111,10 +112,11 @@ async def _make_article(
             INSERT INTO articles (
                 id, slug, status, topic, product, headline, summary, verdict,
                 original_content, evidence_grade, rejection_reason,
-                created_at, updated_at
+                withdrawal_reason, withdrawn_at, created_at, updated_at
             ) VALUES (
                 :id, :slug, :status, :topic, :product, :headline, :summary,
-                :verdict, CAST(:content AS jsonb), :grade, :reason, now(), now()
+                :verdict, CAST(:content AS jsonb), :grade, :reason,
+                :withdrawn, CAST(:withdrawn_at AS timestamptz), now(), now()
             )
             """
         ),
@@ -130,6 +132,11 @@ async def _make_article(
             "content": _json(content if content is not None else {}),
             "grade": StudyType.RCT.value,
             "reason": reason,
+            # `withdrawn` has its own CHECK: a reason and a date.
+            "withdrawn": "test withdrawal" if status is ArticleStatus.WITHDRAWN else None,
+            "withdrawn_at": (
+                datetime.now(UTC) if status is ArticleStatus.WITHDRAWN else None
+            ),
         },
     )
     return article_id

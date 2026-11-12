@@ -91,6 +91,13 @@ class FeedPageOut(CamelModel):
     match: Literal["text", "similar"] | None = None
 
 
+class CorrectionOut(CamelModel):
+    """One published correction: when, and what changed."""
+
+    at: datetime
+    note: str
+
+
 class ArticleOut(CamelModel):
     """The full on-tap article."""
 
@@ -115,6 +122,11 @@ class ArticleOut(CamelModel):
     #: conclusion still holds — but the reader is told before they read it.
     #: See scripts/check_retractions.py.
     retraction_notice: bool = False
+    #: Every change made to the text after publication, oldest first.
+    corrections: list[CorrectionOut] = Field(default_factory=list)
+    #: Who checked and approved it: the reviewer's name as an admin set it,
+    #: never an email. Null only if that reviewer's account was removed.
+    reviewer_name: str | None = None
     #: Set from a server constant, never from model output — the model cannot
     #: forget it, reword it, or drop it.
     disclaimer: str = Field(
@@ -202,6 +214,12 @@ class ReaderOut(CamelModel):
     display_name: str
     interests: list[Subject]
     newsletter: bool
+    #: They opened the link mailed to ``email``.
+    email_verified: bool = False
+
+
+class VerifyEmailRequest(CamelModel):
+    token: str = Field(min_length=1, max_length=2000)
 
 
 class UpdateReaderRequest(CamelModel):

@@ -175,12 +175,15 @@ async def test_a_draft_never_answers_a_search(session: AsyncSession) -> None:
         await session.execute(
             sa.text(
                 "UPDATE articles a SET status = CAST(:status AS article_status),"
-                " rejection_reason = :reason,"
+                " rejection_reason = :reason, withdrawal_reason = CAST(:withdrawn AS text),"
+                " withdrawn_at = CASE WHEN CAST(:withdrawn AS text) IS NULL THEN NULL"
+                " ELSE now() END,"
                 " search_document = article_search_document(a) WHERE a.id = :id"
             ),
             {
                 "status": status.value,
                 "reason": "x" if status is ArticleStatus.REJECTED else None,
+                "withdrawn": "x" if status is ArticleStatus.WITHDRAWN else None,
                 "id": article_id,
             },
         )

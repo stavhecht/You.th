@@ -33,6 +33,7 @@ import { VerdictMark } from "@/features/evidence/VerdictMark";
 import { GRADE_LABELS, VERDICT_LABELS } from "@/features/evidence/labels";
 import { subjectBorderLeft } from "@/features/evidence/subject";
 import type { ArticleStatus, PipelineRun, QueueItem } from "@/types/api";
+import { ContactInbox, WorkerStatusLine } from "./DeskStatus";
 import { ResearchPanel } from "./ResearchPanel";
 import { SocialPanel } from "./SocialPanel";
 import { TrendCandidates } from "./TrendCandidates";
@@ -69,6 +70,7 @@ import {
   QUEUE_VERDICT_WORDING,
   TAB_BAR,
   TAB_COUNT,
+  RETRACTED_FLAG,
   WEAK_EVIDENCE_FLAG,
   queueRow,
   queueTab,
@@ -93,6 +95,7 @@ const TABS: { status: ArticleStatus; label: string }[] = [
   { status: "validation_failed", label: "Evidence too weak" },
   { status: "published", label: "Published" },
   { status: "rejected", label: "Rejected" },
+  { status: "withdrawn", label: "Withdrawn" },
 ];
 
 export function ReviewQueue() {
@@ -133,9 +136,11 @@ export function ReviewQueue() {
           lists are the evidence-backed version of typing a topic from memory.
           Internet trends first (what readers are asking), then the literature
           scan (what researchers are publishing). */}
+      <WorkerStatusLine />
       <ResearchPanel />
       <TrendCandidates />
       <SocialPanel />
+      <ContactInbox />
       <NewRunForm />
 
       <nav className={TAB_BAR}>
@@ -366,6 +371,9 @@ function QueueRow({ item, tab }: { item: QueueItem; tab: ArticleStatus }) {
           <span className={QUEUE_VALIDATION_BADGE}>{item.validationBadge}</span>
           {item.hasWeakEvidence ? (
             <span className={WEAK_EVIDENCE_FLAG}>Rests on weak study types</span>
+          ) : null}
+          {item.retractionFlagged ? (
+            <span className={RETRACTED_FLAG}>A cited source was retracted</span>
           ) : null}
         </div>
 

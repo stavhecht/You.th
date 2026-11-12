@@ -34,7 +34,8 @@ export type ArticleStatus =
   | "published"
   | "rejected"
   | "validation_failed"
-  | "draft_failed";
+  | "draft_failed"
+  | "withdrawn";
 
 /**
  * What kind of thing is being assessed. Drives the one chromatic axis in the
@@ -222,6 +223,10 @@ export interface Article {
    * a conclusion, and a human decides - but the reader is told first.
    */
   retractionNotice: boolean;
+  /** Every change made to the text after publication, oldest first. */
+  corrections: { at: string; note: string }[];
+  /** The reviewer who checked and approved it, by name. Null if their account is gone. */
+  reviewerName: string | null;
   disclaimer: string;
 }
 
@@ -237,6 +242,8 @@ export interface QueueItem {
   /** e.g. "4/4 citations resolve". Computed server-side at draft time. */
   validationBadge: string;
   hasWeakEvidence: boolean;
+  /** A cited source was retracted after this article was written. */
+  retractionFlagged: boolean;
   createdAt: string;
   subject: Subject | null;
 }
@@ -341,6 +348,19 @@ export interface ArticleDetail {
    */
   retractionFlaggedAt: string | null;
   retractionDetail: Record<string, unknown> | null;
+  /** A correction being typed on a published article. Readers do not see it. */
+  correctionDraft: TipTapDoc | null;
+  corrections: { at: string; by: string; note: string }[];
+  withdrawalReason: string | null;
+  withdrawnAt: string | null;
+  /** The model's own headline, summary and verdict, once a reviewer changed one. */
+  originalMeta: {
+    headline: string;
+    summary: string;
+    verdict: Verdict;
+    verdict_qualifier: string | null;
+  } | null;
+  publishedAt: string | null;
   createdAt: string;
 }
 
@@ -454,6 +474,8 @@ export interface Reader {
   /** Subjects lifted to the top of this reader's feed. Never a filter. */
   interests: Subject[];
   newsletter: boolean;
+  /** They opened the link mailed to `email`. Needed to suggest a topic. */
+  emailVerified: boolean;
 }
 
 export interface Folder {
@@ -753,7 +775,11 @@ export interface ResearchRun {
 
 // --- social listening and product discovery ----------------------------------
 
-export type CollectionKind = "social_daily" | "social_weekly" | "product_discovery";
+export type CollectionKind =
+  | "social_daily"
+  | "social_weekly"
+  | "product_discovery"
+  | "retraction_sweep";
 
 /** Never read a status other than SUCCESS or EMPTY as "nothing happened". */
 export type CollectionStatus =

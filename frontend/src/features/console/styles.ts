@@ -217,6 +217,17 @@ export const DRAFT_HEADLINE =
   "mt-[18px] border-b-2 border-rule-soft pb-3 font-ui text-subhead font-extrabold text-ink";
 export const EDITOR_SLOT = "mt-[18px]";
 
+/** The headline and summary as fields: same type as the read-only ones. */
+export const META_HEADLINE_FIELD =
+  "mt-[18px] w-full border-0 border-b-2 border-rule-soft bg-transparent pb-3 font-ui text-subhead font-extrabold text-ink outline-none focus:border-ink-3";
+export const META_SUMMARY_FIELD =
+  "mt-3 w-full resize-y rounded-field border border-rule-soft bg-transparent px-3 py-2 font-body text-meta leading-[1.5] text-ink-2 outline-none focus:border-ink-3";
+
+/** A cited source was retracted. The one red in the theme, as failed checks use. */
+export const RETRACTED_FLAG = "mt-1 font-body text-micro font-semibold text-danger-ink";
+export const RETRACTION_ALERT =
+  "mt-3 border-l-2 border-danger-ink px-[11px] py-[9px] font-body text-micro font-semibold leading-[1.45] text-danger-ink";
+
 export const SIDEBAR_SOURCES = "mt-6";
 
 /**
@@ -250,7 +261,7 @@ export const SUBJECT_ROW = "mt-2.5 flex flex-wrap gap-1.5";
 export const SUBJECT_NOTE = "mt-2 font-body text-micro text-ink-3";
 
 export function subjectChip(active: boolean): string {
-  return `rounded-full border px-2.5 py-[5px] font-body text-[11px] font-semibold leading-none transition-colors disabled:opacity-50 ${
+  return `rounded-full border px-2.5 py-[5px] font-body text-[12px] font-semibold leading-none transition-colors disabled:opacity-50 ${
     active
       ? "border-ink bg-ink text-ground"
       : "border-rule-soft bg-transparent text-ink-2 hover:border-ink"
@@ -462,18 +473,18 @@ export const MEDIA_CONTROLS =
 export const MEDIA_CONTROL_DIVIDER = "mx-1 h-3.5 w-px bg-rule-soft";
 
 export function mediaControlButton(active: boolean): string {
-  return `px-2 py-1.5 font-body text-[11px] font-semibold leading-none transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+  return `px-2 py-1.5 font-body text-[12px] font-semibold leading-none transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
     active ? "bg-ink text-ground" : "text-ink-2 hover:bg-ground hover:text-ink"
   }`;
 }
 
 /** The live percentage. Tabular so the bar does not twitch as it is dragged. */
 export const MEDIA_WIDTH_READOUT =
-  "min-w-[38px] text-center font-body text-[11px] font-semibold tabular-nums leading-none text-ink-3";
+  "min-w-[38px] text-center font-body text-[12px] font-semibold tabular-nums leading-none text-ink-3";
 
 /** Destructive, so it is the accent - the same red as everything that acts. */
 export const MEDIA_REMOVE_BUTTON =
-  "px-2 py-1.5 font-body text-[11px] font-semibold leading-none text-accent-ink transition-colors hover:bg-accent-wash";
+  "px-2 py-1.5 font-body text-[12px] font-semibold leading-none text-accent-ink transition-colors hover:bg-accent-wash";
 
 /**
  * The corner grip.
@@ -615,7 +626,7 @@ export function candidatesChevron(open: boolean): string {
  * no badge at all.
  */
 export const CANDIDATES_BADGE =
-  "inline-flex size-[22px] shrink-0 items-center justify-center rounded-full bg-accent px-1 font-body text-[11px] font-bold leading-none text-white";
+  "inline-flex size-[22px] shrink-0 items-center justify-center rounded-full bg-accent px-1 font-body text-[12px] font-bold leading-none text-white";
 
 export const CANDIDATES_COUNT = "font-body text-micro text-ink-3";
 
@@ -625,7 +636,7 @@ export const CANDIDATES_COUNT = "font-body text-micro text-ink-3";
  * must not compete with Generate draft for a reviewer's attention.
  */
 export const CANDIDATES_RUN =
-  "inline-flex shrink-0 items-center gap-1.5 rounded-full border border-rule px-3 py-1.5 font-body text-[11px] font-bold uppercase leading-none tracking-[0.08em] text-ink-3 transition-colors hover:border-ink hover:text-ink disabled:cursor-not-allowed disabled:opacity-45";
+  "inline-flex shrink-0 items-center gap-1.5 rounded-full border border-rule px-3 py-1.5 font-body text-[12px] font-bold uppercase leading-none tracking-[0.08em] text-ink-3 transition-colors hover:border-ink hover:text-ink disabled:cursor-not-allowed disabled:opacity-45";
 export const CANDIDATES_SCAN = `ml-auto ${CANDIDATES_RUN}`;
 
 /** Several run buttons side by side at the right of the header, wrapping as a group. */
@@ -702,7 +713,7 @@ export const RESEARCH_CATEGORY = "inline-flex items-center gap-1 text-ink-3";
 
 /** "Also considered" - a label, not a control, above the discarded list. */
 export const RESEARCH_SUBHEAD =
-  "border-t border-rule-soft px-4 pb-1 pt-3 font-body text-[11px] font-bold uppercase tracking-[0.08em] text-ink-4";
+  "border-t border-rule-soft px-4 pb-1 pt-3 font-body text-[12px] font-bold uppercase tracking-[0.08em] text-ink-4";
 
 /** The score, spelled out by component, one step quieter than the evidence line. */
 export const RESEARCH_SCORE = "mt-0.5 font-body text-micro text-ink-4";

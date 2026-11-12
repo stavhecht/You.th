@@ -51,6 +51,8 @@ export interface Autosave {
 export function useAutosave(
   articleId: string,
   loaded: TipTapDoc | null | undefined,
+  /** Where the save goes: a draft's edits, or a published article's correction. */
+  save: typeof saveContent = saveContent,
 ): Autosave {
   const [state, setState] = useState<SaveState>("idle");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -87,7 +89,7 @@ export function useAutosave(
     inFlight.current = true;
     setState("saving");
     try {
-      await saveContent(articleId, doc, base.current);
+      await save(articleId, doc, base.current);
       base.current = doc;
       // Only clear the buffer if nothing newer arrived while in flight.
       if (pending.current === doc) {
@@ -109,7 +111,7 @@ export function useAutosave(
     } finally {
       inFlight.current = false;
     }
-  }, [articleId]);
+  }, [articleId, save]);
 
   const schedule = useCallback(
     (doc: TipTapDoc) => {

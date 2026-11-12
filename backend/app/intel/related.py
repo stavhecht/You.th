@@ -127,15 +127,15 @@ async def related_to_product(session: AsyncSession, product: Product) -> list[di
             .limit(LIMIT)
         )
     ).all()
-    for topic, posts in shared:
+    for social, posts in shared:
         items.append(
             _item(
                 "social_topic",
-                topic.id,
-                topic.label,
+                social.id,
+                social.label,
                 "named_in_posts",
                 f"{posts} shared post(s)",
-                await _social_numbers(session, topic.id),
+                await _social_numbers(session, social.id),
             )
         )
     info = CATEGORY_INFO.get(ProductCategory(product.category)) if _known(product) else None

@@ -36,7 +36,7 @@ class ArticleNotFound(LookupError):
     """No published article with that slug. Surfaces as HTTP 404."""
 
 
-def _published_only(statement: Select[Any]) -> Select[Any]:
+def _published_only[*Ts](statement: Select[*Ts]) -> Select[*Ts]:
     """The single audit point for the public surface's visibility rule."""
     return statement.where(Article.status == ArticleStatus.PUBLISHED)
 
@@ -164,7 +164,8 @@ class FeedService:
             else None
         )
 
-        statement = _published_only(select(*_CARD_COLUMNS))
+        # Any width: the tier column is added below only for a reader with interests.
+        statement: Select[*tuple[Any, ...]] = _published_only(select(*_CARD_COLUMNS))
 
         if tier is not None:
             statement = statement.add_columns(tier.label("tier"))

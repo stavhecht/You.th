@@ -58,7 +58,8 @@ def uncertainty_appropriate(
 
     For cases whose ground truth is "uncertain" (conflicting evidence, thin
     evidence, a false premise) the deterministic test is the verdict being in
-    the hedged range *and* the prose hedging. For every other article only the
+    the hedged range *and* the prose not overconfident (the judge's call, or a hedge-word
+    count when the judge is off). For every other article only the
     judge can say, and only "overconfident" fails: the verdict cap already
     stops the structured verdict overclaiming, so this is about the prose.
     """
@@ -74,7 +75,11 @@ def uncertainty_appropriate(
         in_range = allowed is None or verdict in {str(v) for v in allowed}
         if verdict == Verdict.NO_EVIDENCE:
             return in_range
-        return in_range and hedged(text) and judge_certainty != "overconfident"
+        # The judge reads the whole article; a word count missed four plainly hedged ones on
+        # 2026-11-10 (wt_001/025/044/055: "Lack Proof", "the evidence says no"). The word
+        # count only decides when there is no judge.
+        prose_ok = judge_certainty != "overconfident" if judge_certainty else hedged(text)
+        return in_range and prose_ok
     if judge_certainty is None:
         return None
     return judge_certainty != "overconfident"

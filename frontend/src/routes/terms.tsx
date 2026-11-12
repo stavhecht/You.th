@@ -12,6 +12,7 @@
  * Placeholders are business facts; see COMPLIANCE_BUSINESS_INPUTS.md.
  */
 
+import { usePageMeta } from "@/lib/usePageMeta";
 import { Link } from "react-router-dom";
 
 import {
@@ -27,6 +28,7 @@ import {
 import { DraftNote, Fill } from "./privacy";
 
 export function TermsRoute() {
+  usePageMeta("Terms");
   return (
     <main className={LEGAL_PAGE}>
       <Link to="/" className={PAGE_BACK_LINK}>

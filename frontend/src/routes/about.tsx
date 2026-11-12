@@ -16,6 +16,7 @@
  * a stale one - which is the reason for spelling out which is which here.
  */
 
+import { usePageMeta } from "@/lib/usePageMeta";
 import { Link } from "react-router-dom";
 
 import {
@@ -37,6 +38,7 @@ const RULES = [
 ];
 
 export function AboutRoute() {
+  usePageMeta("About", "How You.th reads health claims against the studies behind them.");
   return (
     <main className={ABOUT_PAGE}>
       <Link to="/" className={PAGE_BACK_LINK}>

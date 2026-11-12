@@ -10,6 +10,7 @@
  * password it replaces. On success the reader signs in with the new password.
  */
 
+import { usePageMeta } from "@/lib/usePageMeta";
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
@@ -33,6 +34,7 @@ import { passwordProblem } from "@/lib/password";
 const LABEL = `${FIELD_LABEL} pl-2`;
 
 export function ForgotPasswordRoute() {
+  usePageMeta("Reset your password");
   const [params] = useSearchParams();
   const token = params.get("token");
 

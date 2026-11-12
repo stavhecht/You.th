@@ -15,6 +15,7 @@
  * answer looks exactly like one we cannot. The message itself is required.
  */
 
+import { usePageMeta } from "@/lib/usePageMeta";
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 
@@ -75,6 +76,7 @@ function refusalReason(caught: unknown): string | null {
 }
 
 export function ContactRoute() {
+  usePageMeta("Get in touch");
   const { reader, signedIn } = useReader();
   const [nameError, setNameError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);

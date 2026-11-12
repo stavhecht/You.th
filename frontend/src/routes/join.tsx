@@ -14,6 +14,7 @@
  * nothing sends one.
  */
 
+import { usePageMeta } from "@/lib/usePageMeta";
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -71,6 +72,7 @@ const WHAT_IT_DOES = [
 
 
 export function JoinRoute({ mode }: { mode: "signup" | "login" }) {
+  usePageMeta(mode === "signup" ? "Create an account" : "Sign in");
   const { signup, login, signedIn } = useReader();
   const navigate = useNavigate();
   const flash = useToast();

@@ -17,6 +17,7 @@
  * the audit is done, replace the placeholder with its result.
  */
 
+import { usePageMeta } from "@/lib/usePageMeta";
 import { Link } from "react-router-dom";
 
 import {
@@ -32,6 +33,7 @@ import {
 import { DraftNote, Fill } from "./privacy";
 
 export function AccessibilityRoute() {
+  usePageMeta("Accessibility");
   return (
     <main className={LEGAL_PAGE}>
       <Link to="/" className={PAGE_BACK_LINK}>

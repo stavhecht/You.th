@@ -32,6 +32,7 @@ import { Route, Routes } from "react-router-dom";
 
 import { AuthProvider } from "./features/console/auth";
 import { ReaderAuthProvider } from "./features/reader/auth";
+import { ErrorBoundary } from "./features/shell/ErrorBoundary";
 import { PublicLayout } from "./features/shell/PublicLayout";
 import { ROUTE_MESSAGE } from "./features/shell/styles";
 import { ToastProvider } from "./features/shell/toast";
@@ -42,8 +43,10 @@ import { ContactRoute } from "./routes/contact";
 import { FeedRoute } from "./routes/feed";
 import { ForgotPasswordRoute } from "./routes/forgot-password";
 import { JoinRoute } from "./routes/join";
+import { NotFoundRoute } from "./routes/not-found";
 import { PrivacyRoute } from "./routes/privacy";
 import { TermsRoute } from "./routes/terms";
+import { VerifyRoute } from "./routes/verify";
 import { YouRoute } from "./routes/you";
 
 /**
@@ -63,6 +66,7 @@ export function App() {
     <ReaderAuthProvider>
       <AuthProvider>
         <ToastProvider>
+          <ErrorBoundary>
           <Routes>
             <Route element={<PublicLayout />}>
               <Route path="/" element={<FeedRoute />} />
@@ -72,11 +76,14 @@ export function App() {
               <Route path="/join" element={<JoinRoute key="join" mode="signup" />} />
               <Route path="/signin" element={<JoinRoute key="signin" mode="login" />} />
               <Route path="/forgot-password" element={<ForgotPasswordRoute />} />
+              <Route path="/verify" element={<VerifyRoute />} />
               <Route path="/you" element={<YouRoute />} />
               <Route path="/contact" element={<ContactRoute />} />
               <Route path="/privacy" element={<PrivacyRoute />} />
               <Route path="/terms" element={<TermsRoute />} />
               <Route path="/accessibility" element={<AccessibilityRoute />} />
+              {/* Last: anything else gets the site's chrome and a way back. */}
+              <Route path="*" element={<NotFoundRoute />} />
             </Route>
 
             <Route
@@ -90,6 +97,7 @@ export function App() {
               }
             />
           </Routes>
+          </ErrorBoundary>
         </ToastProvider>
       </AuthProvider>
     </ReaderAuthProvider>

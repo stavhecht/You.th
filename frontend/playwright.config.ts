@@ -51,6 +51,9 @@ export default defineConfig({
         DISCOVERY_SCAN_ENABLED: "false",
         COLLECTION_SCHEDULE_ENABLED: "false",
         IMAGE_PROVIDER: "none",
+        // Signup mails a confirmation link; the browser tests sign up dozens of
+        // made-up readers and must not mail any of them.
+        SMTP_PASSWORD: "",
       },
     },
     {

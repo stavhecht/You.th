@@ -16,6 +16,7 @@ invisible in a behavioural test — see the note in
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
@@ -46,18 +47,23 @@ from app.api.public.schemas import (
     SaveRequest,
     SignupRequest,
     UpdateReaderRequest,
+    VerifyEmailRequest,
 )
 from app.api.schemas_base import UUID_PATTERN
+from app.config import Settings
+from app.domain.models import Reader
 from app.security.auth import (
     AuthError,
     check_password,
     create_reader_token,
     create_reset_token,
+    create_verify_token,
     equalise_timing,
     password_unchanged,
     reset_token_subject,
+    verify_token_subject,
 )
-from app.services.notify import password_reset_email, send_email
+from app.services.notify import password_reset_email, send_email, verification_email
 from app.services.reader import (
     EmailAlreadyRegistered,
     ReaderError,
@@ -89,6 +95,7 @@ async def signup(
     settings: SettingsDep,
     throttle: SignupThrottleDep,
     ip: ClientIpDep,
+    background: BackgroundTasks,
 ) -> ReaderTokenResponse:
     """Create an account and sign in with it.
 
@@ -119,10 +126,66 @@ async def signup(
         # the reader cannot use and cannot diagnose.
         raise _conflict(exc) from None
 
+    _mail_verification(reader, settings, background)
     token, expires_in = create_reader_token(
         reader.id, settings.jwt_secret, reader.password_hash
     )
     return ReaderTokenResponse(access_token=token, expires_in=expires_in)
+
+
+# --- confirming the email address --------------------------------------------
+
+
+def _mail_verification(reader: Reader, settings: Settings, background: BackgroundTasks) -> None:
+    """After the response, like every other email: never delays or fails the request."""
+    token = create_verify_token(reader.id, reader.email, settings.jwt_secret)
+    link = f"{settings.public_site_url.rstrip('/')}/verify?token={token}"
+    background.add_task(
+        send_email,
+        verification_email(reader.email, link, settings),
+        settings,
+        "verification email",
+    )
+
+
+@router.post("/verify", status_code=status.HTTP_204_NO_CONTENT)
+async def verify_email(
+    payload: VerifyEmailRequest, session: SessionDep, settings: SettingsDep
+) -> None:
+    """Confirm the address a signup link was mailed to. Opening it twice is fine.
+
+    Not throttled, like ``/password/reset``: a bad link costs one signature check.
+    """
+    try:
+        reader_id, email = verify_token_subject(payload.token, settings.jwt_secret)
+        reader = await ReaderService(session).get(reader_id)
+    except (AuthError, ReaderError):
+        raise _EXPIRED_VERIFY_LINK from None
+    if reader.email != email:
+        raise _EXPIRED_VERIFY_LINK
+    if reader.email_verified_at is None:
+        reader.email_verified_at = datetime.now(UTC)
+        await session.flush()
+        logger.info("reader %s confirmed their email", reader.id)
+
+
+@router.post("/verify/resend", status_code=status.HTTP_202_ACCEPTED)
+async def resend_verification(
+    reader: ReaderDep,
+    session: SessionDep,
+    settings: SettingsDep,
+    throttle: PasswordResetThrottleDep,
+    ip: ClientIpDep,
+    background: BackgroundTasks,
+) -> dict[str, str]:
+    """Mail the link again. Shares the forgot-password budget: three an hour per
+    address, because each press sends mail through the same account."""
+    retry_after = throttle.retry_after(ip=ip, email=reader.email)
+    if retry_after is not None:
+        raise too_many_attempts(retry_after, "Too many attempts. Try again later.")
+    throttle.record_failure(ip=ip, email=reader.email)
+    _mail_verification(await ReaderService(session).get(reader.id), settings, background)
+    return {"status": "sent"}
 
 
 @router.post("/login", response_model=ReaderTokenResponse)
@@ -158,6 +221,11 @@ async def login(
 
 
 # --- forgotten password ------------------------------------------------------
+
+_EXPIRED_VERIFY_LINK = HTTPException(
+    status_code=status.HTTP_400_BAD_REQUEST,
+    detail="This link has expired. Ask for a new one from your account page.",
+)
 
 _EXPIRED_LINK = HTTPException(
     status_code=status.HTTP_400_BAD_REQUEST,
@@ -235,6 +303,7 @@ async def me(reader: ReaderDep, session: SessionDep) -> ReaderOut:
         display_name=row.display_name,
         interests=list(row.interests),
         newsletter=row.newsletter,
+        email_verified=row.email_verified_at is not None,
     )
 
 
@@ -254,6 +323,7 @@ async def update_me(
         display_name=row.display_name,
         interests=list(row.interests),
         newsletter=row.newsletter,
+        email_verified=row.email_verified_at is not None,
     )
 
 

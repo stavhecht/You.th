@@ -85,6 +85,19 @@ export async function resetPassword(token: string, password: string): Promise<vo
 }
 
 /** Re-validates the stored token as a side effect of loading the reader. */
+/** Confirm the address a signup link was mailed to. 400 when the link is stale. */
+export async function verifyEmail(token: string): Promise<void> {
+  return apiFetch<void>("/readers/verify", {
+    method: "POST",
+    body: JSON.stringify({ token }),
+  });
+}
+
+/** Mail the confirmation link again. 429 after three in an hour. */
+export async function resendVerification(): Promise<void> {
+  await apiFetch("/readers/verify/resend", { method: "POST" });
+}
+
 export async function fetchMe(): Promise<Reader> {
   return apiFetch<Reader>("/readers/me");
 }

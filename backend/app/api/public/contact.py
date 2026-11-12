@@ -65,6 +65,14 @@ async def submit_contact(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Sign in to suggest a topic",
             )
+        # ...and only once that address is proven theirs. Signup takes any
+        # address, so without this a suggestion could reach the editors "from"
+        # someone who never wrote it, with their address as the Reply-To.
+        if not reader.email_verified:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Confirm your email address first. The link is in your inbox.",
+            )
         name, email = reader.display_name, reader.email
 
     retry_after = throttle.retry_after(ip=ip, email=email)

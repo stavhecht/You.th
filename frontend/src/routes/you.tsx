@@ -11,6 +11,7 @@
  * they change (see `ReaderAuthProvider.update`).
  */
 
+import { usePageMeta } from "@/lib/usePageMeta";
 import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
@@ -63,12 +64,14 @@ import {
   exportMyData,
   fetchSaved,
   readerKeys,
+  resendVerification,
   submitContact,
 } from "@/lib/api/reader";
 import { ApiError } from "@/lib/api/client";
 import type { Subject } from "@/types/api";
 
 export function YouRoute() {
+  usePageMeta("Your account");
   const { reader, status, signedIn, update, logout } = useReader();
   const [folderId, setFolderId] = useState<string | null>(null);
   const [newFolder, setNewFolder] = useState("");
@@ -297,6 +300,43 @@ function SuggestTopic() {
     } finally {
       setBusy(false);
     }
+  }
+
+  // Signup takes any address, so a suggestion goes out under it only once the
+  // reader has opened the link mailed there. The server enforces the same.
+  if (reader && !reader.emailVerified) {
+    return (
+      <section className={DATA_SECTION} aria-labelledby="suggest-topic">
+        <h2 id="suggest-topic" className={DATA_TITLE}>
+          Suggest a topic
+        </h2>
+        <p className={DATA_BODY}>
+          Confirm your email first: we sent a link to {reader.email}. Suggestions are
+          sent under your address, so we check it is yours.
+        </p>
+        <button
+          type="button"
+          disabled={busy}
+          className={SUBMIT_BUTTON}
+          onClick={() => {
+            setBusy(true);
+            resendVerification()
+              .then(
+                () => flash("Sent. Check your inbox for the link"),
+                () => setError("Could not send it. Try again in a few minutes."),
+              )
+              .finally(() => setBusy(false));
+          }}
+        >
+          Send the link again →
+        </button>
+        {error ? (
+          <p role="alert" className={FORM_ERROR}>
+            {error}
+          </p>
+        ) : null}
+      </section>
+    );
   }
 
   return (

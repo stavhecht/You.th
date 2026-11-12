@@ -25,6 +25,12 @@ os.environ.setdefault("JWT_SECRET", "test-secret-that-is-at-least-32-characters-
 os.environ.setdefault("DISCOVERY_SCAN_ENABLED", "false")
 # Same reason: the collection scheduler would queue runs in the dev database.
 os.environ.setdefault("COLLECTION_SCHEDULE_ENABLED", "false")
+# No test may send real mail. Set outright, not `setdefault`: the developer's
+# root .env holds a working Gmail app password, and an environment variable is
+# the only thing that outranks that file. Signup mails a confirmation link, so
+# without this every test that signs a reader up sent one to a made-up address
+# (2026-11-11: two suite runs did exactly that, and each took twice as long).
+os.environ["SMTP_PASSWORD"] = ""
 
 from app.domain.contracts import (
     ArticleBody,

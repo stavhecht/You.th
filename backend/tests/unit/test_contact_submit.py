@@ -158,9 +158,14 @@ async def test_only_a_signed_in_reader_can_suggest_a_topic_and_it_is_sent_as_the
         guest = await http.post("/api/contact", json=topic)
         other = await http.post("/api/contact", json={**topic, "kind": "other"})
         signed_in[0] = AuthenticatedReader(id="r1", email="ada@example.com", display_name="Ada")
+        unconfirmed = await http.post("/api/contact", json=topic)
+        signed_in[0] = AuthenticatedReader(
+            id="r1", email="ada@example.com", display_name="Ada", email_verified=True
+        )
         member = await http.post("/api/contact", json=topic)
 
     assert guest.status_code == 401
+    assert unconfirmed.status_code == 403  # the address is not proven theirs yet
     assert other.status_code == 202
     assert member.status_code == 202
     assert [row.kind for row in saved] == [ContactKind.OTHER, ContactKind.TOPIC]

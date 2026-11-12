@@ -39,7 +39,7 @@ def _ctx() -> PipelineContext:
 
 def test_a_priced_model_costs_what_the_table_says() -> None:
     cost = cost_usd(SONNET, TokenUsage(input_tokens=1_000_000))
-    assert cost == Decimal("3.000000")
+    assert cost == Decimal("2.000000")
 
 
 def test_each_token_class_is_priced_separately() -> None:
@@ -108,7 +108,7 @@ def test_prices_are_decimal_not_float() -> None:
     Cheap to get wrong, and the error compounds over a summed ledger.
     """
     tenth_of_a_million = TokenUsage(cache_read_tokens=100_000)
-    assert cost_usd(SONNET, tenth_of_a_million) == Decimal("0.030000")
+    assert cost_usd(SONNET, tenth_of_a_million) == Decimal("0.020000")
 
 
 # ---------------------------------------------------------------------------

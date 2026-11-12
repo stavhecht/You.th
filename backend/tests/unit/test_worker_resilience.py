@@ -123,3 +123,45 @@ async def test_a_probe_that_breaks_does_not_stop_the_worker() -> None:
     await asyncio.wait_for(worker.run_forever(), timeout=5)
 
     assert seen["claims"] == 1
+
+
+async def test_a_research_or_collection_run_that_raises_does_not_end_the_worker(
+    monkeypatch,  # type: ignore[no-untyped-def]
+) -> None:
+    """Both executors promise never to raise, and both can: recording a failure
+    needs the database that just went away. The worker has no restart policy of
+    its own, so an escape here stopped the queue until someone noticed."""
+    from app.pipeline import runner
+
+    worker = PipelineWorker(poll_interval=0.01, sweep_interval=1e9)
+    ran: list[str] = []
+
+    async def boom(*args: object, **kwargs: object) -> None:
+        ran.append("ran")
+        raise ConnectionRefusedError("database went away mid-run")
+
+    async def sweep() -> None:
+        return None
+
+    research = [("run-1", "research_1")]
+    collection = [("run-2", "social_daily_1", "social_daily")]
+
+    async def claim_research() -> tuple[str, str] | None:
+        return research.pop() if research else None
+
+    async def claim_collection(*, model_free_only: bool = False) -> tuple[str, str, str] | None:
+        return collection.pop() if collection else None
+
+    async def claim() -> None:
+        worker.request_shutdown()
+
+    monkeypatch.setattr(runner, "execute_research_run", boom)
+    monkeypatch.setattr(runner, "execute_collection_run", boom)
+    worker._recover_stale_runs = sweep  # type: ignore[method-assign]
+    worker._claim_research_run = claim_research  # type: ignore[method-assign]
+    worker._claim_collection_run = claim_collection  # type: ignore[method-assign]
+    worker._claim_next_run = claim  # type: ignore[method-assign]
+
+    await asyncio.wait_for(worker.run_forever(), timeout=5)
+
+    assert ran == ["ran", "ran"]  # both ran, both raised, and the loop went on

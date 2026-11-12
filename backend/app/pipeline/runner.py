@@ -243,6 +243,10 @@ class PipelineWorker:
         )
         try:
             await execute_research_run(run_id, settings, factory)
+        except Exception:
+            # It promises not to raise, but recording a failure needs the
+            # database that may have just gone. The stale sweep recovers the row.
+            logger.exception("research run %s crashed outside its executor", label)
         finally:
             heartbeat.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -269,6 +273,8 @@ class PipelineWorker:
         )
         try:
             await execute_collection_run(run_id, label, kind, settings, factory)
+        except Exception:
+            logger.exception("collection run %s crashed outside its executor", label)
         finally:
             heartbeat.cancel()
             with contextlib.suppress(asyncio.CancelledError):

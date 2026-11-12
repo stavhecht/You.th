@@ -152,8 +152,14 @@ test("a reviewer publishes a draft and readers can then read it", async ({ page 
   // Not public before it is approved.
   const publish = page.getByRole("button", { name: "Publish to the public feed" });
   await expect(publish).toBeEnabled();
+  // Wait for the approve response itself. Waiting for "Publishing…" to be gone
+  // passed before the button changed (Publish saves edits first), and the
+  // goto below then aborted the request mid-flight: flaky in CI.
+  const approved = page.waitForResponse(
+    (r) => r.url().endsWith("/approve") && r.request().method() === "POST",
+  );
   await publish.click();
-  await expect(page.getByRole("button", { name: "Publishing…" })).toHaveCount(0);
+  expect((await approved).ok()).toBe(true);
 
   await page.goto("/");
   const card = page.getByRole("link", { name: DRAFTS.magnesium, exact: true });

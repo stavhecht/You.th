@@ -62,5 +62,10 @@ test("sign up, save an article, find it on the shelf, then delete the account", 
 
   await page.locator('input[autocomplete="current-password"]').fill(READER_PASSWORD);
   await page.getByRole("button", { name: "Delete everything" }).click();
-  await expect(page.getByRole("link", { name: "Create an account" })).toBeVisible();
+  // Home, signed out. Scoped to the header: for a moment /you re-renders as a
+  // guest page with its own "Create an account" link, and two matches fail at once.
+  await expect(page).toHaveURL("/");
+  await expect(
+    page.getByRole("banner").getByRole("link", { name: "Create an account" }),
+  ).toBeVisible();
 });

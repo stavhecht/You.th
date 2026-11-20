@@ -63,11 +63,11 @@ export const HERO_TOGGLE =
 /**
  * The statement over the hero video.
  *
- * This was the product's one Playfair element, and it no longer needs a font of
- * its own: Instrument Serif is now the interface face, and a display serif at
- * 60px is what it is drawn for. So the flourish stays and the second file does
- * not. It is set at 400 because that is the only weight the family ships,
- * `font-bold` here would ask the browser to smear the outline.
+ * This was the product's one Playfair element. It no longer needs a font of its
+ * own: Playfair Display is now the interface face, and a display serif at 60px
+ * is what it is drawn for. It is set at 400 because that is the only weight
+ * `main.tsx` bundles; `font-bold` here would ask the browser to smear the
+ * outline.
  *
  * Sits at 70% opacity over the footage rather than at full white: the statement
  * is a mood, and type at full strength over moving video reads as a caption
@@ -338,15 +338,16 @@ export const SKELETON_PARAGRAPH = "h-24 rounded-field bg-surface-2";
 
 /**
  * The body column: **the article frame's full width** - 800px less the 28px
- * gutters, so ~744px of type, which is ~111 characters a line at `text-prose`
- * (20px Instrument Serif).
+ * gutters, so ~744px of type, which is ~83 characters a line at `text-prose`
+ * (20px Playfair Display).
  *
  * The count is measured, not estimated, and it is the number to watch here, not
- * the pixel. Instrument Serif averages **5.71px a character at 17px** - run the
- * font's advance widths over a paragraph of real article prose and divide. That
- * is ~0.34em, far narrower than a text serif, because it is a display face
- * doing a body job. Two numbers in this file were wrong because nobody had run
- * that:
+ * the pixel. Playfair Display averages **7.65px a character at 17px** (0.450em)
+ * - run the font's advance widths over real article prose and divide; this was
+ * ~99k characters of generated articles from the evaluation traces. Instrument
+ * Serif, the face before it, was 0.336em, so a font change moves this count by
+ * a third and the measurement has to be rerun with it. Two numbers in this file
+ * were wrong because nobody had run that (both in Instrument Serif):
  *
  *   - `max-w-[64ch]` rendered as 441px, ~77 characters. `ch` is the width of
  *     the *wrapper's* zero and the wrapper inherits 15px while the paragraphs
@@ -355,10 +356,10 @@ export const SKELETON_PARAGRAPH = "h-24 rounded-field bg-surface-2";
  *     comfortable range". It was ~91 - already past it.
  *
  * The column then sat at 600px / ~89 characters for a while, with `text-prose`
- * raised to 20px to hold that count. Filling the frame takes it to ~111, which
- * is past where that tuning left it: **the lever, if the line reads long, is
- * `text-prose`, not this width.** The relationship is
- * `chars ≈ 2.98 × width ÷ size`, so ~25px would put 744px back at ~89.
+ * raised to 20px to hold that count. Filling the frame took it to ~111 in
+ * Instrument Serif; Playfair's wider letters bring the same frame to ~83.
+ * **The lever, if the line reads long, is `text-prose`, not this width.** The
+ * relationship is `chars ≈ 2.22 × width ÷ size` in Playfair.
  *
  * `flow-root` contains the floats a reviewer may have placed; without it a
  * picture floated beside the last paragraph hangs below the prose and over the
@@ -415,7 +416,7 @@ export const POPOVER_UNRESOLVED = "mt-2 block font-body text-meta text-ink-3";
  * Media sits inside the prose measure rather than breaking out of it.
  *
  * A full-bleed image is the magazine move, and this is not a magazine: the
- * column is ~89 characters because that is where the evidence reads well, and a
+ * column is ~83 characters because that is where the evidence reads well, and a
  * picture that escapes it announces itself as the more important thing on the
  * page.
  *

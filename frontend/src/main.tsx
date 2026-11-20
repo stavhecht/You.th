@@ -11,17 +11,18 @@ import { BrowserRouter } from "react-router-dom";
  * purpose the reader asked for (COMPLIANCE_AUDIT.md F8). Served from our own
  * origin, the bytes are the same and nobody else learns who is reading.
  *
- * Exactly the faces `index.html` used to request: Archivo at the five weights
- * the site bar and article titles use, Instrument Serif at 400 and its italic.
- * The family names are the same, so no stylesheet changes.
+ * Archivo at the five weights the site bar and article titles use, and
+ * Playfair Display at 400 and its italic - the only Playfair weights bundled,
+ * so asking for another makes the browser synthesise it. Playfair replaced
+ * Instrument Serif, the serif `index.html` used to request.
  */
 import "@fontsource/archivo/400.css";
 import "@fontsource/archivo/500.css";
 import "@fontsource/archivo/600.css";
 import "@fontsource/archivo/700.css";
 import "@fontsource/archivo/800.css";
-import "@fontsource/instrument-serif/400.css";
-import "@fontsource/instrument-serif/400-italic.css";
+import "@fontsource/playfair-display/400.css";
+import "@fontsource/playfair-display/400-italic.css";
 
 import { App } from "./App";
 import "./index.css";

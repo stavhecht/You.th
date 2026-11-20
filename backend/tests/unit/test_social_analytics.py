@@ -149,6 +149,9 @@ def test_windows_are_equal_and_do_not_overlap() -> None:
         ("strength training", "strength"),
         ("running", "fitness"),  # an outcome that promises nothing
         ("protein food", ""),  # only generic words
+        ("sleeping", "sleep"),  # restates itself once "-ing" is folded
+        ("muscle", "muscle recovery"),  # the outcome repeats the subject
+        ("strength training", "muscle strength"),
     ],
 )
 def test_a_category_we_search_for_is_too_broad_to_propose(subject: str, outcome: str) -> None:
@@ -164,6 +167,8 @@ def test_a_category_we_search_for_is_too_broad_to_propose(subject: str, outcome:
         ("smart ring", "sleep tracking"),
         ("moringa powder", ""),  # specific with no outcome
         ("nmn", "energy"),
+        ("sleep", "muscle recovery"),
+        ("sleep tracking", "sleep"),  # promoted 2026-11-05; "tracking" is not "tracker"
     ],
 )
 def test_an_angle_or_a_specific_subject_is_kept(subject: str, outcome: str) -> None:

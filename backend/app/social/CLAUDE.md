@@ -92,7 +92,17 @@ pinned by that test, and neither module ever enqueues an article. What to know:
   ranking measured our search budget. A subject inside a seed or `CATEGORY_INFO` phrase, or all
   `GENERIC_WORDS`, needs an outcome that adds a word beyond the subject and `_EMPTY_OUTCOME_WORDS`.
   That list stays tiny: `GENERIC_WORDS` has "muscle" and "heart", and "protein for muscle" is a
-  real angle. It is word-exact, so "Sleep tracking for sleep" still passes. **Suppression is novelty only**: promoted never returns
+  real angle. It is word-exact, so "Sleep tracking for sleep" still passes. **Since 2026-11-20
+  two more rules**, after the 2026-11-19 run proposed 10 topics that were mostly our own words
+  four ways: words compare with "-ing" folded (`weekly.py::_stem`; "Sleeping for sleep"
+  restates itself), and an outcome that *repeats* a subject word adds no angle, whatever else
+  it says ("Muscle for muscle recovery", "Strength training for muscle strength"). Then
+  **one topic per subject word** (`without_shared_subjects`, after the repeated-question
+  filter, notes "same subject as …"): "Sleep music", "Sleep tracker app" and "Sleep for muscle
+  recovery" are one week's sleep. This run's list only, not decided topics, or one promotion
+  would retire the word "sleep" for good. Replayed on that run's 10: 4 survive (Workout for
+  strength, Sleep tracker app for sleep, Gym for motivation, Meditation for peace); a live run
+  fills the freed slots from the 2× shortlist. Not yet run live. **Suppression is novelty only**: promoted never returns
   unless its draft failed or was cancelled (`weekly.py::_draft_failed`: no article exists to duplicate, and this is
   the only way such a topic is tried again, as for the MeSH scan; queued and running still hold it),
   dismissed not within `social_dismiss_cooloff_days` unless independent creators doubled, and back after the cooloff either way; held
@@ -173,7 +183,11 @@ pinned by that test, and neither module ever enqueues an article. What to know:
   status), untouched. No link table, so nothing can go stale or outlive what it links.
   Neither `/console/products` nor `/console/social/result` carries relations: per row they cost
   ~24 queries, and the desk loads the result on every visit, so the panel asks `/intel/related`
-  for one item when the reviewer presses Related.
+  for one item when the reviewer presses Related. **The desk shows one row per brand**
+  (`SocialPanel.tsx::groupByBrand`, 2026-11-20): Huawei's Watch D3, Watch Fit 5 and FreeClip 2
+  are one slot, each product keeping its own lines, and its Related button asks for every
+  product in it and merges the answers. Measured that day: 45 of 114 products have nothing
+  related, which reads as a dead button when each stands alone.
 - **`GET /console/social/result` is snake_case** (`SocialListeningResult`), like the trend
   search's result; the desk's "Social & products" panel (`SocialPanel.tsx`) renders momentum,
   popularity, literature counts and limitations as separate lines. **By default it serves the

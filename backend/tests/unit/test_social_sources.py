@@ -30,6 +30,7 @@ from app.social.weekly import (
     assess_evidence,
     found_no_papers,
     without_repeated_questions,
+    without_shared_subjects,
 )
 from app.social.youtube import YouTubeClient
 
@@ -323,6 +324,16 @@ def test_a_decided_topic_blocks_its_question_without_being_proposed() -> None:
     other = SocialTopic(id="3", label="c", question="Does protein build muscle?")
     kept, repeats = without_repeated_questions([repeat, other], decided=[decided])
     assert kept == [other] and repeats == [(repeat, decided)]
+
+
+def test_the_better_ranked_topic_keeps_a_shared_subject() -> None:
+    first = SocialTopic(id="1", label="a", subject="Sleep tracker app")
+    music = SocialTopic(id="2", label="b", subject="Sleep music")
+    sleeping = SocialTopic(id="3", label="c", subject="Sleeping")
+    other = SocialTopic(id="4", label="d", subject="Meditation")
+    kept, repeats = without_shared_subjects([first, music, sleeping, other])
+    assert kept == [first, other]
+    assert repeats == [(music, first), (sleeping, first)]
 
 
 @pytest.mark.parametrize("days", [20, 29, 30])

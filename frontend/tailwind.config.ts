@@ -84,7 +84,7 @@ export default {
 
       fontFamily: {
         /**
-         * Both resolve to Instrument Serif - see the type block in
+         * Both resolve to Playfair Display - see the type block in
          * `styles/youth.css`. They stay two names because they carry two
          * intents, and a future retype that splits the face again should not
          * have to rediscover which of two hundred class strings meant which.
@@ -200,8 +200,8 @@ export default {
       // 880 was tried as a frame around the narrower column and read as a
       // ribbon of text in a wide box; that complaint does not apply now the
       // prose fills the frame, but the character count does: 744px of type at
-      // the body's 20px is ~111 characters, so widening this again means
-      // raising `text-prose` with it.
+      // the body's 20px is ~83 characters in Playfair, so widening this again
+      // means raising `text-prose` with it.
       maxWidth: { page: "1240px", article: "800px", prose: "760px", console: "1040px" },
       spacing: { gutter: "28px", header: "68px" },
     },

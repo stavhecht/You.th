@@ -22,7 +22,7 @@
  */
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronRight, LoaderCircle } from "lucide-react";
 
 import {
@@ -338,15 +338,8 @@ function TopicRow({ topic }: { topic: SocialTopicResult }) {
   );
 }
 
-function ProductRow({ product }: { product: Product }) {
-  // Asked for per product, on demand: relations for every row cost the server
-  // hundreds of queries per page.
-  const [showRelated, setShowRelated] = useState(false);
-  const related = useQuery({
-    queryKey: consoleKeys.related("product", product.id),
-    queryFn: () => fetchRelated("product", product.id),
-    enabled: showRelated,
-  });
+/** One product's own lines: the same whether it stands alone or under its brand. */
+function ProductLines({ product, named }: { product: Product; named: boolean }) {
   const weeks = product.weeks
     .map((w, i) =>
       w.covered
@@ -356,46 +349,100 @@ function ProductRow({ product }: { product: Product }) {
     .join(" · ");
   const quote = product.recent[0];
   return (
+    <>
+      <p className={named ? CANDIDATE_MIX : CANDIDATE_TOPIC}>
+        {named ? <strong>{product.name}</strong> : product.name}{" "}
+        <span className={RESEARCH_SCORE}>
+          {named ? "" : `${product.brand} · `}
+          {product.category.replaceAll("_", " ")}
+        </span>
+      </p>
+      <p className={CANDIDATE_MIX}>
+        {product.status} ({plural(product.independentSources, "independent source")}) · launch{" "}
+        {product.launchStatus}
+        {product.fdaReference
+          ? ` · FDA ${product.fdaReference.k_number}${product.fdaReference.decision_date ? ` (${product.fdaReference.decision_date.slice(0, 10)})` : ""}`
+          : ""}
+      </p>
+      <p className={RESEARCH_SCORE}>{weeks}</p>
+      {quote ? (
+        <p className={RESEARCH_SCORE}>
+          “{quote.quote}”{quote.publisher ? `, ${quote.publisher}` : ""} ({quote.mention_kind})
+        </p>
+      ) : null}
+      {safe(product.officialUrl) ? (
+        <ul className={RESEARCH_SOURCES}>
+          <li>
+            <a
+              className={RESEARCH_SOURCE_LINK}
+              href={product.officialUrl}
+              target="_blank"
+              rel="noopener noreferrer nofollow"
+            >
+              Official page
+            </a>
+          </li>
+        </ul>
+      ) : null}
+    </>
+  );
+}
+
+/** Products of one brand share a row: "Watch D3", "Watch Fit 5" and "FreeClip 2" are one Huawei slot. */
+export function groupByBrand(products: Product[]): Product[][] {
+  const groups = new Map<string, Product[]>();
+  for (const product of products) {
+    const key = product.brand.trim().toLowerCase();
+    groups.set(key, [...(groups.get(key) ?? []), product]);
+  }
+  return [...groups.values()];
+}
+
+function BrandRow({ products }: { products: Product[] }) {
+  // Asked for on demand, one call per product: relations for every row cost the
+  // server hundreds of queries per page.
+  const [showRelated, setShowRelated] = useState(false);
+  const related = useQueries({
+    queries: products.map((product) => ({
+      queryKey: consoleKeys.related("product", product.id),
+      queryFn: () => fetchRelated("product", product.id),
+      enabled: showRelated,
+    })),
+  });
+  const fetching = related.some((q) => q.isFetching);
+  const done = showRelated && related.every((q) => q.isSuccess || q.isError);
+  const seen = new Set<string>();
+  const items = related
+    .flatMap((q) => q.data ?? [])
+    .filter((item) => {
+      const key = `${item.kind}-${item.id}`;
+      return seen.has(key) ? false : (seen.add(key), true);
+    });
+  const grouped = products.length > 1;
+  return (
     <div className={CANDIDATE_ROW}>
       <div className={CANDIDATE_MAIN}>
-        <p className={CANDIDATE_TOPIC}>
-          {product.name}{" "}
-          <span className={RESEARCH_SCORE}>
-            {product.brand} · {product.category.replaceAll("_", " ")}
-          </span>
-        </p>
-        <p className={CANDIDATE_MIX}>
-          {product.status} ({plural(product.independentSources, "independent source")}) · launch{" "}
-          {product.launchStatus}
-          {product.fdaReference
-            ? ` · FDA ${product.fdaReference.k_number}${product.fdaReference.decision_date ? ` (${product.fdaReference.decision_date.slice(0, 10)})` : ""}`
-            : ""}
-        </p>
-        <p className={RESEARCH_SCORE}>{weeks}</p>
-        {quote ? (
-          <p className={RESEARCH_SCORE}>
-            “{quote.quote}”{quote.publisher ? `, ${quote.publisher}` : ""} ({quote.mention_kind})
+        {grouped ? (
+          <p className={CANDIDATE_TOPIC}>
+            {products[0]?.brand} <span className={RESEARCH_SCORE}>{plural(products.length, "product")}</span>
           </p>
         ) : null}
-        <ul className={RESEARCH_SOURCES}>
-          {safe(product.officialUrl) ? (
-            <li>
-              <a
-                className={RESEARCH_SOURCE_LINK}
-                href={product.officialUrl}
-                target="_blank"
-                rel="noopener noreferrer nofollow"
-              >
-                Official page
-              </a>
-            </li>
-          ) : null}
-          {(showRelated ? related.data : undefined)?.slice(0, 5).map((item) => (
-            <li key={`${item.kind}-${item.id}`}>{relatedLine(item)}</li>
-          ))}
-        </ul>
-        {showRelated && related.data?.length === 0 ? <p className={RESEARCH_SCORE}>Nothing related yet.</p> : null}
-        {showRelated && related.isError ? <p className={CANDIDATES_ERROR}>Could not load related items.</p> : null}
+        {products.map((product) => (
+          <ProductLines key={product.id} product={product} named={grouped} />
+        ))}
+        {showRelated && items.length ? (
+          <ul className={RESEARCH_SOURCES} aria-label="Related in other discovery systems">
+            {items.slice(0, 6).map((item) => (
+              <li key={`${item.kind}-${item.id}`}>{relatedLine(item)}</li>
+            ))}
+          </ul>
+        ) : null}
+        {done && !items.length && !related.some((q) => q.isError) ? (
+          <p className={RESEARCH_SCORE}>Nothing related yet.</p>
+        ) : null}
+        {showRelated && related.some((q) => q.isError) ? (
+          <p className={CANDIDATES_ERROR}>Could not load related items.</p>
+        ) : null}
       </div>
       <div className={CANDIDATE_ACTIONS}>
         <button
@@ -404,7 +451,7 @@ function ProductRow({ product }: { product: Product }) {
           aria-expanded={showRelated}
           onClick={() => setShowRelated((open) => !open)}
         >
-          {related.isFetching ? <LoaderCircle className="size-3.5 animate-spin" /> : "Related"}
+          {fetching ? <LoaderCircle className="size-3.5 animate-spin" /> : "Related"}
         </button>
       </div>
     </div>
@@ -546,7 +593,7 @@ export function SocialPanel() {
             ) : products.data?.length === 0 ? (
               <p className={CANDIDATES_EMPTY}>No products seen yet.</p>
             ) : (
-              products.data?.map((product) => <ProductRow key={product.id} product={product} />)
+              groupByBrand(products.data ?? []).map((group) => <BrandRow key={group.map((p) => p.id).join()} products={group} />)
             )}
           </div>
         </>

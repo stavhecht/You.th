@@ -79,8 +79,23 @@ _EMPTY_OUTCOME_WORDS = frozenset(
 )
 
 
+def _stem(word: str) -> str:
+    """Fold "-ing" so "Sleeping for sleep" restates itself: "sleeping"/"sleep",
+    "running"/"run", "tracking"/"track". Comparison only, never shown."""
+    if len(word) > 5 and word.endswith("ing"):
+        base = word[:-3]
+        if base[-1] == base[-2] and base[-1] not in "ls":  # running -> run, not rolling -> rol
+            base = base[:-1]
+        return base
+    return word
+
+
 def _words(text: str) -> set[str]:
-    return {singular(word) for word in normalize_query(text).split()}
+    return {_stem(singular(word)) for word in normalize_query(text).split()}
+
+
+_GENERIC = frozenset(_stem(singular(word)) for word in GENERIC_WORDS)
+_EMPTY = frozenset(_stem(word) for word in _EMPTY_OUTCOME_WORDS)
 
 
 #: What the daily run searches for by name (not the recent topics it also watches).
@@ -99,11 +114,18 @@ def too_broad(subject: str, outcome: str) -> bool:
     The daily run searches these words, and the word tagger then hands such a
     topic every post that search found, so it tops the ranking by measuring our
     own search budget (measured 2026-11-05: 6 of the top 10).
+
+    An outcome that repeats the subject ("Muscle for muscle recovery", "Strength
+    training for muscle strength") is no angle either, whatever it adds: on the
+    2026-11-19 run those two and "Muscle for muscle growth" were 3 of the 10.
     """
     subject_words = _words(subject)
-    if not subject_words or _words(outcome) - subject_words - _EMPTY_OUTCOME_WORDS:
+    outcome_words = _words(outcome)
+    if not subject_words:
         return False
-    return subject_words <= GENERIC_WORDS or any(subject_words <= words for words in _SEARCHED)
+    if outcome_words - subject_words - _EMPTY and not subject_words & outcome_words:
+        return False
+    return subject_words <= _GENERIC or any(subject_words <= words for words in _SEARCHED)
 
 
 #: A promotion whose draft failed left no article, so nothing holds its topic back. It is
@@ -243,6 +265,9 @@ async def analyse_week(
     )
     for repeat, first in duplicates:
         report.notes.append(f"same question as {first.label}, not proposed: {repeat.label}")
+    kept, same_subject = without_shared_subjects(kept)
+    for repeat, first in same_subject:
+        report.notes.append(f"same subject as {first.label}, not proposed: {repeat.label}")
     by_id = {row[0].id: row for row in ranked}
     assessed = []
     for position, topic in enumerate(kept[: settings.social_max_candidates], start=1):
@@ -278,6 +303,7 @@ async def analyse_week(
         suppressed=len(held),
         candidates=len(assessed),
         repeated_questions=len(duplicates),
+        same_subject=len(same_subject),
         product_mentions=len(mentions),
     )
     if broad:
@@ -326,6 +352,28 @@ def without_repeated_questions(
             ),
             None,
         )
+        if first is None:
+            kept.append(topic)
+        else:
+            repeats.append((topic, first))
+    return kept, repeats
+
+
+def without_shared_subjects(
+    topics: list[SocialTopic],
+) -> tuple[list[SocialTopic], list[tuple[SocialTopic, SocialTopic]]]:
+    """Best-ranked first: one topic per subject word, and each dropped one with the
+    topic that kept the slot. "Sleep music", "Sleeping" and "Sleep tracker app" are
+    one week's sleep, not three proposals (2026-11-19: 4 of the 10 were sleep).
+
+    This run's list only: comparing decided topics too would retire a subject word
+    for good once anything under it was promoted.
+    """
+    kept: list[SocialTopic] = []
+    repeats: list[tuple[SocialTopic, SocialTopic]] = []
+    for topic in topics:
+        words = _words(topic.subject) - _EMPTY
+        first = next((k for k in kept if words & _words(k.subject)), None)
         if first is None:
             kept.append(topic)
         else:

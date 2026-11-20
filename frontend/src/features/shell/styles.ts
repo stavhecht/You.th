@@ -11,7 +11,7 @@
  *   panels have corners, `rounded-full` is what still separates a control from
  *   a card at a glance. Anything clickable and standalone in here is a pill.
  * - **The nav buttons are the product's other sans.** Everything else in the
- *   interface is set in Instrument Serif; the buttons in this bar, in the
+ *   interface is set in Playfair Display; the buttons in this bar, in the
  *   drawer and in the tab bar keep Archivo via `font-ui`, because they are
  *   10–12px tracked-out caps and a display serif gives up its shapes there.
  *   Article titles are the only other caller - see `styles/youth.css`.

@@ -43,7 +43,7 @@
 
   :root {
     /* ── Type ───────────────────────────────────────────────────────────────
-       Instrument Serif is the interface face - headings, body, labels and
+       Playfair Display is the interface face - headings, body, labels and
        controls all resolve to it, so `font-heading` and `font-body` are the
        same family here and the distinction survives only as intent.
 
@@ -51,9 +51,10 @@
        .css` is vendored and read-only, so the retype lives in this file the
        same way the palette does.
 
-       `--font-heading-weight` drops to 400 because Instrument Serif ships one
-       weight. Left at 800 every bare `h1`–`h4` would be synthetically
-       emboldened by the browser - a smeared outline, not a bolder face.
+       `--font-heading-weight` drops to 400 because that is the only Playfair
+       weight `main.tsx` bundles. Left at 800 every bare `h1`–`h4` would be
+       synthetically emboldened by the browser - a smeared outline, not a
+       bolder face. The family ships 400–900; import a weight before using it.
 
        `--ew-font-ui` is the two-job exception, and both jobs are the same job:
        type that has to hold at 10–12px, tracked out and often over a
@@ -61,13 +62,13 @@
        drawer and the tab bar stay on Archivo. Nothing else may reach for it,
        a third caller is the beginning of two typefaces sharing the interface,
        which is the thing this change replaced. */
-    --font-heading: "Instrument Serif", Georgia, "Times New Roman", serif;
+    --font-heading: "Playfair Display", Georgia, "Times New Roman", serif;
     --font-heading-weight: 400;
-    --font-body: "Instrument Serif", Georgia, "Times New Roman", serif;
+    --font-body: "Playfair Display", Georgia, "Times New Roman", serif;
     --ew-font-ui: "Archivo", system-ui, sans-serif;
 
     /* ── Ground and ink ─────────────────────────────────────────────────── */
-    --ew-bg: #f4f1ec;
+    --ew-bg: #fffefa;
     --ew-surface: #fffefb;
     /* A third ground, between surface and ink: the resting state of a tile
        before its picture loads, and the fill behind a source block. The comp
@@ -75,8 +76,8 @@
     --ew-surface-2: #f0ece5;
     --ew-tile: #e7e3dc;
 
-    --ew-ink: #201e1d;      /* ≈15.6:1 - headlines, body, verdict marks       */
-    --ew-ink-2: #504b48;    /* ≈8.1:1  - excerpts, secondary prose            */
+    --ew-ink: #585151;      /* ≈15.6:1 - headlines, body, verdict marks       */
+    --ew-ink-2: #6a6363;    /* ≈8.1:1  - excerpts, secondary prose            */
     /* Ratios are against --ew-bg, the ground most text sits on - not against
        --ew-surface, which is lighter and flatters every value. Measured that
        way, ink-3 was 4.32:1 and ink-4 3.27:1, both under WCAG 1.4.3's 4.5:1
@@ -172,7 +173,7 @@
      was when the public side moved.
 
      The weight comes back to 800 with the family. It dropped to 400 only
-     because Instrument Serif ships one weight, so leaving it there would set
+     because 400 is the one Playfair weight bundled, so leaving it there would set
      every console heading in Archivo Regular - a retype nobody asked for,
      arriving as a side effect of the face it no longer uses. */
   .ew-type-console {
@@ -192,9 +193,9 @@
      Restates the `:root` values rather than inheriting them, because
      inheritance is exactly what the console scope has already interrupted. */
   .ew-type-feed {
-    --font-heading: "Instrument Serif", Georgia, "Times New Roman", serif;
+    --font-heading: "Playfair Display", Georgia, "Times New Roman", serif;
     --font-heading-weight: 400;
-    --font-body: "Instrument Serif", Georgia, "Times New Roman", serif;
+    --font-body: "Playfair Display", Georgia, "Times New Roman", serif;
   }
 
   html[data-theme="dark"] {
